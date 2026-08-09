@@ -1,0 +1,2 @@
+-- Initial TinQa Procurement database migration.
+-- Business tables will be added through subsequent migrations.

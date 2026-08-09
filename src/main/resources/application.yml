@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: tinqa-procurement-backend
+
+  profiles:
+    active: dev
+
+server:
+  port: 8080
+
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers
+
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+  swagger-ui:
+    path: /swagger-ui.html
