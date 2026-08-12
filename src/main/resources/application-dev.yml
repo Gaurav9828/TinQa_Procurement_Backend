@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/tinqa_procurement
     username: tinqa_app
-    password: ${DB_PASSWORD}
+    password: tinqa_dev_password
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -19,9 +19,25 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 logging:
   level:
     root: INFO
     com.tinqa.procurement: DEBUG
     org.springframework.security: INFO
     org.hibernate.SQL: DEBUG
+
+tinqa:
+  security:
+    jwt:
+      secret: TinQaDevJwtSecretKeyMustBeAtLeast32CharactersLong!
+      expiration: 86400000
+
+  initial-admin:
+    username: admin
+    email: admin@tinqa.com
+    password: 12345

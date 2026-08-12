@@ -1,23 +1,22 @@
-package com.tinqa.procurement.exception;
+package com.tinqa.procurement.common.exception;
 
+import com.tinqa.procurement.response.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
-
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -33,7 +32,7 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleMethodArgumentNotValid(
+    public ResponseEntity<ApiResponse<List<String>>> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,
             HttpServletRequest request) {
 
@@ -42,13 +41,6 @@ public class GlobalExceptionHandler {
                 request.getMethod(),
                 request.getRequestURI()
         );
-
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
-
-        problemDetail.setTitle("Validation Failed");
-        problemDetail.setDetail("One or more request fields are invalid.");
 
         List<String> errors = exception.getBindingResult()
                 .getFieldErrors()
@@ -61,15 +53,18 @@ public class GlobalExceptionHandler {
                 )
                 .toList();
 
-        problemDetail.setProperty("errors", errors);
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation Failed",
+                "One or more request fields are invalid.",
+                "VALIDATION_ERROR",
+                errors,
+                request
+        );
     }
 
-
     @ExceptionHandler(ConstraintViolationException.class)
-    public ProblemDetail handleConstraintViolation(
+    public ResponseEntity<ApiResponse<List<String>>> handleConstraintViolation(
             ConstraintViolationException exception,
             HttpServletRequest request) {
 
@@ -77,13 +72,6 @@ public class GlobalExceptionHandler {
                 "Constraint violation. URI: {}",
                 request.getRequestURI()
         );
-
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
-
-        problemDetail.setTitle("Constraint Violation");
-        problemDetail.setDetail("One or more request parameters are invalid.");
 
         List<String> errors = exception.getConstraintViolations()
                 .stream()
@@ -93,10 +81,14 @@ public class GlobalExceptionHandler {
                 )
                 .toList();
 
-        problemDetail.setProperty("errors", errors);
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Constraint Violation",
+                "One or more request parameters are invalid.",
+                "CONSTRAINT_VIOLATION",
+                errors,
+                request
+        );
     }
 
 
@@ -107,7 +99,7 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ProblemDetail handleHttpMessageNotReadable(
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(
             HttpMessageNotReadableException exception,
             HttpServletRequest request) {
 
@@ -116,23 +108,17 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Malformed Request",
+                "The request body is missing or contains invalid data.",
+                "MALFORMED_REQUEST",
+                request
         );
-
-        problemDetail.setTitle("Malformed Request");
-        problemDetail.setDetail(
-                "The request body is missing or contains invalid data."
-        );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ProblemDetail handleMissingRequestParameter(
+    public ResponseEntity<ApiResponse<Void>> handleMissingRequestParameter(
             MissingServletRequestParameterException exception,
             HttpServletRequest request) {
 
@@ -142,26 +128,19 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
-
-        problemDetail.setTitle("Missing Request Parameter");
-        problemDetail.setDetail(
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Missing Request Parameter",
                 "Required request parameter '" +
                         exception.getParameterName() +
-                        "' is missing."
+                        "' is missing.",
+                "MISSING_REQUEST_PARAMETER",
+                request
         );
-
-        problemDetail.setProperty("parameter", exception.getParameterName());
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(MissingPathVariableException.class)
-    public ProblemDetail handleMissingPathVariable(
+    public ResponseEntity<ApiResponse<Void>> handleMissingPathVariable(
             MissingPathVariableException exception,
             HttpServletRequest request) {
 
@@ -171,20 +150,15 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
-
-        problemDetail.setTitle("Missing Path Variable");
-        problemDetail.setDetail(
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Missing Path Variable",
                 "Required path variable '" +
                         exception.getVariableName() +
-                        "' is missing."
+                        "' is missing.",
+                "MISSING_PATH_VARIABLE",
+                request
         );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
 
@@ -195,7 +169,7 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ProblemDetail handleMethodNotSupported(
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
             HttpRequestMethodNotSupportedException exception,
             HttpServletRequest request) {
 
@@ -205,25 +179,19 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.METHOD_NOT_ALLOWED
-        );
-
-        problemDetail.setTitle("Method Not Allowed");
-        problemDetail.setDetail(
+        return buildErrorResponse(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "Method Not Allowed",
                 "HTTP method '" +
                         request.getMethod() +
-                        "' is not supported for this endpoint."
+                        "' is not supported for this endpoint.",
+                "METHOD_NOT_ALLOWED",
+                request
         );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ProblemDetail handleMediaTypeNotSupported(
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(
             HttpMediaTypeNotSupportedException exception,
             HttpServletRequest request) {
 
@@ -232,23 +200,17 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.UNSUPPORTED_MEDIA_TYPE
+        return buildErrorResponse(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported Media Type",
+                "The requested media type is not supported.",
+                "UNSUPPORTED_MEDIA_TYPE",
+                request
         );
-
-        problemDetail.setTitle("Unsupported Media Type");
-        problemDetail.setDetail(
-                "The requested media type is not supported."
-        );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(NoResourceFoundException.class)
-    public ProblemDetail handleResourceNotFound(
+    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(
             NoResourceFoundException exception,
             HttpServletRequest request) {
 
@@ -257,18 +219,13 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.NOT_FOUND
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                "Resource Not Found",
+                "The requested resource was not found.",
+                "RESOURCE_NOT_FOUND",
+                request
         );
-
-        problemDetail.setTitle("Resource Not Found");
-        problemDetail.setDetail(
-                "The requested resource was not found."
-        );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
 
@@ -279,7 +236,7 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(EntityNotFoundException.class)
-    public ProblemDetail handleEntityNotFound(
+    public ResponseEntity<ApiResponse<Void>> handleEntityNotFound(
             EntityNotFoundException exception,
             HttpServletRequest request) {
 
@@ -289,25 +246,19 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.NOT_FOUND
-        );
-
-        problemDetail.setTitle("Resource Not Found");
-        problemDetail.setDetail(
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                "Resource Not Found",
                 exception.getMessage() != null
                         ? exception.getMessage()
-                        : "Requested resource was not found."
+                        : "Requested resource was not found.",
+                "RESOURCE_NOT_FOUND",
+                request
         );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(IllegalArgumentException.class)
-    public ProblemDetail handleIllegalArgument(
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
             IllegalArgumentException exception,
             HttpServletRequest request) {
 
@@ -317,20 +268,15 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
-
-        problemDetail.setTitle("Invalid Request");
-        problemDetail.setDetail(
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Invalid Request",
                 exception.getMessage() != null
                         ? exception.getMessage()
-                        : "The request contains an invalid argument."
+                        : "The request contains an invalid argument.",
+                "INVALID_REQUEST",
+                request
         );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
 
@@ -341,7 +287,7 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ProblemDetail handleDataIntegrityViolation(
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
             DataIntegrityViolationException exception,
             HttpServletRequest request) {
 
@@ -351,24 +297,17 @@ public class GlobalExceptionHandler {
                 exception
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.CONFLICT
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                "Database Conflict",
+                "The operation could not be completed because it violates a database constraint.",
+                "DATABASE_CONFLICT",
+                request
         );
-
-        problemDetail.setTitle("Database Conflict");
-        problemDetail.setDetail(
-                "The operation could not be completed because it violates " +
-                        "a database constraint."
-        );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
-
     @ExceptionHandler(DataAccessException.class)
-    public ProblemDetail handleDataAccessException(
+    public ResponseEntity<ApiResponse<Void>> handleDataAccessException(
             DataAccessException exception,
             HttpServletRequest request) {
 
@@ -378,18 +317,13 @@ public class GlobalExceptionHandler {
                 exception
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.INTERNAL_SERVER_ERROR
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Database Error",
+                "An error occurred while accessing the database.",
+                "DATABASE_ERROR",
+                request
         );
-
-        problemDetail.setTitle("Database Error");
-        problemDetail.setDetail(
-                "An error occurred while accessing the database."
-        );
-
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
     }
 
 
@@ -400,15 +334,9 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(NullPointerException.class)
-    public ProblemDetail handleNullPointerException(
+    public ResponseEntity<ApiResponse<Void>> handleNullPointerException(
             NullPointerException exception,
             HttpServletRequest request) {
-
-        /*
-         * IMPORTANT:
-         * Never expose exception.getMessage() or stack trace
-         * to the client in production.
-         */
 
         log.error(
                 "Unexpected NullPointerException. URI: {}",
@@ -416,18 +344,60 @@ public class GlobalExceptionHandler {
                 exception
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.INTERNAL_SERVER_ERROR
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Internal Processing Error",
+                "An unexpected error occurred while processing the request.",
+                "INTERNAL_PROCESSING_ERROR",
+                request
+        );
+    }
+
+
+    /*
+     * ============================================================
+     * CUSTOM APPLICATION EXCEPTIONS
+     * ============================================================
+     */
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadRequestException(
+            BadRequestException exception,
+            HttpServletRequest request) {
+
+        log.warn(
+                "Bad request. URI: {}, Message: {}",
+                request.getRequestURI(),
+                exception.getMessage()
         );
 
-        problemDetail.setTitle("Internal Processing Error");
-        problemDetail.setDetail(
-                "An unexpected error occurred while processing the request."
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                exception.getMessage(),
+                "BAD_REQUEST",
+                request
+        );
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConflictException(
+            ConflictException exception,
+            HttpServletRequest request) {
+
+        log.warn(
+                "Request conflict. URI: {}, Message: {}",
+                request.getRequestURI(),
+                exception.getMessage()
         );
 
-        problemDetail.setProperty("path", request.getRequestURI());
-
-        return problemDetail;
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                "Conflict",
+                exception.getMessage(),
+                "CONFLICT",
+                request
+        );
     }
 
 
@@ -438,16 +408,9 @@ public class GlobalExceptionHandler {
      */
 
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleGenericException(
+    public ResponseEntity<ApiResponse<Void>> handleGenericException(
             Exception exception,
             HttpServletRequest request) {
-
-        /*
-         * This should be the LAST safety net.
-         *
-         * Known exceptions should always have their own handler
-         * above this method.
-         */
 
         log.error(
                 "Unhandled exception. Method: {}, URI: {}",
@@ -456,17 +419,57 @@ public class GlobalExceptionHandler {
                 exception
         );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(
-                HttpStatus.INTERNAL_SERVER_ERROR
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "An unexpected error occurred while processing the request.",
+                "INTERNAL_SERVER_ERROR",
+                request
         );
+    }
 
-        problemDetail.setTitle("Internal Server Error");
-        problemDetail.setDetail(
-                "An unexpected error occurred while processing the request."
-        );
 
-        problemDetail.setProperty("path", request.getRequestURI());
+    /*
+     * ============================================================
+     * RESPONSE BUILDERS
+     * ============================================================
+     */
 
-        return problemDetail;
+    private <T> ResponseEntity<ApiResponse<T>> buildErrorResponse(
+            HttpStatus status,
+            String title,
+            String message,
+            String errorCode,
+            T data,
+            HttpServletRequest request) {
+
+        return ResponseEntity.status(status)
+                .body(
+                        ApiResponse.<T>builder()
+                                .success(false)
+                                .message(message)
+                                .errorCode(errorCode)
+                                .data(data)
+                                .path(request.getRequestURI())
+                                .build()
+                );
+    }
+
+    private ResponseEntity<ApiResponse<Void>> buildErrorResponse(
+            HttpStatus status,
+            String title,
+            String message,
+            String errorCode,
+            HttpServletRequest request) {
+
+        return ResponseEntity.status(status)
+                .body(
+                        ApiResponse.<Void>builder()
+                                .success(false)
+                                .message(message)
+                                .errorCode(errorCode)
+                                .path(request.getRequestURI())
+                                .build()
+                );
     }
 }

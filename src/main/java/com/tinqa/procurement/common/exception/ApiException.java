@@ -1,4 +1,4 @@
-package com.tinqa.procurement.exception;
+package com.tinqa.procurement.common.exception;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
