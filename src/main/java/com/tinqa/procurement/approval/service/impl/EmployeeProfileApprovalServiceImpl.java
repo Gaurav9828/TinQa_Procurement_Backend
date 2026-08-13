@@ -11,6 +11,8 @@ import com.tinqa.procurement.common.exception.ConflictException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
+import com.tinqa.procurement.notification.dto.NotificationResponse;
+import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
@@ -39,6 +41,11 @@ public class EmployeeProfileApprovalServiceImpl
     private final UserRepository userRepository;
 
     private final CurrentUserProvider currentUserProvider;
+
+    private final NotificationService notificationService;
+
+    String title;
+    String message;
 
     @Override
     public List<EmployeeProfileApprovalResponse> getPendingRequests() {
@@ -105,6 +112,9 @@ public class EmployeeProfileApprovalServiceImpl
                     ApprovalStatus.APPROVED
             );
 
+            title = "Profile Change Request Approved";
+            message = "Your profile change request has been approved by " + currentUser.getUsername() + ".";
+
         } else {
 
             changeRequest.setStatus(
@@ -114,7 +124,17 @@ public class EmployeeProfileApprovalServiceImpl
             changeRequest.setRejectionReason(
                     approvalRequest.getRejectionReason()
             );
+
+            title = "Profile Change Request Rejected";
+            message = "Your profile change request has been rejected. Reason: "
+                    + approvalRequest.getRejectionReason();
         }
+
+        NotificationResponse notificationResponse = notificationService.createForUser(
+                changeRequest.getRequestedBy(),
+                title,
+                message
+        );
 
         changeRequest.setApprovedBy(
                 currentUser.getId()

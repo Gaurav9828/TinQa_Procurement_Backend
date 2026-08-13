@@ -1,4 +1,4 @@
-package com.tinqa.procurement.employee.controller;
+package com.tinqa.procurement.approval.controller;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalRequest;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalResponse;
 import com.tinqa.procurement.approval.service.EmployeeProfileApprovalService;
