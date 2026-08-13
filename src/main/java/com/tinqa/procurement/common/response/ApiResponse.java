@@ -1,4 +1,4 @@
-package com.tinqa.procurement.response;
+package com.tinqa.procurement.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;

@@ -5,24 +5,65 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/controller/NotificationController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/dto/NotificationCountResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/dto/NotificationResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/dto/UnreadCountResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/entity/Notification.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/entity/NotificationRecipient.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/enums/NotificationPriority.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/enums/NotificationRecipientType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/enums/NotificationType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/mapper/NotificationMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/repository/NotificationRecipientRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/repository/NotificationRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/NotificationService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/impl/NotificationServiceImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V28__create_notification_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.readme" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentCategory.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentOwnerType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentPurpose.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentReferenceType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStage.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStatus.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentUploaderType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentListResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentUploadRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/entity/Document.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/FileStorageService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/LocalFileStorageService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V1__create_core_security_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V2__create_employee_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V3__create_approval_system_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V4__create_notification_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V5__create_document_tables.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/controller/EmployeeProfileApprovalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/controller/AdminProfileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/controller/AdminProfileController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/controller/NotificationController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/controller/NotificationController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application-dev.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application-dev.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V10__create_item_specification_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V11__seed_item_specifications.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V12__create_procurement_request_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V13__create_quotation_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V14__create_auction_table.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V15__create_auction_item_participant_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V16__create_auction_bid_table.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V17__create_auction_award_table.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V18__create_project_table.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V19__link_project_to_procurement_request.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V1__initial_schema.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V20__make_auction_participant_quotation_optional.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V21__create_workshop_capability.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V22__link_project_to_auction.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V23__make_auction_procurement_request_optional.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V24__add_auction_participation_mode.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V25__add_auction_lifecycle.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V26__harden_auction_integrity.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V27__create_employee_profile_change_request.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V28__create_notification_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V2__create_users_table.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V3__create_dealer_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V4__create_workshop_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V5__create_employee_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V6__create_employee_address.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V7__create_employee_document.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V8__add_document_verification_constraints.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V9__create_item_tables.sql" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,8 +73,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Class" />
         <option value="Enum" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -42,61 +83,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="9.957228620774945E-87" />
-      <entry key="S2" value="3.162232827008505E-22" />
-      <entry key="S5" value="2.672842235207731E-9" />
-      <entry key="S10" value="6.283717201842757E-5" />
-      <entry key="S30" value="0.0602157428267759" />
-      <entry key="S60" value="0.34481088896078016" />
-      <entry key="M2" value="0.8290873676686333" />
-      <entry key="M5" value="1.4059985471250587" />
-      <entry key="M10" value="1.7107889777565317" />
-      <entry key="M15" value="1.9440014469990121" />
-      <entry key="M30" value="2.727239515808109" />
-      <entry key="H1" value="5.490265310919602" />
-      <entry key="H2" value="18.22100072101193" />
-      <entry key="H4" value="44.10991277490972" />
-      <entry key="D1" value="103.80528745199747" />
-      <entry key="W1" value="121.68396855050352" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0000073746192708" />
+      <entry key="S5" value="1.0088531096168127" />
+      <entry key="S10" value="1.0940909645864716" />
+      <entry key="S30" value="1.454830214132242" />
+      <entry key="S60" value="1.6744110127602025" />
+      <entry key="M2" value="1.8212253118141324" />
+      <entry key="M5" value="1.9243126955494216" />
+      <entry key="M10" value="1.9968469395262827" />
+      <entry key="M15" value="2.311497307429141" />
+      <entry key="M30" value="6.284329337319632" />
+      <entry key="H1" value="21.713926457229316" />
+      <entry key="H2" value="51.89604248132285" />
+      <entry key="H4" value="95.19055540927528" />
+      <entry key="D1" value="195.01480754229277" />
+      <entry key="W1" value="226.9635394272486" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.000000000002815" />
-      <entry key="MS500" value="1.0048966133610966" />
-      <entry key="S2" value="1.2646275518518337" />
-      <entry key="S5" value="1.6204746528406129" />
-      <entry key="S10" value="2.019633032225519" />
-      <entry key="S30" value="3.187885897212468" />
-      <entry key="S60" value="4.547662390373835" />
-      <entry key="M2" value="6.275283586653122" />
-      <entry key="M5" value="8.409447941180776" />
-      <entry key="M10" value="10.1463472219685" />
-      <entry key="M15" value="11.260870594227377" />
-      <entry key="M30" value="13.024352251896577" />
-      <entry key="H1" value="14.366569293758179" />
-      <entry key="H2" value="16.34146992302292" />
-      <entry key="H4" value="22.42734980702536" />
-      <entry key="D1" value="48.46572891898314" />
-      <entry key="W1" value="58.94174173938535" />
+      <entry key="MS100" value="1.1929292852407004E-132" />
+      <entry key="MS500" value="4.1240869972754574E-27" />
+      <entry key="S2" value="2.687651167207611E-7" />
+      <entry key="S5" value="0.0033633547933614527" />
+      <entry key="S10" value="0.10764883163331931" />
+      <entry key="S30" value="1.4481923212539218" />
+      <entry key="S60" value="2.916631896072754" />
+      <entry key="M2" value="4.172268483699254" />
+      <entry key="M5" value="5.1852177109237365" />
+      <entry key="M10" value="5.5772423831873965" />
+      <entry key="M15" value="5.718415055797689" />
+      <entry key="M30" value="6.106198400803201" />
+      <entry key="H1" value="8.119165597123368" />
+      <entry key="H2" value="12.951690580008908" />
+      <entry key="H4" value="21.41247508434877" />
+      <entry key="D1" value="53.91739591319892" />
+      <entry key="W1" value="68.13037875804243" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.0033306050459766872" />
-      <entry key="MS500" value="0.3210445384112226" />
-      <entry key="S2" value="0.9493555478655888" />
-      <entry key="S5" value="1.4442039612515556" />
-      <entry key="S10" value="1.9070587689367113" />
-      <entry key="S30" value="3.1842732795829787" />
-      <entry key="S60" value="4.836519204562912" />
-      <entry key="M2" value="7.058073137873334" />
-      <entry key="M5" value="9.784201229287138" />
-      <entry key="M10" value="11.833439458367558" />
-      <entry key="M15" value="13.185161729764062" />
-      <entry key="M30" value="15.738525638776453" />
-      <entry key="H1" value="19.849084986032164" />
-      <entry key="H2" value="34.55796139517039" />
-      <entry key="H4" value="66.53428533237319" />
-      <entry key="D1" value="152.27003986456901" />
-      <entry key="W1" value="180.62554354348381" />
+      <entry key="MS100" value="0.5823667932342279" />
+      <entry key="MS500" value="0.8975100506672614" />
+      <entry key="S2" value="0.9733298295037469" />
+      <entry key="S5" value="0.994156061374038" />
+      <entry key="S10" value="1.1343033115528467" />
+      <entry key="S30" value="2.728509026961838" />
+      <entry key="S60" value="4.435363028746168" />
+      <entry key="M2" value="5.888407303379323" />
+      <entry key="M5" value="7.059025659368561" />
+      <entry key="M10" value="7.5472098492558555" />
+      <entry key="M15" value="8.011494417656095" />
+      <entry key="M30" value="12.380136289412153" />
+      <entry key="H1" value="29.82562899261816" />
+      <entry key="H2" value="64.84183651847621" />
+      <entry key="H4" value="116.59862412286726" />
+      <entry key="D1" value="248.93076504219127" />
+      <entry key="W1" value="295.0936724430916" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -108,32 +149,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "Spring Boot.ProcurementApplication.executor": "Debug",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.ProcurementApplication.executor&quot;: &quot;Debug&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="ProcurementApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />

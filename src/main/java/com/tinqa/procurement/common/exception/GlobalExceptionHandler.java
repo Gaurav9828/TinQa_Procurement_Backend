@@ -1,6 +1,6 @@
 package com.tinqa.procurement.common.exception;
 
-import com.tinqa.procurement.response.ApiResponse;
+import com.tinqa.procurement.common.response.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;

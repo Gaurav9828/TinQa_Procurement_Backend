@@ -1,6 +1,6 @@
 package com.tinqa.procurement.notification.controller;
 
-import com.tinqa.procurement.response.ApiResponse;
+import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.notification.dto.NotificationResponse;
 import com.tinqa.procurement.notification.dto.UnreadCountResponse;
 import com.tinqa.procurement.notification.service.NotificationService;

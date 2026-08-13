@@ -2,7 +2,7 @@ package com.tinqa.procurement.approval.controller;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalRequest;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalResponse;
 import com.tinqa.procurement.approval.service.EmployeeProfileApprovalService;
-import com.tinqa.procurement.response.ApiResponse;
+import com.tinqa.procurement.common.response.ApiResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

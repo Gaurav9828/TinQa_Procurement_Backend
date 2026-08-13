@@ -4,7 +4,7 @@ import com.tinqa.procurement.admin.dto.AdminProfileResponse;
 import com.tinqa.procurement.admin.dto.AdminProfileUpdateRequest;
 import com.tinqa.procurement.admin.dto.ProfileUpdateResult;
 import com.tinqa.procurement.admin.service.AdminProfileService;
-import com.tinqa.procurement.response.ApiResponse;
+import com.tinqa.procurement.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
