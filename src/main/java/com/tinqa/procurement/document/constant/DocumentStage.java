@@ -7,7 +7,7 @@ public enum DocumentStage {
     POST_MANUFACTURING,
 
     INSPECTION,
-    APPROVAL,
+    WAITING_FOR_APPROVAL,
     AUCTION,
     DELIVERY,
 

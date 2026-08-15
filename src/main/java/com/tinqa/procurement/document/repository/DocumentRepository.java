@@ -15,4 +15,5 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
     List<Document> findByUploadedByUserIdAndStatus(Long uploadedByUserId, DocumentStatus status);
 
     Optional<Document> findByIdAndStatus(Long id, DocumentStatus status);
+
 }

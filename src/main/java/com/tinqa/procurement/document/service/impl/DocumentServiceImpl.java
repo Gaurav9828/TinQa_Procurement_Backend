@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,23 +59,22 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public DocumentResponse getDocumentById(Long documentId) {
-        Document document = documentRepository.findByIdAndStatus(documentId, DocumentStatus.ACTIVE)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with ID: " + documentId));
         return mapToResponse(document);
     }
 
     @Override
     public Resource downloadDocument(Long documentId) {
-        Document document = documentRepository.findByIdAndStatus(documentId, DocumentStatus.ACTIVE)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with ID: " + documentId));
         return fileStorageService.loadFileAsResource(document.getStorageKey());
     }
 
     @Override
-    public List<DocumentListResponse> getAllDocumentsForListing(DocumentReferenceType referenceType, Long referenceId, DocumentPurpose purpose, DocumentStage stage, DocumentCategory category) {
+    public List<DocumentListResponse> getAllDocumentsForListing(DocumentReferenceType referenceType, Long referenceId, DocumentPurpose purpose, DocumentStage stage, DocumentCategory category, DocumentStatus status) {
         Specification<Document> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("status"), DocumentStatus.ACTIVE));
 
             if (referenceType != null) {
                 predicates.add(cb.equal(root.get("referenceType"), referenceType));
@@ -90,6 +90,10 @@ public class DocumentServiceImpl implements DocumentService {
             }
             if (category != null) {
                 predicates.add(cb.equal(root.get("category"), category));
+            }
+
+            if(Objects.nonNull(status)){
+                predicates.add(cb.equal(root.get("status"), status));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

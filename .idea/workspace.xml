@@ -5,65 +5,24 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.readme" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentCategory.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentOwnerType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentPurpose.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentReferenceType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStage.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStatus.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentUploaderType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentListResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentUploadRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/entity/Document.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/FileStorageService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/LocalFileStorageService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V1__create_core_security_tables.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V2__create_employee_tables.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V3__create_approval_system_tables.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V4__create_notification_tables.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V5__create_document_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/constants/EmployeeConstants.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/controller/EmployeeAdminController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/CreateEmployeeRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/EmployeeResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/UpdateEmployeeRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/EmployeeService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/impl/EmployeeServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/controller/AdminProfileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/controller/AdminProfileController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/controller/NotificationController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/controller/NotificationController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/dto/AdminProfileResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/dto/AdminProfileResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/model/Employee.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/model/Employee.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/repository/EmployeeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/repository/EmployeeRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/application-dev.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application-dev.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V10__create_item_specification_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V11__seed_item_specifications.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V12__create_procurement_request_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V13__create_quotation_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V14__create_auction_table.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V15__create_auction_item_participant_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V16__create_auction_bid_table.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V17__create_auction_award_table.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V18__create_project_table.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V19__link_project_to_procurement_request.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V1__initial_schema.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V20__make_auction_participant_quotation_optional.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V21__create_workshop_capability.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V22__link_project_to_auction.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V23__make_auction_procurement_request_optional.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V24__add_auction_participation_mode.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V25__add_auction_lifecycle.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V26__harden_auction_integrity.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V27__create_employee_profile_change_request.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V28__create_notification_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V2__create_users_table.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V3__create_dealer_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V4__create_workshop_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V5__create_employee_tables.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V6__create_employee_address.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V7__create_employee_document.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V8__add_document_verification_constraints.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db/migration/V9__create_item_tables.sql" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -83,61 +42,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0000073746192708" />
-      <entry key="S5" value="1.0088531096168127" />
-      <entry key="S10" value="1.0940909645864716" />
-      <entry key="S30" value="1.454830214132242" />
-      <entry key="S60" value="1.6744110127602025" />
-      <entry key="M2" value="1.8212253118141324" />
-      <entry key="M5" value="1.9243126955494216" />
-      <entry key="M10" value="1.9968469395262827" />
-      <entry key="M15" value="2.311497307429141" />
-      <entry key="M30" value="6.284329337319632" />
-      <entry key="H1" value="21.713926457229316" />
-      <entry key="H2" value="51.89604248132285" />
-      <entry key="H4" value="95.19055540927528" />
-      <entry key="D1" value="195.01480754229277" />
-      <entry key="W1" value="226.9635394272486" />
+      <entry key="MS100" value="1.6856945094869015E-146" />
+      <entry key="MS500" value="2.769246859072157E-29" />
+      <entry key="S2" value="3.77712929900055E-7" />
+      <entry key="S5" value="0.010625510490153487" />
+      <entry key="S10" value="0.32531719682619625" />
+      <entry key="S30" value="3.190784428031712" />
+      <entry key="S60" value="5.649244158258464" />
+      <entry key="M2" value="7.566940214426109" />
+      <entry key="M5" value="9.512791494481965" />
+      <entry key="M10" value="10.872397955360626" />
+      <entry key="M15" value="11.712531067516249" />
+      <entry key="M30" value="13.46144255683158" />
+      <entry key="H1" value="16.704283794181627" />
+      <entry key="H2" value="28.961611601457122" />
+      <entry key="H4" value="69.88360600323205" />
+      <entry key="D1" value="265.56627472760397" />
+      <entry key="W1" value="355.57715332687593" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.1929292852407004E-132" />
-      <entry key="MS500" value="4.1240869972754574E-27" />
-      <entry key="S2" value="2.687651167207611E-7" />
-      <entry key="S5" value="0.0033633547933614527" />
-      <entry key="S10" value="0.10764883163331931" />
-      <entry key="S30" value="1.4481923212539218" />
-      <entry key="S60" value="2.916631896072754" />
-      <entry key="M2" value="4.172268483699254" />
-      <entry key="M5" value="5.1852177109237365" />
-      <entry key="M10" value="5.5772423831873965" />
-      <entry key="M15" value="5.718415055797689" />
-      <entry key="M30" value="6.106198400803201" />
-      <entry key="H1" value="8.119165597123368" />
-      <entry key="H2" value="12.951690580008908" />
-      <entry key="H4" value="21.41247508434877" />
-      <entry key="D1" value="53.91739591319892" />
-      <entry key="W1" value="68.13037875804243" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0000000310679007" />
+      <entry key="S5" value="1.0009929440168868" />
+      <entry key="S10" value="1.031511014215456" />
+      <entry key="S30" value="1.3158549249247469" />
+      <entry key="S60" value="1.5626355100540277" />
+      <entry key="M2" value="1.7925648723698941" />
+      <entry key="M5" value="2.443982807907818" />
+      <entry key="M10" value="3.464507588535118" />
+      <entry key="M15" value="4.510897692687713" />
+      <entry key="M30" value="7.601024353575504" />
+      <entry key="H1" value="13.159044528436446" />
+      <entry key="H2" value="22.89119980992115" />
+      <entry key="H4" value="37.882180025912206" />
+      <entry key="D1" value="93.0585430685013" />
+      <entry key="W1" value="121.79648364945606" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.5823667932342279" />
-      <entry key="MS500" value="0.8975100506672614" />
-      <entry key="S2" value="0.9733298295037469" />
-      <entry key="S5" value="0.994156061374038" />
-      <entry key="S10" value="1.1343033115528467" />
-      <entry key="S30" value="2.728509026961838" />
-      <entry key="S60" value="4.435363028746168" />
-      <entry key="M2" value="5.888407303379323" />
-      <entry key="M5" value="7.059025659368561" />
-      <entry key="M10" value="7.5472098492558555" />
-      <entry key="M15" value="8.011494417656095" />
-      <entry key="M30" value="12.380136289412153" />
-      <entry key="H1" value="29.82562899261816" />
-      <entry key="H2" value="64.84183651847621" />
-      <entry key="H4" value="116.59862412286726" />
-      <entry key="D1" value="248.93076504219127" />
-      <entry key="W1" value="295.0936724430916" />
+      <entry key="MS100" value="1.9830380770415902E-4" />
+      <entry key="MS500" value="0.1817465646650388" />
+      <entry key="S2" value="0.6529302816626984" />
+      <entry key="S5" value="0.854387876033159" />
+      <entry key="S10" value="1.2659221000350012" />
+      <entry key="S30" value="4.442575540022184" />
+      <entry key="S60" value="7.164303453062493" />
+      <entry key="M2" value="9.32837559738567" />
+      <entry key="M5" value="11.936449653575341" />
+      <entry key="M10" value="14.320748736318476" />
+      <entry key="M15" value="16.208623217598525" />
+      <entry key="M30" value="21.04914111711608" />
+      <entry key="H1" value="29.851488804370987" />
+      <entry key="H2" value="51.84271529597469" />
+      <entry key="H4" value="107.7577433416168" />
+      <entry key="D1" value="358.62195032228504" />
+      <entry key="W1" value="477.37312852351323" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -225,9 +184,14 @@
           <option name="timeStamp" value="5" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/controller/AdminAuthController.java</url>
-          <line>20</line>
-          <option name="timeStamp" value="7" />
+          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/impl/EmployeeServiceImpl.java</url>
+          <line>79</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java</url>
+          <line>78</line>
+          <option name="timeStamp" value="12" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

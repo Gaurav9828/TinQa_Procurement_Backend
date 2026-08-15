@@ -12,7 +12,7 @@ public interface DocumentService {
     DocumentResponse uploadDocument(MultipartFile file, DocumentUploadRequest request, User currentUser);
     DocumentResponse getDocumentById(Long documentId);
     Resource downloadDocument(Long documentId);
-    List<DocumentListResponse> getAllDocumentsForListing(DocumentReferenceType referenceType, Long referenceId, DocumentPurpose purpose, DocumentStage stage, DocumentCategory category);
+    List<DocumentListResponse> getAllDocumentsForListing(DocumentReferenceType referenceType, Long referenceId, DocumentPurpose purpose, DocumentStage stage, DocumentCategory category, DocumentStatus status);
     List<DocumentResponse> getDocumentsByUserId(Long userId);
     void deleteDocument(Long documentId, Long currentUserId);
 }

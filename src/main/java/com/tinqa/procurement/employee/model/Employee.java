@@ -1,45 +1,32 @@
 package com.tinqa.procurement.employee.model;
 
-import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.employee.constants.EmployeeConstants;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Data
 @Entity
-@Table(
-        name = "employee",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_employee_user", columnNames = "user_id"),
-                @UniqueConstraint(name = "uk_employee_code", columnNames = "employee_code")
-        },
-        indexes = {
-                @Index(name = "idx_employee_status", columnList = "status"),
-                @Index(name = "idx_employee_designation", columnList = "designation"),
-                @Index(name = "idx_employee_department", columnList = "department")
-        }
-)
-@Getter
-@Setter
+@Table(name = "employee")
+@Builder                          // <--- Enables Employee.builder()
+@NoArgsConstructor                 // <--- Required for JPA / Hibernate
+@AllArgsConstructor                // <--- Required by Lombok @Builder
 public class Employee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false,
-            unique = true,
-            foreignKey = @ForeignKey(name = "fk_employee_user")
-    )
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @Column(name = "employee_code", nullable = false, length = 50)
+    @Column(name = "employee_code", nullable = false, unique = true, length = 50)
     private String employeeCode;
 
     @Column(name = "first_name", nullable = false, length = 100)
@@ -48,29 +35,25 @@ public class Employee {
     @Column(name = "middle_name", length = 100)
     private String middleName;
 
-    @Column(name = "last_name", length = 100)
+    @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
     @Column(name = "display_name", nullable = false, length = 200)
     private String displayName;
 
-    @Column(name = "date_of_birth")
+    @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
-    @Column(name = "gender", length = 20)
+    @Column(name = "gender", nullable = false, length = 20)
     private String gender;
 
     @Column(name = "designation", nullable = false, length = 100)
     private String designation;
 
-    @Column(name = "department", length = 100)
+    @Column(name = "department", nullable = false, length = 100)
     private String department;
 
-    @Column(
-            name = "employment_type",
-            nullable = false,
-            length = 30
-    )
+    @Column(name = "employment_type", nullable = false, length = 50)
     private String employmentType;
 
     @Column(name = "joining_date", nullable = false)
@@ -79,7 +62,7 @@ public class Employee {
     @Column(name = "leaving_date")
     private LocalDate leavingDate;
 
-    @Column(name = "salary_amount", precision = 15, scale = 2)
+    @Column(name = "salary_amount", precision = 12, scale = 2)
     private BigDecimal salaryAmount;
 
     @Column(name = "salary_currency", length = 10)
@@ -91,27 +74,16 @@ public class Employee {
     @Column(name = "alternate_phone", length = 20)
     private String alternatePhone;
 
-    @Column(name = "personal_email", length = 150)
+    @Column(name = "personal_email", length = 255)
     private String personalEmail;
 
-    @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private EmployeeConstants status;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

@@ -83,9 +83,10 @@ public class DocumentController {
             @RequestParam(required = false) DocumentPurpose purpose,
             @RequestParam(required = false) DocumentStage stage,
             @RequestParam(required = false) DocumentCategory category,
+            @RequestParam(required = false) DocumentStatus status,
             HttpServletRequest httpServletRequest) {
 
-        List<DocumentListResponse> response = documentService.getAllDocumentsForListing(referenceType, referenceId, purpose, stage, category);
+        List<DocumentListResponse> response = documentService.getAllDocumentsForListing(referenceType, referenceId, purpose, stage, category, status);
 
         ApiResponse<List<DocumentListResponse>> apiResponse = ApiResponse.<List<DocumentListResponse>>builder()
                 .success(true)
