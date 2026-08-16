@@ -43,6 +43,18 @@ public class Item {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal mrp;
 
+    @Column(name = "country_of_origin", nullable = false, length = 50)
+    private String countryOfOrigin;
+
+    @Column(name = "raw_materials_used", columnDefinition = "TEXT")
+    private String rawMaterialsUsed;
+
+    @Column(name = "warranty_months", precision = 3, scale = 0)
+    private Integer warrantyMonths;
+
+    @Column(name = "terms_and_condition", columnDefinition = "TEXT")
+    private String termsAndCondition;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

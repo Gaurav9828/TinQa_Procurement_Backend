@@ -1,5 +1,7 @@
 package com.tinqa.procurement.item.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -32,6 +34,17 @@ public class ItemDTOs {
         @Positive(message = "MRP must be greater than zero")
         private BigDecimal mrp;
 
+        @NotBlank(message = "Country of origin is required")
+        private String countryOfOrigin;
+
+        private String rawMaterialsUsed;
+
+        @Min(value = 0, message = "Warranty months cannot be negative")
+        @Max(value = 999, message = "Warranty months cannot exceed 999")
+        private Integer warrantyMonths;
+
+        private String termsAndCondition;
+
         private String description;
 
         private Map<String, Object> attributes;
@@ -55,6 +68,17 @@ public class ItemDTOs {
         @Positive(message = "MRP must be greater than zero")
         private BigDecimal mrp;
 
+        @NotBlank(message = "Country of origin is required")
+        private String countryOfOrigin;
+
+        private String rawMaterialsUsed;
+
+        @Min(value = 0, message = "Warranty months cannot be negative")
+        @Max(value = 999, message = "Warranty months cannot exceed 999")
+        private Integer warrantyMonths;
+
+        private String termsAndCondition;
+
         private String description;
 
         private Map<String, Object> attributes;
@@ -73,6 +97,10 @@ public class ItemDTOs {
         private String sku;
         private String unitOfMeasure;
         private BigDecimal mrp;
+        private String countryOfOrigin;
+        private String rawMaterialsUsed;
+        private Integer warrantyMonths;
+        private String termsAndCondition;
         private String description;
         private Map<String, Object> attributes;
         private Boolean isActive;

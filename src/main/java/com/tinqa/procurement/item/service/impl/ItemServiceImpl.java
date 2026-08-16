@@ -73,6 +73,10 @@ public class ItemServiceImpl implements ItemService {
                 .sku(request.getSku())
                 .unitOfMeasure(request.getUnitOfMeasure())
                 .mrp(request.getMrp())
+                .countryOfOrigin(request.getCountryOfOrigin())
+                .rawMaterialsUsed(request.getRawMaterialsUsed())
+                .warrantyMonths(request.getWarrantyMonths())
+                .termsAndCondition(request.getTermsAndCondition())
                 .description(request.getDescription())
                 .attributes(request.getAttributes())
                 .createdBy(currentUserId)
@@ -98,6 +102,10 @@ public class ItemServiceImpl implements ItemService {
         item.setBrand(request.getBrand());
         item.setUnitOfMeasure(request.getUnitOfMeasure());
         item.setMrp(request.getMrp());
+        item.setCountryOfOrigin(request.getCountryOfOrigin());
+        item.setRawMaterialsUsed(request.getRawMaterialsUsed());
+        item.setWarrantyMonths(request.getWarrantyMonths());
+        item.setTermsAndCondition(request.getTermsAndCondition());
         item.setDescription(request.getDescription());
         item.setAttributes(request.getAttributes());
         item.setUpdatedBy(currentUserId);
@@ -156,6 +164,10 @@ public class ItemServiceImpl implements ItemService {
         res.setSku(item.getSku());
         res.setUnitOfMeasure(item.getUnitOfMeasure());
         res.setMrp(item.getMrp());
+        res.setCountryOfOrigin(item.getCountryOfOrigin());
+        res.setRawMaterialsUsed(item.getRawMaterialsUsed());
+        res.setWarrantyMonths(item.getWarrantyMonths());
+        res.setTermsAndCondition(item.getTermsAndCondition());
         res.setDescription(item.getDescription());
         res.setAttributes(item.getAttributes());
         res.setIsActive(item.getIsActive());
