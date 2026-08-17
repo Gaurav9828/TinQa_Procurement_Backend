@@ -1,12 +1,14 @@
 package com.tinqa.procurement.item.service.impl;
 
+import com.tinqa.procurement.common.entity.Category;
+import com.tinqa.procurement.common.enums.CategoryType;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.item.dto.CategoryDTOs;
+import com.tinqa.procurement.common.dto.CategoryDTOs;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.entity.Item;
-import com.tinqa.procurement.item.entity.ItemCategory;
-import com.tinqa.procurement.item.repository.ItemCategoryRepository;
+import com.tinqa.procurement.common.entity.Category;
+import com.tinqa.procurement.common.repository.CategoryRepository;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.item.service.ItemService;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
@@ -24,7 +26,7 @@ import java.util.stream.Collectors;
 public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
-    private final ItemCategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
     private final CurrentUserProvider currentUserProvider;
 
     @Override
@@ -35,8 +37,9 @@ public class ItemServiceImpl implements ItemService {
         }
         Long currentUserId = currentUserProvider.getCurrentUser().getId();
 
-        ItemCategory category = ItemCategory.builder()
+        Category category = Category.builder()
                 .name(request.getName())
+                .type(CategoryType.ITEM)
                 .code(request.getCode())
                 .description(request.getDescription())
                 .createdBy(currentUserId)
@@ -49,7 +52,7 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDTOs.Response> getAllCategories() {
-        return categoryRepository.findAll().stream()
+        return categoryRepository.findByType(CategoryType.ITEM).stream()
                 .map(this::mapToCategoryResponse)
                 .collect(Collectors.toList());
     }
@@ -61,7 +64,7 @@ public class ItemServiceImpl implements ItemService {
             throw new BadRequestException("SKU already exists: " + request.getSku());
         }
 
-        ItemCategory category = categoryRepository.findById(request.getCategoryId())
+        Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
 
         Long currentUserId = currentUserProvider.getCurrentUser().getId();
@@ -92,7 +95,7 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + id));
 
-        ItemCategory category = categoryRepository.findById(request.getCategoryId())
+        Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
 
         Long currentUserId = currentUserProvider.getCurrentUser().getId();
@@ -142,7 +145,7 @@ public class ItemServiceImpl implements ItemService {
         itemRepository.save(item);
     }
 
-    private CategoryDTOs.Response mapToCategoryResponse(ItemCategory category) {
+    private CategoryDTOs.Response mapToCategoryResponse(Category category) {
         CategoryDTOs.Response res = new CategoryDTOs.Response();
         res.setId(category.getId());
         res.setName(category.getName());

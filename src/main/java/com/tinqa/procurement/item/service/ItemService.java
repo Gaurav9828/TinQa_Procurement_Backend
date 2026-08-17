@@ -1,6 +1,6 @@
 package com.tinqa.procurement.item.service;
 
-import com.tinqa.procurement.item.dto.CategoryDTOs;
+import com.tinqa.procurement.common.dto.CategoryDTOs;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

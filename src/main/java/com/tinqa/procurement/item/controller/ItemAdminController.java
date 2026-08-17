@@ -1,7 +1,7 @@
 package com.tinqa.procurement.item.controller;
 
 import com.tinqa.procurement.common.response.ApiResponse;
-import com.tinqa.procurement.item.dto.CategoryDTOs;
+import com.tinqa.procurement.common.dto.CategoryDTOs;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.service.ItemService;
 import jakarta.servlet.http.HttpServletRequest;

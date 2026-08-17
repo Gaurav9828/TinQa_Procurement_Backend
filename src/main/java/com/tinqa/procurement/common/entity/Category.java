@@ -1,5 +1,6 @@
-package com.tinqa.procurement.item.entity;
+package com.tinqa.procurement.common.entity;
 
+import com.tinqa.procurement.common.enums.CategoryType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,22 +9,32 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "item_categories")
+@Table(
+        name = "categories",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_categories_type_name", columnNames = {"type", "name"}),
+                @UniqueConstraint(name = "uq_categories_type_code", columnNames = {"type", "code"})
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ItemCategory {
+public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private CategoryType type;
+
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String code;
 
     @Column(columnDefinition = "TEXT")

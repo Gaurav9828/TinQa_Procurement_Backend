@@ -1,5 +1,6 @@
 package com.tinqa.procurement.item.entity;
 
+import com.tinqa.procurement.common.entity.Category;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -26,7 +27,7 @@ public class Item {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
-    private ItemCategory category;
+    private Category category;
 
     @Column(nullable = false)
     private String name;
