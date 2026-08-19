@@ -84,9 +84,9 @@ public class EmployeeProfileApprovalServiceImpl
         EmployeeProfileChangeRequest changeRequest =
                 findPendingRequest(requestId);
 
-        if ("REJECT".equals(approvalRequest.getDecision())
-                && (approvalRequest.getRejectionReason() == null
-                || approvalRequest.getRejectionReason().isBlank())) {
+        if (approvalRequest.getDecision().equalsIgnoreCase(ApprovalStatus.REJECTED)
+                && (Objects.nonNull(approvalRequest.getRejectionReason())
+                || approvalRequest.getRejectionReason().isEmpty())) {
 
             throw new BadRequestException(
                     "Rejection reason is required"
@@ -101,7 +101,7 @@ public class EmployeeProfileApprovalServiceImpl
                                 "Employee profile not found"
                         ));
 
-        if ("APPROVE".equals(approvalRequest.getDecision())) {
+        if (approvalRequest.getDecision().equalsIgnoreCase(ApprovalStatus.APPROVED)) {
 
             applyApprovedChanges(
                     employee,
@@ -130,7 +130,7 @@ public class EmployeeProfileApprovalServiceImpl
                     + approvalRequest.getRejectionReason();
         }
 
-        NotificationResponse notificationResponse = notificationService.createForUser(
+        notificationService.createForUser(
                 changeRequest.getRequestedBy(),
                 title,
                 message
@@ -152,7 +152,7 @@ public class EmployeeProfileApprovalServiceImpl
                 LocalDateTime.now()
         );
 
-        if ("APPROVE".equals(approvalRequest.getDecision())) {
+        if (approvalRequest.getDecision().equalsIgnoreCase(ApprovalStatus.APPROVED)) {
             employeeRepository.save(employee);
         }
 
@@ -205,7 +205,7 @@ public class EmployeeProfileApprovalServiceImpl
                                         "Profile change request not found"
                                 ));
 
-        if (!ApprovalStatus.PENDING.equals(request.getStatus())) {
+        if (!ApprovalStatus.PENDING.equalsIgnoreCase(request.getStatus())) {
 
             throw new ConflictException(
                     "Profile change request has already been processed"

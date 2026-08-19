@@ -5,22 +5,33 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/enums/ApprovalStatus.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/controller/OrderController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/dto/OrderDTOs.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/entity/Order.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/enums/OrderStatus.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/repository/OrderRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/OrderService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/entity/Stock.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/StockService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/impl/StockServiceImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/db/migration/V7__create_order_and_stock_tables.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/dto/DocumentApprovalRequest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/service/impl/AdminProfileServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/service/impl/AdminProfileServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/controller/EmployeeProfileApprovalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/dto/EmployeeProfileApprovalRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/dto/EmployeeProfileApprovalRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/dto/EmployeeProfileApprovalResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/dto/EmployeeProfileApprovalResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/constant/DocumentStatus.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/controller/DocumentController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/repository/DocumentRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/DocumentService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/controller/OrderController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/controller/OrderController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/dto/OrderDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/dto/OrderDTOs.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/enums/OrderStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/enums/OrderStatus.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/OrderService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/OrderService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/StockService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/StockService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/impl/StockServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/impl/StockServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/employee/other/04000ca5-0d82-4924-ae14-73f3e2f94501.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/employee/other/0ce6483a-abb1-4243-bda6-5bef1dc702a9.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/employee/other/afa92118-d51b-4d26-8859-860490ecfa59.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/employee/profile_document/5b3dba49-702b-4a87-bda1-88450f22d842.pdf" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,61 +51,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.863270597755545E-92" />
-      <entry key="MS500" value="7.027665707034679E-19" />
-      <entry key="S2" value="4.857850742892613E-5" />
-      <entry key="S5" value="0.03063354602370347" />
-      <entry key="S10" value="0.28998457442248127" />
-      <entry key="S30" value="1.8354060633964493" />
-      <entry key="S60" value="3.733045566235255" />
-      <entry key="M2" value="6.172792881575363" />
-      <entry key="M5" value="9.285255712633663" />
-      <entry key="M10" value="10.976507494517072" />
-      <entry key="M15" value="11.741292288757698" />
-      <entry key="M30" value="13.122046220424199" />
-      <entry key="H1" value="17.095133198940157" />
-      <entry key="H2" value="35.383194331786115" />
-      <entry key="H4" value="88.0770514558596" />
-      <entry key="D1" value="399.23495022613105" />
-      <entry key="W1" value="594.0888095072605" />
-    </decayedCancelled>
-    <decayedSelected>
       <entry key="MS100" value="1.0" />
       <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0000015832155926" />
-      <entry key="S5" value="1.006362064032387" />
-      <entry key="S10" value="1.1154595204190754" />
-      <entry key="S30" value="2.2761839834931994" />
-      <entry key="S60" value="3.8655691749506835" />
-      <entry key="M2" value="5.568082986262391" />
-      <entry key="M5" value="7.32446895211065" />
-      <entry key="M10" value="8.510799977441167" />
-      <entry key="M15" value="9.379046672224067" />
-      <entry key="M30" value="11.353894397719232" />
-      <entry key="H1" value="15.216049019389136" />
-      <entry key="H2" value="25.73884558029167" />
-      <entry key="H4" value="47.85299816975707" />
-      <entry key="D1" value="147.12945980951906" />
-      <entry key="W1" value="207.97552371802774" />
+      <entry key="S2" value="1.0000185188151898" />
+      <entry key="S5" value="1.0135777022033214" />
+      <entry key="S10" value="1.1421509484401864" />
+      <entry key="S30" value="1.8879158272854748" />
+      <entry key="S60" value="2.568088016757689" />
+      <entry key="M2" value="3.2330857277612157" />
+      <entry key="M5" value="4.485639498988572" />
+      <entry key="M10" value="6.732198960330482" />
+      <entry key="M15" value="8.680365058195605" />
+      <entry key="M30" value="12.390115001561465" />
+      <entry key="H1" value="17.95485152459149" />
+      <entry key="H2" value="34.54718994718648" />
+      <entry key="H4" value="82.1572979471734" />
+      <entry key="D1" value="453.3190095505941" />
+      <entry key="W1" value="751.9389117591629" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="2.0165658506171916E-268" />
+      <entry key="S2" value="2.0094972945888977E-67" />
+      <entry key="S5" value="4.41445872663427E-27" />
+      <entry key="S10" value="1.3970760302900209E-13" />
+      <entry key="S30" value="1.5102217462739922E-4" />
+      <entry key="S60" value="0.028597939844097215" />
+      <entry key="M2" value="0.4114545797758181" />
+      <entry key="M5" value="3.086530458268174" />
+      <entry key="M10" value="9.819469461705868" />
+      <entry key="M15" value="15.817887292702196" />
+      <entry key="M30" value="26.93176424783724" />
+      <entry key="H1" value="39.11447692779137" />
+      <entry key="H2" value="61.529960774195494" />
+      <entry key="H4" value="105.22677916672667" />
+      <entry key="D1" value="286.1631448732173" />
+      <entry key="W1" value="398.3788883267785" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.0014100871050024375" />
-      <entry key="MS500" value="0.2690600311959493" />
-      <entry key="S2" value="0.7202544367580017" />
-      <entry key="S5" value="0.9095896745176663" />
-      <entry key="S10" value="1.3139795153828397" />
-      <entry key="S30" value="4.0135444392581165" />
-      <entry key="S60" value="7.505358143665211" />
-      <entry key="M2" value="11.665158509487705" />
-      <entry key="M5" value="16.56385764122788" />
-      <entry key="M10" value="19.457825624284943" />
-      <entry key="M15" value="21.097197567833366" />
-      <entry key="M30" value="24.46050170181875" />
-      <entry key="H1" value="32.300612233765776" />
-      <entry key="H2" value="61.113526328538256" />
-      <entry key="H4" value="135.92197056333097" />
-      <entry key="D1" value="546.3600179657088" />
-      <entry key="W1" value="802.0634602317015" />
+      <entry key="MS100" value="0.8066417592221263" />
+      <entry key="MS500" value="0.9579352182226964" />
+      <entry key="S2" value="0.9893321680922024" />
+      <entry key="S5" value="1.0091153340509813" />
+      <entry key="S10" value="1.1370105179218377" />
+      <entry key="S30" value="1.8763174529101099" />
+      <entry key="S60" value="2.5858921995970356" />
+      <entry key="M2" value="3.6347024283538873" />
+      <entry key="M5" value="7.555155756848297" />
+      <entry key="M10" value="16.521122644054376" />
+      <entry key="M15" value="24.463753105416558" />
+      <entry key="M30" value="39.29105201117953" />
+      <entry key="H1" value="57.045933454593" />
+      <entry key="H2" value="96.05768804971599" />
+      <entry key="H4" value="187.3667444256825" />
+      <entry key="D1" value="739.4738710151207" />
+      <entry key="W1" value="1150.316151227582" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -168,23 +179,23 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/service/impl/AdminProfileServiceImpl.java</url>
-          <line>89</line>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/service/impl/AdminProfileServiceImpl.java</url>
           <line>159</line>
           <option name="timeStamp" value="4" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/admin/service/impl/AdminProfileServiceImpl.java</url>
-          <line>101</line>
-          <option name="timeStamp" value="5" />
+          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java</url>
+          <line>103</line>
+          <option name="timeStamp" value="18" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java</url>
-          <line>78</line>
-          <option name="timeStamp" value="12" />
+          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java</url>
+          <line>86</line>
+          <option name="timeStamp" value="19" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java</url>
+          <line>205</line>
+          <option name="timeStamp" value="21" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

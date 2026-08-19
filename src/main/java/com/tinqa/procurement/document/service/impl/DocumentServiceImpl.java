@@ -7,12 +7,16 @@ import com.tinqa.procurement.document.entity.Document;
 import com.tinqa.procurement.document.repository.DocumentRepository;
 import com.tinqa.procurement.document.service.DocumentService;
 import com.tinqa.procurement.document.service.FileStorageService;
+import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +32,8 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -105,7 +111,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentResponse> getDocumentsByUserId(Long userId) {
-        return documentRepository.findByUploadedByUserIdAndStatus(userId, DocumentStatus.ACTIVE)
+        return documentRepository.findByOwnerId(userId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -142,6 +148,50 @@ public class DocumentServiceImpl implements DocumentService {
                 .downloadUrl("/api/v1/documents/" + doc.getId() + "/download")
                 .createdAt(doc.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public DocumentResponse processAdminL2Approval(Long documentId, DocumentApprovalRequest request, User currentUser) {
+        // Restrict access strictly to ADMIN_L2
+        if (currentUser.getRole() != Role.ADMIN_L2) {
+            throw new AccessDeniedException("Only Level 2 Administrators are authorized to approve or reject documents.");
+        }
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with ID: " + documentId));
+
+        // Validate that the target status is a valid decision state
+        if (request.getDecision() != DocumentStatus.ACTIVE && request.getDecision() != DocumentStatus.REJECTED) {
+            throw new IllegalArgumentException("Invalid status update. Only ACTIVE (Approved) or REJECTED are allowed.");
+        }
+
+        if (request.getDecision() == DocumentStatus.REJECTED && (request.getRejectionReason() == null || request.getRejectionReason().isBlank())) {
+            throw new IllegalArgumentException("Rejection reason is required when rejecting a document.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + currentUser.getId()));
+
+        if(!document.getUploadedByUserId().equals(currentUser.getId())){
+            String title = "";
+            String message = "";
+
+            if(request.getDecision() == DocumentStatus.ACTIVE){
+                title = "Document Approved";
+                message = document.getCategory() + " Document approved by ID: " + user.getUsername();
+            }else {
+                title = "Document Rejected";
+                message = document.getCategory() + "Document Rejected by ID: " + user.getUsername() + ". Reason: " + request.getRejectionReason();
+            }
+
+            notificationService.createForUser(document.getUploadedByUserId(), title, message);
+        }
+
+        document.setStatus(request.getDecision());
+        document.setUploadedByUserId(currentUser.getId());
+        Document updatedDocument = documentRepository.save(document);
+        return mapToResponse(updatedDocument);
     }
 
     private DocumentListResponse mapToListResponse(Document doc) {

@@ -5,5 +5,6 @@ public enum DocumentStatus {
     WAITING_FOR_APPROVAL,
     ACTIVE,
     DELETED,
-    ARCHIVED
+    ARCHIVED,
+    REJECTED
 }

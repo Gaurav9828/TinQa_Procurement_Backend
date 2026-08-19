@@ -2,6 +2,7 @@ package com.tinqa.procurement.approval.controller;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalRequest;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalResponse;
 import com.tinqa.procurement.approval.service.EmployeeProfileApprovalService;
+import com.tinqa.procurement.common.constant.ApprovalStatus;
 import com.tinqa.procurement.common.response.ApiResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,7 +77,7 @@ public class EmployeeProfileApprovalController {
                 );
 
         String message =
-                "APPROVE".equals(request.getDecision())
+                request.getDecision().equalsIgnoreCase(ApprovalStatus.APPROVED)
                         ? "Profile Changes Approved Successfully"
                         : "Profile Changes Rejected Successfully";
 

@@ -13,6 +13,8 @@ public interface OrderService {
 
     OrderDTOs.Response updateOrderStatus(Long orderId, OrderDTOs.UpdateStatusRequest request, Long currentUserId);
 
+    OrderDTOs.Response processAdminL2Approval(Long orderId, OrderDTOs.ApprovalDecisionRequest request, Long currentUserId);
+
     OrderDTOs.Response getOrderById(Long orderId);
 
     List<OrderDTOs.Response> getAllOrders();

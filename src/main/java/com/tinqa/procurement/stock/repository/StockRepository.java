@@ -1,6 +1,6 @@
 package com.tinqa.procurement.stock.repository;
 
-import com.tinqa.procurement.common.constant.ApprovalStatus;
+import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.stock.entity.Stock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

@@ -57,7 +57,7 @@ public class StockDTOs {
     @AllArgsConstructor
     public static class ApprovalDecisionRequest {
         @NotNull(message = "Approval status is required")
-        private ApprovalStatus status;
+        private ApprovalStatus decision;
         private String rejectionReason;
     }
 

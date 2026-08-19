@@ -7,8 +7,11 @@ import com.tinqa.procurement.dealer.entity.Dealer;
 import com.tinqa.procurement.dealer.repository.DealerRepository;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
+import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.repository.OrderRepository;
+import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.stock.dto.StockDTOs;
 import com.tinqa.procurement.stock.entity.Stock;
 import com.tinqa.procurement.stock.repository.StockRepository;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,8 @@ public class StockServiceImpl implements StockService {
     private final OrderRepository orderRepository;
     private final DealerRepository dealerRepository;
     private final ItemRepository itemRepository;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -107,15 +113,26 @@ public class StockServiceImpl implements StockService {
             throw new BadRequestException("Stock request processed already with status: " + stock.getApprovalStatus());
         }
 
-        stock.setApprovalStatus(request.getStatus());
+        User user = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + id));
+
+        if(!stock.getUpdatedBy().equals(adminUserId)) {
+            String title = "Stock Approved";
+            String message = "Stock Batch " + stock.getBatchNumber() + " approved by ID: " + user.getUsername() + ".";
+            if (request.getDecision() == ApprovalStatus.REJECTED) {
+                title = "Stock Cancelled";
+                message = "Stock Batch: " + stock.getBatchNumber() + " cancelled by ID: " + user.getUsername() + ". Reason: " + request.getRejectionReason();
+            }
+            notificationService.createForUser(stock.getUpdatedBy(), title, message);
+        }
+        stock.setApprovalStatus(request.getDecision());
         stock.setApprovedBy(adminUserId);
         stock.setApprovedAt(LocalDateTime.now());
 
-        if (request.getStatus() == ApprovalStatus.REJECTED) {
+        if (request.getDecision() == ApprovalStatus.REJECTED) {
             stock.setRejectionReason(request.getRejectionReason());
             stock.setAvailableUnits(BigDecimal.ZERO);
         }
-
         return mapToResponse(stockRepository.save(stock));
     }
 
@@ -134,6 +151,15 @@ public class StockServiceImpl implements StockService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StockDTOs.Response> getAllStocksByStatus(ApprovalStatus status) {
+        return stockRepository.findByApprovalStatus(status).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
 
     private Stock getValidatedStock(Long id) {
         Stock stock = stockRepository.findById(id)

@@ -339,7 +339,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
                 EmployeeProfileChangeRequest.builder()
                         .employeeId(employee.getId())
                         .requestedBy(currentUser.getId())
-                        .status(ApprovalStatus.PENDING)
+                        .status(ApprovalStatus.PENDING.toString())
 
                         /*
                          * Only approval-controlled fields are stored here.

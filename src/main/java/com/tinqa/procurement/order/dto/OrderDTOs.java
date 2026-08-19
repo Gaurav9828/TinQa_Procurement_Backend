@@ -85,6 +85,16 @@ public class OrderDTOs {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class ApprovalDecisionRequest {
+        @NotNull(message = "Approval status is required")
+        private OrderStatus decision;
+        private String rejectionReason;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Response {
         private Long id;
         private String orderNumber;

@@ -71,6 +71,22 @@ public class OrderController {
                 .build());
     }
 
+    @PatchMapping("/{id}/approval")
+    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2')")
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> processAdminL2Approval(
+            @PathVariable Long id,
+            @Valid @RequestBody OrderDTOs.ApprovalDecisionRequest request,
+            HttpServletRequest servletRequest) {
+        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        OrderDTOs.Response data = orderService.processAdminL2Approval(id, request, currentUserId);
+        return ResponseEntity.ok(ApiResponse.<OrderDTOs.Response>builder()
+                .success(true)
+                .message("Order status updated successfully")
+                .data(data)
+                .path(servletRequest.getRequestURI())
+                .build());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
     public ResponseEntity<ApiResponse<OrderDTOs.Response>> getOrderById(

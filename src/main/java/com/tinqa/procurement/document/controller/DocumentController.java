@@ -13,6 +13,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -128,6 +129,27 @@ public class DocumentController {
         ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
                 .success(true)
                 .message("Document deleted successfully")
+                .timestamp(Instant.now())
+                .path(httpServletRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @PatchMapping("/{id}/approval")
+    @PreAuthorize("hasAnyRole('ADMIN_L2')")
+    public ResponseEntity<ApiResponse<DocumentResponse>> processAdminL2Approval(
+            @PathVariable Long id,
+            @Valid @RequestBody DocumentApprovalRequest request,
+            HttpServletRequest httpServletRequest) {
+
+        User currentUser = currentUserProvider.getCurrentUser();
+        DocumentResponse response = documentService.processAdminL2Approval(id, request, currentUser);
+
+        ApiResponse<DocumentResponse> apiResponse = ApiResponse.<DocumentResponse>builder()
+                .success(true)
+                .message("Document status updated successfully")
+                .data(response)
                 .timestamp(Instant.now())
                 .path(httpServletRequest.getRequestURI())
                 .build();

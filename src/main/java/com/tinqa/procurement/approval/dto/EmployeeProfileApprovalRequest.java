@@ -1,5 +1,6 @@
 package com.tinqa.procurement.approval.dto;
 
+import com.tinqa.procurement.common.constant.ApprovalStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -17,8 +18,8 @@ public class EmployeeProfileApprovalRequest {
 
     @NotBlank(message = "Decision is required")
     @Pattern(
-            regexp = "APPROVE|REJECT",
-            message = "Decision must be APPROVE or REJECT"
+            regexp = "APPROVED|PENDING|REJECTED",
+            message = "Decision must be APPROVED or REJECTED"
     )
     private String decision;
 

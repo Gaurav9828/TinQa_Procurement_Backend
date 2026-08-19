@@ -1,5 +1,6 @@
 package com.tinqa.procurement.stock.service;
 
+import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.stock.dto.StockDTOs;
 
 import java.util.List;
@@ -17,6 +18,8 @@ public interface StockService {
     StockDTOs.Response getStockById(Long id);
 
     List<StockDTOs.Response> getAllStocks();
+
+    List<StockDTOs.Response> getAllStocksByStatus(ApprovalStatus status);
 
     StockDTOs.Response updateStock(Long id, StockDTOs.UpdateRequest request, Long currentUserId);
 }

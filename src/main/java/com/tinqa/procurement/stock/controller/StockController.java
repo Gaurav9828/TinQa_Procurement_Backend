@@ -1,6 +1,8 @@
 package com.tinqa.procurement.stock.controller;
 
+import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.document.constant.DocumentStatus;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import com.tinqa.procurement.stock.dto.StockDTOs;
 import com.tinqa.procurement.stock.service.StockService;
@@ -13,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/stocks")
@@ -103,8 +106,10 @@ public class StockController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
     public ResponseEntity<ApiResponse<List<StockDTOs.Response>>> getAllStocks(
+            @RequestParam(required = false) ApprovalStatus status,
             HttpServletRequest servletRequest) {
-        List<StockDTOs.Response> data = stockService.getAllStocks();
+        List<StockDTOs.Response> data = Objects.nonNull(status) ? stockService.getAllStocksByStatus(status) : stockService.getAllStocks();
+
         return ResponseEntity.ok(ApiResponse.<List<StockDTOs.Response>>builder()
                 .success(true)
                 .message("Stock list retrieved successfully")

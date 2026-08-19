@@ -6,11 +6,15 @@ import com.tinqa.procurement.dealer.entity.Dealer;
 import com.tinqa.procurement.dealer.repository.DealerRepository;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
+import com.tinqa.procurement.notification.dto.NotificationResponse;
+import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.service.OrderService;
+import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +32,8 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final DealerRepository dealerRepository;
     private final ItemRepository itemRepository;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -124,6 +130,28 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + currentUserId));
+
+        if(!order.getUpdatedBy().equals(currentUserId)){
+            String title = "";
+            String message = "";
+            switch(request.getStatus()){
+                case OrderStatus.DEALER_LEVEL_PENDING:{
+                    title = "Order Approved";
+                    message = "Order " + order.getOrderNumber() + " approved by ID: " + user.getUsername() + ". Now Pending from Dealer `" +
+                            order.getDealer().getName() + "`";
+                    break;
+                }
+                case OrderStatus.CANCELLED: {
+                    title = "Order Cancelled";
+                    message = "Order " + order.getOrderNumber() + " cancelled by ID: " + user.getUsername() + ".";
+                    break;
+                }
+            }
+
+            notificationService.createForUser(order.getUpdatedBy(), title, message);
+        }
         order.setOrderStatus(request.getStatus());
         order.setUpdatedBy(currentUserId);
         order.setActualDelivery((Objects.nonNull(request.getActualDelivery()) && request.getStatus() == OrderStatus.DELIVERED) ?
@@ -164,6 +192,39 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findByOrderStatus(status).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public OrderDTOs.Response processAdminL2Approval(Long orderId, OrderDTOs.ApprovalDecisionRequest request, Long currentUserId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + currentUserId));
+
+        if(!order.getUpdatedBy().equals(currentUserId)){
+            String title = "";
+            String message = "";
+            switch(request.getDecision()){
+                case OrderStatus.DEALER_LEVEL_PENDING:{
+                    title = "Order Approved";
+                    message = "Order " + order.getOrderNumber() + " approved by ID: " + user.getUsername() + ". Now Pending from Dealer `" +
+                            order.getDealer().getName() + "`";
+                    break;
+                }
+                case OrderStatus.CANCELLED: {
+                    title = "Order Cancelled";
+                    message = "Order " + order.getOrderNumber() + " cancelled by ID: " + user.getUsername() + ". Reason: " + request.getRejectionReason();
+                    break;
+                }
+            }
+
+            notificationService.createForUser(order.getUpdatedBy(), title, message);
+        }
+        order.setOrderStatus(request.getDecision());
+        order.setUpdatedBy(currentUserId);
+        return mapToResponse(orderRepository.save(order));
     }
 
     private OrderDTOs.Response mapToResponse(Order order) {

@@ -1,5 +1,6 @@
 package com.tinqa.procurement.approval.dto;
 
+import com.tinqa.procurement.common.constant.ApprovalStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
