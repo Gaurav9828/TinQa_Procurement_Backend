@@ -23,5 +23,7 @@ public class LoginResponse {
 
     private Role role;
 
+    private boolean isFirstLogin;
+
     private AuthClient authClient;
 }

@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Builder
@@ -23,8 +24,19 @@ public class ApiResponse<T> {
 
     private T data;
 
+    private List<ApiErrorItem> errors;
+
     @Builder.Default
     private Instant timestamp = Instant.now();
 
     private String path;
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ApiErrorItem {
+        private String field;
+        private String message;
+    }
 }

@@ -46,6 +46,10 @@ public class User {
     @Column(nullable = false)
     private boolean accountNonLocked = true;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isFirstLogin = true;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -71,40 +71,17 @@ public class SecurityConfig {
                  */
                 .authorizeHttpRequests(auth -> auth
 
-                        /*
-                         * Swagger
-                         */
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/actuator/health",
+                                "/auth/admin/login"
                         ).permitAll()
 
-                        /*
-                         * Actuator health check
-                         */
-                        .requestMatchers(
-                                "/actuator/health"
-                        ).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        /*
-                         * Browser CORS preflight requests.
-                         *
-                         * The browser sends OPTIONS before requests
-                         * such as POST /api/auth/admin/login.
-                         */
-                        .requestMatchers(
-                                HttpMethod.OPTIONS,
-                                "/**"
-                        ).permitAll()
-
-                        /*
-                         * Temporary authorization configuration.
-                         *
-                         * We will tighten this once all API
-                         * authorization rules are finalized.
-                         */
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
 
                 /*

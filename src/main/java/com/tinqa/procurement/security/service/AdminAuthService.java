@@ -45,7 +45,6 @@ public class AdminAuthService {
     }
 
     private void validatePassword(String rawPassword, String encodedPassword) {
-        System.out.println(passwordEncoder.encode("Admin@123"));
         if (!passwordEncoder.matches(rawPassword, encodedPassword)) {
             throw new BadRequestException("Invalid username or password");
         }
