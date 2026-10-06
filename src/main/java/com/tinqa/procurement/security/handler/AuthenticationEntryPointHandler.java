@@ -1,12 +1,11 @@
 package com.tinqa.procurement.security.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinqa.procurement.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -14,14 +13,12 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.time.Instant;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class AuthenticationEntryPointHandler
-        implements AuthenticationEntryPoint {
+public class AuthenticationEntryPointHandler implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;
 
@@ -31,25 +28,21 @@ public class AuthenticationEntryPointHandler
             HttpServletResponse response,
             AuthenticationException exception) throws IOException {
 
-        log.warn(
-                "Unauthenticated request. Method: {}, URI: {}, Message: {}",
-                request.getMethod(),
-                request.getRequestURI(),
-                exception.getMessage()
-        );
+        log.warn("Unauthenticated request. Method: {}, URI: {}, Message: {}",
+                request.getMethod(), request.getRequestURI(), exception.getMessage());
 
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-        Map<String, Object> body = new LinkedHashMap<>();
+        ApiResponse<Void> body = ApiResponse.<Void>builder()
+                .success(false)
+                .message("Authentication is required.")
+                .errorCode("UNAUTHORIZED")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .errors(java.util.List.of())
+                .build();
 
-        body.put("success", false);
-        body.put("status", HttpStatus.UNAUTHORIZED.value());
-        body.put("message", "Authentication is required");
-        body.put("path", request.getRequestURI());
-
-        response.getWriter().write(
-                objectMapper.writeValueAsString(body)
-        );
+        response.getWriter().write(objectMapper.writeValueAsString(body));
     }
 }

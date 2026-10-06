@@ -6,7 +6,17 @@
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/exception/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/response/ApiResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/dto/ChangePasswordRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/dto/ChangePasswordRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/dto/LoginResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/dto/LoginResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/filter/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/filter/JwtAuthenticationFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/handler/AccessDeniedHandlerImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/handler/AccessDeniedHandlerImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/handler/AuthenticationEntryPointHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/handler/AuthenticationEntryPointHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/model/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/AdminAuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/AdminAuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/AuthenticationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/AuthenticationServiceImpl.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,63 +34,67 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.000043519198171" />
-      <entry key="MS500" value="1.2889253914517353" />
-      <entry key="S2" value="4.032089948759835" />
-      <entry key="S5" value="11.006797408949849" />
-      <entry key="S10" value="18.50874140521941" />
-      <entry key="S30" value="27.912708069254695" />
-      <entry key="S60" value="31.20038159715673" />
-      <entry key="M2" value="33.03384537888175" />
-      <entry key="M5" value="34.47206344174966" />
-      <entry key="M10" value="36.26793352388963" />
-      <entry key="M15" value="38.1606856912696" />
-      <entry key="M30" value="42.65457847083143" />
-      <entry key="H1" value="49.16919416823859" />
-      <entry key="H2" value="65.72935863244732" />
-      <entry key="H4" value="112.51066838808727" />
-      <entry key="D1" value="483.9551574086374" />
-      <entry key="W1" value="785.900820896144" />
+      <entry key="MS100" value="1.0012622689604502" />
+      <entry key="MS500" value="1.52595172467017" />
+      <entry key="S2" value="5.063521225862492" />
+      <entry key="S5" value="12.16842363957471" />
+      <entry key="S10" value="20.339201956470426" />
+      <entry key="S30" value="31.31496712208344" />
+      <entry key="S60" value="35.30498272306976" />
+      <entry key="M2" value="37.55905050242128" />
+      <entry key="M5" value="39.27378543265719" />
+      <entry key="M10" value="41.16390374918175" />
+      <entry key="M15" value="43.08795539451149" />
+      <entry key="M30" value="47.61422249821128" />
+      <entry key="H1" value="54.146129963792596" />
+      <entry key="H2" value="70.71416207789714" />
+      <entry key="H4" value="117.49789527810077" />
+      <entry key="D1" value="488.9461806500372" />
+      <entry key="W1" value="790.8987432634539" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
-      <entry key="S2" value="8.707435641456248E-249" />
-      <entry key="S5" value="1.2577623768503174E-99" />
-      <entry key="S10" value="7.457282765077665E-50" />
-      <entry key="S30" value="1.2250700128550586E-16" />
-      <entry key="S60" value="2.575697421461301E-8" />
-      <entry key="M2" value="3.904828353592938E-4" />
-      <entry key="M5" value="0.19071400479595743" />
-      <entry key="M10" value="2.440866536087054" />
-      <entry key="M15" value="6.253442339280699" />
-      <entry key="M30" value="16.93363290221299" />
-      <entry key="H1" value="31.015600575500937" />
-      <entry key="H2" value="54.790841725757176" />
-      <entry key="H4" value="99.29718678649475" />
-      <entry key="D1" value="283.4102008241192" />
-      <entry key="W1" value="397.8291202200189" />
+      <entry key="S2" value="3.926510906938719E-249" />
+      <entry key="S5" value="9.14629518627082E-100" />
+      <entry key="S10" value="6.359220997402711E-50" />
+      <entry key="S30" value="1.1617214592906533E-16" />
+      <entry key="S60" value="2.508218659339128E-8" />
+      <entry key="M2" value="3.8533390505118587E-4" />
+      <entry key="M5" value="0.18970409082101197" />
+      <entry key="M10" value="2.4343952302775875" />
+      <entry key="M15" value="6.24238456126105" />
+      <entry key="M30" value="16.918654655573793" />
+      <entry key="H1" value="31.001880480941853" />
+      <entry key="H2" value="54.77872171730131" />
+      <entry key="H4" value="99.28620366169639" />
+      <entry key="D1" value="283.40497598145015" />
+      <entry key="W1" value="397.8280724651194" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9794441867750575" />
-      <entry key="MS500" value="1.2007923183544076" />
-      <entry key="S2" value="3.785744026872263" />
-      <entry key="S5" value="10.835095814835784" />
-      <entry key="S10" value="18.403095470825075" />
-      <entry key="S30" value="27.87151684452223" />
-      <entry key="S60" value="31.178880402030753" />
-      <entry key="M2" value="33.023233881594265" />
-      <entry key="M5" value="34.65726879955696" />
-      <entry key="M10" value="38.69896824817977" />
-      <entry key="M15" value="44.39899419716154" />
-      <entry key="M30" value="59.56807981817206" />
-      <entry key="H1" value="80.16586922551537" />
-      <entry key="H2" value="120.50268198509065" />
-      <entry key="H4" value="211.79140549254856" />
-      <entry key="D1" value="767.3571388926603" />
-      <entry key="W1" value="1183.7282923018474" />
+      <entry key="MS100" value="0.007154919436054959" />
+      <entry key="MS500" value="0.7704694596271369" />
+      <entry key="S2" value="4.625718087923483" />
+      <entry key="S5" value="11.893777858065574" />
+      <entry key="S10" value="20.17056015944415" />
+      <entry key="S30" value="31.24885866857448" />
+      <entry key="S60" value="35.27040998565346" />
+      <entry key="M2" value="37.54173345108559" />
+      <entry key="M5" value="39.455265088704664" />
+      <entry key="M10" value="43.587119624203496" />
+      <entry key="M15" value="49.31431689171545" />
+      <entry key="M30" value="64.51230528433513" />
+      <entry key="H1" value="85.12886420623279" />
+      <entry key="H2" value="125.47525474327644" />
+      <entry key="H4" value="216.767593798294" />
+      <entry key="D1" value="772.3429278961553" />
+      <entry key="W1" value="1188.72516555477" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -92,32 +106,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;Spring Boot.ProcurementApplication.executor&quot;: &quot;Debug&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.ProcurementApplication.executor": "Debug",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "Feature/Order__Tracking__Feature",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "to.speed.mode.migration.done": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager">
     <configuration name="ProcurementApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />

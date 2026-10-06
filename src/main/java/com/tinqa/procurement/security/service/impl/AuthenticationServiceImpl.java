@@ -87,6 +87,24 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
     }
 
+    private void validatePasswordPolicy(String newPassword, String confirmPassword) {
+        if (newPassword == null || confirmPassword == null) {
+            throw new BadRequestException("New password and confirmation are required");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new BadRequestException("New password and confirmation password do not match");
+        }
+        if (newPassword.length() < 8 || newPassword.length() > 128) {
+            throw new BadRequestException("New password must be between 8 and 128 characters");
+        }
+        if (newPassword.chars().anyMatch(Character::isWhitespace)) {
+            throw new BadRequestException("Password cannot contain whitespace");
+        }
+        if (!newPassword.matches(".*[a-z].*") || !newPassword.matches(".*[A-Z].*") || !newPassword.matches(".*\\d.*") || !newPassword.matches(".*[^A-Za-z0-9\\s].*")) {
+            throw new BadRequestException("Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character");
+        }
+    }
+
     private LoginResponse buildAuthenticationResponse(User user) {
         String token = jwtService.generateToken(user);
 
@@ -98,6 +116,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .isFirstLogin(user.isFirstLogin())
                 .authClient(user.getAuthClient())
                 .build();
     }
@@ -194,53 +213,20 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         )
                 );
 
-        /*
-         * Validate current password.
-         */
         if (!passwordEncoder.matches(
                 request.getCurrentPassword(),
                 user.getPassword())) {
-
-            throw new BadRequestException(
-                    "Current password is incorrect"
-            );
+            throw new BadRequestException("Current password is incorrect");
         }
 
-        /*
-         * Validate new password confirmation.
-         */
-        if (!request.getNewPassword().equals(
-                request.getConfirmNewPassword())) {
+        validatePasswordPolicy(request.getNewPassword(), request.getConfirmNewPassword());
 
-            throw new BadRequestException(
-                    "New password and confirmation password do not match"
-            );
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BadRequestException("New password must be different from the current password");
         }
 
-        /*
-         * Prevent changing the password to the same
-         * password.
-         */
-        if (passwordEncoder.matches(
-                request.getNewPassword(),
-                user.getPassword())) {
-
-            throw new BadRequestException(
-                    "New password must be different from the current password"
-            );
-        }
-
-        /*
-         * Encode the new password.
-         *
-         * NEVER store the raw password.
-         */
-        user.setPassword(
-                passwordEncoder.encode(
-                        request.getNewPassword()
-                )
-        );
-
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setFirstLogin(false);
         userRepository.save(user);
 
         /*
