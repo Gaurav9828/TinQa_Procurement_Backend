@@ -76,7 +76,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             User user = userRepository.findByUsername(username).orElse(null);
             String path = request.getRequestURI();
-            if (user != null && user.isFirstLogin() && !isAllowedFirstLoginPath(path)) {
+            // Request URI includes the servlet context path (/api); the allow-list is relative to it
+            String applicationPath = path.substring(request.getContextPath().length());
+            if (user != null && user.isFirstLogin() && !isAllowedFirstLoginPath(applicationPath)) {
                 ApiResponse<Void> body = ApiResponse.<Void>builder()
                         .success(false)
                         .message("Password change required before continuing.")

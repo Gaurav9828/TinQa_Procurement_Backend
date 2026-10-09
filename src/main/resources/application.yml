@@ -27,3 +27,7 @@ springdoc:
 
   swagger-ui:
     path: /swagger-ui.html
+tinqa:
+  internal-api:
+    # Shared secret other TinQa services send in X-Internal-Api-Key. Empty = internal API disabled.
+    key: ${TINQA_INTERNAL_API_KEY:}

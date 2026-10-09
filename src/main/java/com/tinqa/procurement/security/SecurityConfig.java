@@ -1,5 +1,6 @@
 package com.tinqa.procurement.security;
 
+import com.tinqa.procurement.security.filter.InternalApiKeyFilter;
 import com.tinqa.procurement.security.filter.JwtAuthenticationFilter;
 import com.tinqa.procurement.security.handler.AccessDeniedHandlerImpl;
 import com.tinqa.procurement.security.handler.AuthenticationEntryPointHandler;
@@ -22,6 +23,7 @@ public class SecurityConfig {
     private final AuthenticationEntryPointHandler authenticationEntryPointHandler;
     private final AccessDeniedHandlerImpl accessDeniedHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalApiKeyFilter internalApiKeyFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -81,6 +83,9 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // Service-to-service only; admin JWTs are not enough
+                        .requestMatchers("/v1/internal/**").hasRole("INTERNAL_SERVICE")
+
                         .anyRequest().authenticated()
                 )
 
@@ -90,6 +95,14 @@ public class SecurityConfig {
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
+                )
+
+                /*
+                 * Shared-secret authentication for /v1/internal/** (runs before JWT).
+                 */
+                .addFilterBefore(
+                        internalApiKeyFilter,
+                        JwtAuthenticationFilter.class
                 );
 
         return http.build();

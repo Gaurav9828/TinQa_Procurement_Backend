@@ -1,5 +1,6 @@
 package com.tinqa.procurement.order.dto;
 
+import com.tinqa.procurement.common.validation.*;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -17,32 +18,42 @@ public class OrderDTOs {
     @AllArgsConstructor
     public static class CreateRequest {
         @NotNull(message = "Dealer ID is required")
+        @Positive(message = "Dealer ID must be a valid ID")
         private Long dealerId;
 
         @NotNull(message = "Item ID is required")
+        @Positive(message = "Item ID must be a valid ID")
         private Long itemId;
 
         @NotNull(message = "Order quantity is required")
-        @Positive(message = "Quantity must be greater than zero")
+        @Positive(message = "Order quantity must be greater than zero")
+        @Digits(integer = 11, fraction = 3, message = "Order quantity can have at most 11 digits and 3 decimal places")
         private BigDecimal orderQuantity;
 
         @NotBlank(message = "Unit type is required")
+        @Size(max = 20, message = "Unit type cannot exceed 20 characters")
+        @Pattern(regexp = ValidationPatterns.UNIT, message = "Unit type " + ValidationPatterns.UNIT_MESSAGE)
         private String unitType;
 
         @NotNull(message = "Unit price is required")
-        @PositiveOrZero(message = "Unit price must be positive")
+        @PositiveOrZero(message = "Unit price cannot be negative")
+        @MaxAmount(message = "Unit price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal unitPrice;
 
         @NotNull(message = "Shipment price is required")
-        @PositiveOrZero(message = "Shipment price must be positive")
+        @PositiveOrZero(message = "Shipment price cannot be negative")
+        @MaxAmount(message = "Shipment price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal shipmentPrice;
 
+        @SafeJsonMap
         private Map<String, Object> taxBreakup;
         private LocalDate expectedDelivery;
 
         @NotNull(message = "Order date is required")
+        @PastOrPresent(message = "Order date cannot be in the future")
         private LocalDate orderDate;
 
+        @SafeJsonMap
         private Map<String, Object> additionalInfo;
     }
 
@@ -51,23 +62,33 @@ public class OrderDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateRequest {
+        @Positive(message = "Dealer ID must be a valid ID")
         private Long dealerId;
+        @Positive(message = "Item ID must be a valid ID")
         private Long itemId;
 
-        @Positive(message = "Quantity must be greater than zero")
+        @Positive(message = "Order quantity must be greater than zero")
+        @Digits(integer = 11, fraction = 3, message = "Order quantity can have at most 11 digits and 3 decimal places")
         private BigDecimal orderQuantity;
 
+        @Size(max = 20, message = "Unit type cannot exceed 20 characters")
+        @Pattern(regexp = ValidationPatterns.UNIT, message = "Unit type " + ValidationPatterns.UNIT_MESSAGE)
         private String unitType;
 
-        @PositiveOrZero(message = "Unit price must be positive")
+        @PositiveOrZero(message = "Unit price cannot be negative")
+        @MaxAmount(message = "Unit price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal unitPrice;
 
-        @PositiveOrZero(message = "Shipment price must be positive")
+        @PositiveOrZero(message = "Shipment price cannot be negative")
+        @MaxAmount(message = "Shipment price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal shipmentPrice;
 
+        @SafeJsonMap
         private Map<String, Object> taxBreakup;
         private LocalDate expectedDelivery;
+        @PastOrPresent(message = "Order date cannot be in the future")
         private LocalDate orderDate;
+        @SafeJsonMap
         private Map<String, Object> additionalInfo;
     }
 
@@ -78,6 +99,7 @@ public class OrderDTOs {
     public static class UpdateStatusRequest {
         @NotNull(message = "Order status is required")
         private OrderStatus status;
+        @PastOrPresent(message = "Actual delivery date cannot be in the future")
         private LocalDate actualDelivery;
     }
 
@@ -88,6 +110,7 @@ public class OrderDTOs {
     public static class ApprovalDecisionRequest {
         @NotNull(message = "Approval status is required")
         private OrderStatus decision;
+        @Size(max = 500, message = "Rejection reason cannot exceed 500 characters")
         private String rejectionReason;
     }
 

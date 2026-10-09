@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificationExecutor<Item> {
@@ -20,4 +21,6 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
     boolean existsBySku(String sku);
 
     Page<Item> findByIsActiveTrue(Pageable pageable);
+
+    List<Item> findByIsActiveTrueOrderByNameAsc();
 }

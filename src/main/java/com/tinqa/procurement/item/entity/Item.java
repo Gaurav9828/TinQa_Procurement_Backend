@@ -3,6 +3,7 @@ package com.tinqa.procurement.item.entity;
 import com.tinqa.procurement.common.entity.Category;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -10,6 +11,8 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -50,9 +53,6 @@ public class Item {
     @Column(name = "raw_materials_used", columnDefinition = "TEXT")
     private String rawMaterialsUsed;
 
-    @Column(name = "warranty_months", precision = 3, scale = 0)
-    private Integer warrantyMonths;
-
     @Column(name = "terms_and_condition", columnDefinition = "TEXT")
     private String termsAndCondition;
 
@@ -62,6 +62,12 @@ public class Item {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> attributes;
+
+    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    @BatchSize(size = 50)
+    @Builder.Default
+    private List<ItemWarranty> warranties = new ArrayList<>();
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

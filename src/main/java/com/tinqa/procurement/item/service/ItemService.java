@@ -16,6 +16,7 @@ public interface ItemService {
     ItemDTOs.Response createItem(ItemDTOs.CreateRequest request);
     ItemDTOs.Response updateItem(Long id, ItemDTOs.UpdateRequest request);
     ItemDTOs.Response getItemById(Long id);
+    List<ItemDTOs.WarrantyResponse> getItemWarranties(Long itemId);
     Page<ItemDTOs.Response> getAllItems(Pageable pageable);
     void deleteItem(Long id);
 }

@@ -6,6 +6,7 @@ import com.tinqa.procurement.document.dto.*;
 import com.tinqa.procurement.document.entity.Document;
 import com.tinqa.procurement.document.repository.DocumentRepository;
 import com.tinqa.procurement.document.service.DocumentService;
+import com.tinqa.procurement.document.service.UploadedFileValidator;
 import com.tinqa.procurement.document.service.FileStorageService;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.enums.OrderStatus;
@@ -34,17 +35,19 @@ public class DocumentServiceImpl implements DocumentService {
     private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final UploadedFileValidator uploadedFileValidator;
 
     @Override
     @Transactional
     public DocumentResponse uploadDocument(MultipartFile file, DocumentUploadRequest request, User currentUser) {
+        UploadedFileValidator.ValidatedFile validated = uploadedFileValidator.validate(file, request.getType());
         String pathPrefix = request.getReferenceType().name().toLowerCase() + "/" + request.getPurpose().name().toLowerCase();
         String storageKey = fileStorageService.storeFile(file, pathPrefix);
 
         Document document = Document.builder()
-                .originalFileName(file.getOriginalFilename())
+                .originalFileName(validated.originalFileName())
                 .storageKey(storageKey)
-                .contentType(file.getContentType())
+                .contentType(validated.contentType())
                 .fileSize(file.getSize())
                 .uploaderType(request.getUploaderType())
                 .uploadedByUserId(currentUser.getId())
