@@ -1,3 +1,4 @@
 flyway repair: mvn flyway:repair -Dflyway.url=jdbc:postgresql://localhost:5432/tinqa_procurement -Dflyway.user=tinqa_app -Dflyway.password=tinqa_dev_password
 run application: mvn spring-boot:run
 clean compile: mvn clean compile
+DB clean: psql -h localhost -U tinqa_app -d tinqa_procurement -v ON_ERROR_STOP=1 -f scripts/dev/reset_dev_data.sql

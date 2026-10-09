@@ -2,6 +2,7 @@ package com.tinqa.procurement.common.exception;
 
 import com.tinqa.procurement.common.response.ApiResponse;
 import jakarta.persistence.OptimisticLockException;
+import com.tinqa.procurement.common.validation.UnsafeInputException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -53,7 +54,7 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
                 "Validation failed",
-                "One or more request fields are invalid.",
+                errors.size() == 1 ? errors.getFirst().getMessage() : "One or more request fields are invalid.",
                 "VALIDATION_FAILED",
                 errors,
                 request
@@ -86,6 +87,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(
             HttpMessageNotReadableException exception,
             HttpServletRequest request) {
+        Throwable cause = exception.getCause();
+        while (cause != null && !(cause instanceof UnsafeInputException)) {
+            cause = cause.getCause();
+        }
+        if (cause instanceof UnsafeInputException unsafe) {
+            String message = "Field '" + unsafe.getFieldPath() + "' " + unsafe.getReason() + ".";
+            return buildErrorResponse(
+                    HttpStatus.BAD_REQUEST,
+                    "Unsafe input",
+                    message,
+                    "UNSAFE_INPUT",
+                    List.of(new ApiResponse.ApiErrorItem(unsafe.getFieldPath(), message)),
+                    request
+            );
+        }
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
                 "Malformed request",
@@ -355,7 +371,7 @@ public class GlobalExceptionHandler {
                 exception.getErrorCode() != null && !exception.getErrorCode().isBlank()
                         ? exception.getErrorCode()
                         : "API_ERROR",
-                List.of(),
+                serverError ? List.of() : exception.getErrors(),
                 request
         );
     }

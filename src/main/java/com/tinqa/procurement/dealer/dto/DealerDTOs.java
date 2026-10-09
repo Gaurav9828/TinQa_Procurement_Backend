@@ -1,5 +1,6 @@
 package com.tinqa.procurement.dealer.dto;
 
+import com.tinqa.procurement.common.validation.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,55 +12,77 @@ public class DealerDTOs {
 
     @Getter
     @Setter
-    public static class CreateRequest {
+    @ValidAddress
+    @ValidTaxIdentity
+    public static class CreateRequest implements PostalAddress, TaxIdentity {
         @NotBlank(message = "Dealer name is required")
+        @Size(max = 255, message = "Dealer name cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Dealer name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String name;
 
+        @Size(max = 255, message = "Trade name cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Trade name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String tradeName;
 
         @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email format")
+        @Size(max = 150, message = "Email cannot exceed 150 characters")
+        @Pattern(regexp = ValidationPatterns.EMAIL, message = "Email " + ValidationPatterns.EMAIL_MESSAGE)
         private String email;
 
         @NotBlank(message = "Phone number is required")
-        @Pattern(regexp = "^[0-9+\\-\\s]{8,20}$", message = "Invalid phone number")
+        @Pattern(regexp = ValidationPatterns.PHONE, message = "Phone number " + ValidationPatterns.PHONE_MESSAGE)
         private String phoneNumber;
 
+        @Pattern(regexp = ValidationPatterns.PHONE, message = "Alternate phone number " + ValidationPatterns.PHONE_MESSAGE)
         private String alternatePhoneNumber;
 
         // Address
         @NotBlank(message = "Street address is required")
+        @Size(max = 500, message = "Street address cannot exceed 500 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Street address " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String street;
 
+        @Size(max = 255, message = "Landmark cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Landmark " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String landmark;
 
         @NotBlank(message = "City is required")
+        @Size(max = 100, message = "City cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.CITY, message = "City " + ValidationPatterns.CITY_MESSAGE)
         private String city;
 
         @NotBlank(message = "State is required")
+        @Size(max = 100, message = "State cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.CITY, message = "State must be a valid state name")
         private String state;
 
         @NotBlank(message = "Country is required")
+        @Size(max = 100, message = "Country cannot exceed 100 characters")
+        @ValidCountry(message = "Country must be a valid country name, e.g. India")
         private String country = "India";
 
         @NotBlank(message = "Pincode is required")
+        @Size(max = 10, message = "Pincode cannot exceed 10 characters")
         private String pincode;
 
+        @UrlInput
+        @GoogleMapsUrl(message = "Google Maps link must be an https Google Maps link (maps.google.com, google.com/maps, maps.app.goo.gl or goo.gl/maps)")
         private String googleMapsUrl;
 
         // Legal & Business
-        @Pattern(regexp = "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$", message = "Invalid GSTIN format")
+        @Pattern(regexp = ValidationPatterns.GSTIN, message = "GSTIN must be 15 characters like 22AAAAA0000A1Z5 (capital letters)")
         private String gstin;
 
         private Boolean isGstVerified = false;
 
-        @Pattern(regexp = "^[A-Z]{5}[0-9]{4}[A-Z]{1}$", message = "Invalid PAN number format")
+        @Pattern(regexp = ValidationPatterns.PAN, message = "PAN must be 10 characters like ABCPE1234F (capital letters)")
         private String panNumber;
 
-        @Min(value = 1800, message = "Invalid business since year")
+        @NotFutureYear(min = 1800, message = "Business since must be a year between 1800 and the current year")
         private Integer businessSince;
 
         @Min(value = 0, message = "Employee count cannot be negative")
+        @Max(value = 1000000, message = "Employee count cannot exceed 10,00,000")
         private Integer employeeCount;
 
         // Capabilities
@@ -68,49 +91,77 @@ public class DealerDTOs {
         private Boolean doesWholesaleDealing = true;
 
         @NotEmpty(message = "At least one category must be assigned")
+        @Size(max = 50, message = "A dealer cannot have more than 50 categories")
         private Set<Long> categoryIds;
     }
 
     @Getter
     @Setter
-    public static class UpdateRequest {
+    @ValidAddress
+    @ValidTaxIdentity
+    public static class UpdateRequest implements PostalAddress, TaxIdentity {
         @NotBlank(message = "Dealer name is required")
+        @Size(max = 255, message = "Dealer name cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Dealer name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String name;
 
+        @Size(max = 255, message = "Trade name cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Trade name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String tradeName;
 
         @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email format")
+        @Size(max = 150, message = "Email cannot exceed 150 characters")
+        @Pattern(regexp = ValidationPatterns.EMAIL, message = "Email " + ValidationPatterns.EMAIL_MESSAGE)
         private String email;
 
         @NotBlank(message = "Phone number is required")
+        @Pattern(regexp = ValidationPatterns.PHONE, message = "Phone number " + ValidationPatterns.PHONE_MESSAGE)
         private String phoneNumber;
 
+        @Pattern(regexp = ValidationPatterns.PHONE, message = "Alternate phone number " + ValidationPatterns.PHONE_MESSAGE)
         private String alternatePhoneNumber;
 
         @NotBlank(message = "Street address is required")
+        @Size(max = 500, message = "Street address cannot exceed 500 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Street address " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String street;
 
+        @Size(max = 255, message = "Landmark cannot exceed 255 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Landmark " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String landmark;
 
         @NotBlank(message = "City is required")
+        @Size(max = 100, message = "City cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.CITY, message = "City " + ValidationPatterns.CITY_MESSAGE)
         private String city;
 
         @NotBlank(message = "State is required")
+        @Size(max = 100, message = "State cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.CITY, message = "State must be a valid state name")
         private String state;
 
         @NotBlank(message = "Country is required")
+        @Size(max = 100, message = "Country cannot exceed 100 characters")
+        @ValidCountry(message = "Country must be a valid country name, e.g. India")
         private String country;
 
         @NotBlank(message = "Pincode is required")
+        @Size(max = 10, message = "Pincode cannot exceed 10 characters")
         private String pincode;
 
+        @UrlInput
+        @GoogleMapsUrl(message = "Google Maps link must be an https Google Maps link (maps.google.com, google.com/maps, maps.app.goo.gl or goo.gl/maps)")
         private String googleMapsUrl;
 
+        @Pattern(regexp = ValidationPatterns.GSTIN, message = "GSTIN must be 15 characters like 22AAAAA0000A1Z5 (capital letters)")
         private String gstin;
         private Boolean isGstVerified;
+        @Pattern(regexp = ValidationPatterns.PAN, message = "PAN must be 10 characters like ABCPE1234F (capital letters)")
         private String panNumber;
+        @NotFutureYear(min = 1800, message = "Business since must be a year between 1800 and the current year")
         private Integer businessSince;
+        @Min(value = 0, message = "Employee count cannot be negative")
+        @Max(value = 1000000, message = "Employee count cannot exceed 10,00,000")
         private Integer employeeCount;
 
         private Boolean offersShipping;
@@ -118,6 +169,7 @@ public class DealerDTOs {
         private Boolean doesWholesaleDealing;
 
         @NotEmpty(message = "At least one category must be assigned")
+        @Size(max = 50, message = "A dealer cannot have more than 50 categories")
         private Set<Long> categoryIds;
 
         private Boolean isActive;

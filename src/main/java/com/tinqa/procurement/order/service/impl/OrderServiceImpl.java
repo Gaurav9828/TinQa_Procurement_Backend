@@ -1,6 +1,9 @@
 package com.tinqa.procurement.order.service.impl;
 
+import com.tinqa.procurement.common.enums.ApprovalStatus;
+import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.exception.BadRequestException;
+import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.dealer.entity.Dealer;
 import com.tinqa.procurement.dealer.repository.DealerRepository;
@@ -15,11 +18,14 @@ import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.service.OrderService;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
+import com.tinqa.procurement.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -34,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
     private final ItemRepository itemRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final StockRepository stockRepository;
 
     @Override
     @Transactional
@@ -43,6 +50,8 @@ public class OrderServiceImpl implements OrderService {
 
         Item item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found with id: " + request.getItemId()));
+
+        ensureExpectedDeliveryNotBeforeOrder(request.getOrderDate(), request.getExpectedDelivery());
 
         String orderNumber = "ORD-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
         BigDecimal totalPrice = request.getUnitPrice().multiply(request.getOrderQuantity()).add(request.getShipmentPrice());
@@ -71,7 +80,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTOs.Response updateOrder(Long orderId, OrderDTOs.UpdateRequest request, Long currentUserId) {
-        Order order = orderRepository.findById(orderId)
+        // Locked: stock entries are checked against this order's quantity under the same lock
+        Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
         if (order.getOrderStatus() == OrderStatus.DELIVERED || order.getOrderStatus() == OrderStatus.CANCELLED) {
@@ -91,6 +101,11 @@ public class OrderServiceImpl implements OrderService {
         }
 
         if (request.getOrderQuantity() != null) {
+            BigDecimal received = stockRepository.sumRecordedUnitsForOrder(order.getOrderNumber(), -1L, ApprovalStatus.REJECTED);
+            if (request.getOrderQuantity().compareTo(received) < 0) {
+                throw fieldError("orderQuantity", "Order quantity cannot be less than the "
+                        + received.stripTrailingZeros().toPlainString() + " " + order.getUnitType() + " already received into stock");
+            }
             order.setOrderQuantity(request.getOrderQuantity());
         }
         if (request.getUnitType() != null) {
@@ -119,6 +134,7 @@ public class OrderServiceImpl implements OrderService {
         if (request.getAdditionalInfo() != null) {
             order.setAdditionalInfo(request.getAdditionalInfo());
         }
+        ensureExpectedDeliveryNotBeforeOrder(order.getOrderDate(), order.getExpectedDelivery());
 
         order.setUpdatedBy(currentUserId);
         return mapToResponse(orderRepository.save(order));
@@ -133,24 +149,9 @@ public class OrderServiceImpl implements OrderService {
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + currentUserId));
 
-        if(!order.getUpdatedBy().equals(currentUserId)){
-            String title = "";
-            String message = "";
-            switch(request.getStatus()){
-                case OrderStatus.DEALER_LEVEL_PENDING:{
-                    title = "Order Approved";
-                    message = "Order " + order.getOrderNumber() + " approved by ID: " + user.getUsername() + ". Now Pending from Dealer `" +
-                            order.getDealer().getName() + "`";
-                    break;
-                }
-                case OrderStatus.CANCELLED: {
-                    title = "Order Cancelled";
-                    message = "Order " + order.getOrderNumber() + " cancelled by ID: " + user.getUsername() + ".";
-                    break;
-                }
-            }
-
-            notificationService.createForUser(order.getUpdatedBy(), title, message);
+        notifyStatusChange(order, request.getStatus(), user, null, request.getActualDelivery());
+        if (request.getActualDelivery() != null && request.getActualDelivery().isBefore(order.getOrderDate())) {
+            throw fieldError("actualDelivery", "Actual delivery date cannot be before the order date (" + order.getOrderDate() + ")");
         }
         order.setOrderStatus(request.getStatus());
         order.setUpdatedBy(currentUserId);
@@ -203,25 +204,7 @@ public class OrderServiceImpl implements OrderService {
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User entry not found with id: " + currentUserId));
 
-        if(!order.getUpdatedBy().equals(currentUserId)){
-            String title = "";
-            String message = "";
-            switch(request.getDecision()){
-                case OrderStatus.DEALER_LEVEL_PENDING:{
-                    title = "Order Approved";
-                    message = "Order " + order.getOrderNumber() + " approved by ID: " + user.getUsername() + ". Now Pending from Dealer `" +
-                            order.getDealer().getName() + "`";
-                    break;
-                }
-                case OrderStatus.CANCELLED: {
-                    title = "Order Cancelled";
-                    message = "Order " + order.getOrderNumber() + " cancelled by ID: " + user.getUsername() + ". Reason: " + request.getRejectionReason();
-                    break;
-                }
-            }
-
-            notificationService.createForUser(order.getUpdatedBy(), title, message);
-        }
+        notifyStatusChange(order, request.getDecision(), user, request.getRejectionReason(), null);
         order.setOrderStatus(request.getDecision());
         order.setUpdatedBy(currentUserId);
         return mapToResponse(orderRepository.save(order));
@@ -249,5 +232,63 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(order.getCreatedAt())
                 .createdBy(order.getCreatedBy())
                 .build();
+    }
+
+    private void ensureExpectedDeliveryNotBeforeOrder(LocalDate orderDate, LocalDate expectedDelivery) {
+        if (orderDate != null && expectedDelivery != null && expectedDelivery.isBefore(orderDate)) {
+            throw fieldError("expectedDelivery", "Expected delivery date cannot be before the order date (" + orderDate + ")");
+        }
+    }
+
+    private ApiException fieldError(String field, String message) {
+        return new ApiException(message, "VALIDATION_FAILED", HttpStatus.BAD_REQUEST,
+                List.of(new ApiResponse.ApiErrorItem(field, message)));
+    }
+
+    /**
+     * Tells the previous updater of the order what the current user changed (nobody is notified about their own change).
+     */
+    private void notifyStatusChange(Order order, OrderStatus newStatus, User actor, String reason, LocalDate actualDelivery) {
+        if (order.getUpdatedBy() == null || order.getUpdatedBy().equals(actor.getId())) {
+            return;
+        }
+        String orderLabel = "Order " + order.getOrderNumber() + " (" + order.getOrderQuantity().stripTrailingZeros().toPlainString()
+                + " " + order.getUnitType() + " of " + order.getItem().getName() + " from `" + order.getDealer().getName() + "`)";
+        String by = " by " + actor.getUsername();
+        String title;
+        String message;
+        switch (newStatus) {
+            case PENDING -> {
+                title = "Order Moved to Pending";
+                message = orderLabel + " was moved back to Pending" + by + ".";
+            }
+            case DEALER_LEVEL_PENDING -> {
+                title = "Order Approved";
+                message = orderLabel + " was approved" + by + ". Now pending from the dealer.";
+            }
+            case CONFIRMED -> {
+                title = "Order Confirmed";
+                message = orderLabel + " was confirmed" + by + ".";
+            }
+            case SHIPPED -> {
+                title = "Order Shipped";
+                message = orderLabel + " was marked as shipped" + by + ".";
+            }
+            case DELIVERED -> {
+                title = "Order Delivered";
+                message = orderLabel + " was marked as delivered" + by
+                        + (actualDelivery != null ? " on " + actualDelivery : "") + ". Stock can now be created from it.";
+            }
+            case CANCELLED -> {
+                title = "Order Cancelled";
+                message = orderLabel + " was cancelled" + by
+                        + (reason != null && !reason.isBlank() ? ". Reason: " + reason.trim() : "") + ".";
+            }
+            default -> {
+                title = "Order Updated";
+                message = orderLabel + " status changed to " + newStatus + by + ".";
+            }
+        }
+        notificationService.createForUser(order.getUpdatedBy(), title, message);
     }
 }

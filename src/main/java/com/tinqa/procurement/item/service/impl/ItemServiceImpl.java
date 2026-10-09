@@ -7,6 +7,7 @@ import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.dto.CategoryDTOs;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.entity.Item;
+import com.tinqa.procurement.item.entity.ItemWarranty;
 import com.tinqa.procurement.common.entity.Category;
 import com.tinqa.procurement.common.repository.CategoryRepository;
 import com.tinqa.procurement.item.repository.ItemRepository;
@@ -18,7 +19,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -78,13 +83,14 @@ public class ItemServiceImpl implements ItemService {
                 .mrp(request.getMrp())
                 .countryOfOrigin(request.getCountryOfOrigin())
                 .rawMaterialsUsed(request.getRawMaterialsUsed())
-                .warrantyMonths(request.getWarrantyMonths())
                 .termsAndCondition(request.getTermsAndCondition())
                 .description(request.getDescription())
                 .attributes(request.getAttributes())
                 .createdBy(currentUserId)
                 .updatedBy(currentUserId)
                 .build();
+
+        syncWarranties(item, request.getWarranties(), currentUserId);
 
         return mapToItemResponse(itemRepository.save(item));
     }
@@ -107,7 +113,6 @@ public class ItemServiceImpl implements ItemService {
         item.setMrp(request.getMrp());
         item.setCountryOfOrigin(request.getCountryOfOrigin());
         item.setRawMaterialsUsed(request.getRawMaterialsUsed());
-        item.setWarrantyMonths(request.getWarrantyMonths());
         item.setTermsAndCondition(request.getTermsAndCondition());
         item.setDescription(request.getDescription());
         item.setAttributes(request.getAttributes());
@@ -115,6 +120,10 @@ public class ItemServiceImpl implements ItemService {
 
         if (request.getIsActive() != null) {
             item.setIsActive(request.getIsActive());
+        }
+
+        if (request.getWarranties() != null) {
+            syncWarranties(item, request.getWarranties(), currentUserId);
         }
 
         return mapToItemResponse(itemRepository.save(item));
@@ -126,6 +135,16 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + id));
         return mapToItemResponse(item);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemDTOs.WarrantyResponse> getItemWarranties(Long itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + itemId));
+        return item.getWarranties().stream()
+                .map(ItemDTOs.WarrantyResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -143,6 +162,58 @@ public class ItemServiceImpl implements ItemService {
         item.setIsActive(false);
         item.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
         itemRepository.save(item);
+    }
+
+    /**
+     * Makes the item's warranties match the requested set: entries with an id update the
+     * matching warranty, entries without an id are added, and the rest are removed.
+     */
+    private void syncWarranties(Item item, List<ItemDTOs.WarrantyRequest> requests, Long currentUserId) {
+        List<ItemDTOs.WarrantyRequest> warrantyRequests = requests == null ? List.of() : requests;
+
+        Map<Long, ItemWarranty> existingById = item.getWarranties().stream()
+                .collect(Collectors.toMap(ItemWarranty::getId, Function.identity()));
+
+        Set<Long> requestedIds = new HashSet<>();
+        for (ItemDTOs.WarrantyRequest request : warrantyRequests) {
+            if (request.getId() == null) {
+                continue;
+            }
+            if (!existingById.containsKey(request.getId())) {
+                throw new BadRequestException("Warranty " + request.getId() + " does not belong to item " + item.getId());
+            }
+            if (!requestedIds.add(request.getId())) {
+                throw new BadRequestException("Duplicate warranty ID in request: " + request.getId());
+            }
+        }
+
+        item.getWarranties().removeIf(warranty -> !requestedIds.contains(warranty.getId()));
+
+        for (ItemDTOs.WarrantyRequest request : warrantyRequests) {
+            ItemWarranty warranty;
+            if (request.getId() == null) {
+                warranty = ItemWarranty.builder()
+                        .item(item)
+                        .createdBy(currentUserId)
+                        .build();
+                item.getWarranties().add(warranty);
+            } else {
+                warranty = existingById.get(request.getId());
+            }
+
+            warranty.setWarrantyType(request.getWarrantyType());
+            warranty.setTitle(request.getTitle());
+            warranty.setDurationValue(request.getDurationValue());
+            warranty.setDurationUnit(request.getDurationUnit());
+            warranty.setProvider(request.getProvider());
+            warranty.setCoverage(request.getCoverage());
+            warranty.setExclusions(request.getExclusions());
+            warranty.setTermsAndConditions(request.getTermsAndConditions());
+            if (request.getIsActive() != null) {
+                warranty.setIsActive(request.getIsActive());
+            }
+            warranty.setUpdatedBy(currentUserId);
+        }
     }
 
     private CategoryDTOs.Response mapToCategoryResponse(Category category) {
@@ -169,10 +240,12 @@ public class ItemServiceImpl implements ItemService {
         res.setMrp(item.getMrp());
         res.setCountryOfOrigin(item.getCountryOfOrigin());
         res.setRawMaterialsUsed(item.getRawMaterialsUsed());
-        res.setWarrantyMonths(item.getWarrantyMonths());
         res.setTermsAndCondition(item.getTermsAndCondition());
         res.setDescription(item.getDescription());
         res.setAttributes(item.getAttributes());
+        res.setWarranties(item.getWarranties().stream()
+                .map(ItemDTOs.WarrantyResponse::from)
+                .collect(Collectors.toList()));
         res.setIsActive(item.getIsActive());
         res.setCreatedAt(item.getCreatedAt());
         res.setUpdatedAt(item.getUpdatedAt());

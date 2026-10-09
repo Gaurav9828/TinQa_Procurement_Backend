@@ -117,6 +117,24 @@ public class ItemAdminController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}/warranties")
+    public ResponseEntity<ApiResponse<List<ItemDTOs.WarrantyResponse>>> getItemWarranties(
+            @PathVariable Long id,
+            HttpServletRequest httpServletRequest) {
+
+        List<ItemDTOs.WarrantyResponse> responseData = itemService.getItemWarranties(id);
+
+        ApiResponse<List<ItemDTOs.WarrantyResponse>> response = ApiResponse.<List<ItemDTOs.WarrantyResponse>>builder()
+                .success(true)
+                .message("Item warranties retrieved successfully")
+                .data(responseData)
+                .timestamp(Instant.now())
+                .path(httpServletRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ItemDTOs.Response>>> getAllItems(
             Pageable pageable,

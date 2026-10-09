@@ -40,7 +40,7 @@ public class LocalFileStorageService implements FileStorageService {
             String extension = "";
             int i = originalFileName.lastIndexOf('.');
             if (i >= 0) {
-                extension = originalFileName.substring(i);
+                extension = originalFileName.substring(i).toLowerCase(java.util.Locale.ROOT);
             }
 
             String newFileName = UUID.randomUUID() + extension;

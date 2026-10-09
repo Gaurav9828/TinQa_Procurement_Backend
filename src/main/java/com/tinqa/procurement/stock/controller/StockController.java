@@ -103,6 +103,36 @@ public class StockController {
                 .build());
     }
 
+    // Bulk totals for pickers: ?itemIds=7,8,9 limits to those items (default: all active items)
+    @GetMapping("/items/availability")
+    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
+    public ResponseEntity<ApiResponse<List<StockDTOs.ItemAvailabilitySummary>>> getItemsAvailability(
+            @RequestParam(required = false) List<Long> itemIds,
+            @RequestParam(defaultValue = "false") boolean inStockOnly,
+            HttpServletRequest servletRequest) {
+        List<StockDTOs.ItemAvailabilitySummary> data = stockService.getItemsAvailability(itemIds, inStockOnly);
+        return ResponseEntity.ok(ApiResponse.<List<StockDTOs.ItemAvailabilitySummary>>builder()
+                .success(true)
+                .message("Item stock availability retrieved successfully")
+                .data(data)
+                .path(servletRequest.getRequestURI())
+                .build());
+    }
+
+    @GetMapping("/items/{itemId}/availability")
+    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
+    public ResponseEntity<ApiResponse<StockDTOs.ItemAvailabilityResponse>> getItemAvailability(
+            @PathVariable Long itemId,
+            HttpServletRequest servletRequest) {
+        StockDTOs.ItemAvailabilityResponse data = stockService.getItemAvailability(itemId);
+        return ResponseEntity.ok(ApiResponse.<StockDTOs.ItemAvailabilityResponse>builder()
+                .success(true)
+                .message("Item stock availability retrieved successfully")
+                .data(data)
+                .path(servletRequest.getRequestURI())
+                .build());
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
     public ResponseEntity<ApiResponse<List<StockDTOs.Response>>> getAllStocks(

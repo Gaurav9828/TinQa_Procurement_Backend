@@ -8,15 +8,18 @@ import com.tinqa.procurement.notification.mapper.NotificationMapper;
 import com.tinqa.procurement.notification.repository.NotificationRecipientRepository;
 import com.tinqa.procurement.notification.repository.NotificationRepository;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -32,6 +35,11 @@ public class NotificationServiceImpl implements NotificationService {
             Long userId,
             String title,
             String message) {
+
+        if (isBlank(title, message)) {
+            log.warn("Skipped notification with empty title or message for user {}", userId);
+            return null;
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() ->
@@ -61,9 +69,21 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void createForRole(Role role, Long excludeUserId, String title, String message) {
+        userRepository.findByRoleAndEnabledTrue(role).stream()
+                .filter(user -> !user.getId().equals(excludeUserId))
+                .forEach(user -> createForUser(user.getId(), title, message));
+    }
+
+    @Override
     public void createBroadcast(
             String title,
             String message) {
+
+        if (isBlank(title, message)) {
+            log.warn("Skipped broadcast notification with empty title or message");
+            return;
+        }
 
         Notification notification = Notification.builder()
                 .title(title)
@@ -168,5 +188,10 @@ public class NotificationServiceImpl implements NotificationService {
                 .getContext()
                 .getAuthentication()
                 .getName();
+    }
+
+    // A notification without text is useless to the recipient; it means the caller had nothing to say
+    private boolean isBlank(String title, String message) {
+        return title == null || title.isBlank() || message == null || message.isBlank();
     }
 }

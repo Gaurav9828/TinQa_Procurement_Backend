@@ -1,5 +1,7 @@
 package com.tinqa.procurement.approval.dto;
 
+import com.tinqa.procurement.common.validation.*;
+import jakarta.validation.constraints.*;
 import com.tinqa.procurement.common.constant.ApprovalStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -23,5 +25,6 @@ public class EmployeeProfileApprovalRequest {
     )
     private String decision;
 
+    @Size(max = 500, message = "Rejection reason cannot exceed 500 characters")
     private String rejectionReason;
 }

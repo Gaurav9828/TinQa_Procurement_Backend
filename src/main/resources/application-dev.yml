@@ -38,6 +38,10 @@ logging:
     org.hibernate.SQL: DEBUG
 
 tinqa:
+  internal-api:
+    # Local development only; UAT/PROD must set TINQA_INTERNAL_API_KEY
+    key: ${TINQA_INTERNAL_API_KEY:dev-internal-api-key-change-me}
+
   security:
     jwt:
       secret: TinQaDevJwtSecretKeyMustBeAtLeast32CharactersLong!

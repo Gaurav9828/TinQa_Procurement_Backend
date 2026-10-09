@@ -1,28 +1,33 @@
 package com.tinqa.procurement.stock.service.impl;
 
 import com.tinqa.procurement.common.enums.ApprovalStatus;
+import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.dealer.entity.Dealer;
-import com.tinqa.procurement.dealer.repository.DealerRepository;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.entity.Order;
+import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.repository.OrderRepository;
+import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.stock.dto.StockDTOs;
 import com.tinqa.procurement.stock.entity.Stock;
+import com.tinqa.procurement.stock.exception.InsufficientStockException;
 import com.tinqa.procurement.stock.repository.StockRepository;
 import com.tinqa.procurement.stock.service.StockService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,7 +38,6 @@ public class StockServiceImpl implements StockService {
 
     private final StockRepository stockRepository;
     private final OrderRepository orderRepository;
-    private final DealerRepository dealerRepository;
     private final ItemRepository itemRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
@@ -41,12 +45,22 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional
     public StockDTOs.Response createStockFromOrder(StockDTOs.CreateFromOrderRequest request, Long currentUserId) {
-        Order order = orderRepository.findByOrderNumber(request.getOrderNumber())
+        Order order = orderRepository.findByOrderNumberForUpdate(request.getOrderNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with number: " + request.getOrderNumber()));
 
-        if (request.getUnitsPassedTest().add(request.getDefectedUnits()).compareTo(order.getOrderQuantity()) > 0) {
-            throw new BadRequestException("Passed + defected units cannot exceed original total order quantity (" + order.getOrderQuantity() + ")");
+        // One order, one stock entry: the order's quantity is received once (checked under the order lock)
+        Optional<Stock> existing = stockRepository.findFirstByOrderOrderNumber(order.getOrderNumber());
+        if (existing.isPresent()) {
+            throw new ApiException("Order " + order.getOrderNumber() + " already has stock entry "
+                    + existing.get().getStockIdentityNumber() + ". An order can be used for only one stock entry; "
+                    + "update that entry instead of creating a new one.",
+                    "ORDER_ALREADY_HAS_STOCK", HttpStatus.CONFLICT,
+                    List.of(new com.tinqa.procurement.common.response.ApiResponse.ApiErrorItem("orderNumber",
+                            "Order " + order.getOrderNumber() + " already has a stock entry")));
         }
+
+        ensureArrivalNotBeforeOrder(order, request.getDateOfArrival());
+        ensureWithinOrderQuantity(order, null, request.getUnitsPassedTest().add(request.getDefectedUnits()), "unitsPassedTest");
 
         String stockIdentityNumber = "STK-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
 
@@ -62,9 +76,9 @@ public class StockServiceImpl implements StockService {
                 .order(order)
                 .dealer(order.getDealer())
                 .item(order.getItem())
-                .unitsPassedTest(order.getOrderQuantity())
+                .unitsPassedTest(request.getUnitsPassedTest())
                 .defectedUnits(request.getDefectedUnits())
-                .availableUnits(order.getOrderQuantity())
+                .availableUnits(request.getUnitsPassedTest())
                 .hasTested(request.getHasTested())
                 .additionalInfo(request.getAdditionalInfo())
                 .approvalStatus(ApprovalStatus.PENDING)
@@ -73,13 +87,28 @@ public class StockServiceImpl implements StockService {
                 .updatedBy(currentUserId)
                 .build();
 
-        return mapToResponse(stockRepository.save(stock));
+        Stock saved = stockRepository.save(stock);
+        notifyApprovalRequired(saved, order, currentUserId);
+        return mapToResponse(saved);
+    }
+
+    private void notifyApprovalRequired(Stock stock, Order order, Long submittedBy) {
+        String submitter = userRepository.findById(submittedBy).map(User::getUsername).orElse("user #" + submittedBy);
+        String message = "Stock " + stock.getStockIdentityNumber() + " (batch " + stock.getBatchNumber() + ") for order "
+                + order.getOrderNumber() + ": " + plain(stock.getUnitsPassedTest()) + " " + order.getUnitType() + " passed and "
+                + plain(stock.getDefectedUnits()) + " " + order.getUnitType() + " defected of " + order.getItem().getName()
+                + " from `" + order.getDealer().getName() + "`, arrived on " + stock.getDateOfArrival()
+                + ". Submitted by " + submitter + " and waiting for your approval.";
+        notificationService.createForRole(Role.ADMIN_L2, submittedBy, "Stock Approval Required", message);
     }
 
     @Override
     @Transactional
     public StockDTOs.Response addStockQuantity(Long id, StockDTOs.QuantityAdjustmentRequest request, Long currentUserId) {
         Stock stock = getValidatedStock(id);
+        Order order = lockOrder(stock);
+        ensureWithinOrderQuantity(order, stock.getId(),
+                stock.getUnitsPassedTest().add(stock.getDefectedUnits()).add(request.getQuantity()), "quantity");
 
         stock.setUnitsPassedTest(stock.getUnitsPassedTest().add(request.getQuantity()));
         stock.setAvailableUnits(stock.getAvailableUnits().add(request.getQuantity()));
@@ -206,26 +235,29 @@ public class StockServiceImpl implements StockService {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Stock not found with id: " + id));
 
-        // Update Dealer if changed
-        if (!stock.getDealer().getId().equals(request.getDealerId())) {
-            Dealer dealer = dealerRepository.findById(request.getDealerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + request.getDealerId()));
-            stock.setDealer(dealer);
+        // Every stock entry comes from one order: it must keep that order's dealer and item
+        Order order = lockOrder(stock);
+        if (!order.getDealer().getId().equals(request.getDealerId())) {
+            throw fieldError("dealerId", "Stock dealer must match its order's dealer (" + order.getDealer().getName() + ")");
         }
+        if (!order.getItem().getId().equals(request.getItemId())) {
+            throw fieldError("itemId", "Stock item must match its order's item (" + order.getItem().getName() + ")");
+        }
+        ensureArrivalNotBeforeOrder(order, request.getDateOfArrival());
+        ensureWithinOrderQuantity(order, stock.getId(), request.getUnitsPassedTest().add(request.getDefectedUnits()), "unitsPassedTest");
 
-        // Update Item if changed
-        if (!stock.getItem().getId().equals(request.getItemId())) {
-            Item item = itemRepository.findById(request.getItemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Item not found with id: " + request.getItemId()));
-            stock.setItem(item);
+        // Units already used (by products / other services) stay used when the counts are corrected
+        BigDecimal alreadyUsed = stock.getUnitsPassedTest().subtract(stock.getAvailableUnits()).max(BigDecimal.ZERO);
+        BigDecimal available = request.getUnitsPassedTest().subtract(alreadyUsed);
+        if (available.signum() < 0) {
+            throw fieldError("unitsPassedTest", "Units passed test cannot be lower than the " + plain(alreadyUsed)
+                    + " units already used from this stock entry");
         }
 
         stock.setBatchNumber(request.getBatchNumber());
         stock.setUnitsPassedTest(request.getUnitsPassedTest());
         stock.setDefectedUnits(request.getDefectedUnits());
-
-        // Automatically manage availableUnits based on unitsPassed (or keep your custom business logic)
-        stock.setAvailableUnits(request.getUnitsPassedTest());
+        stock.setAvailableUnits(available);
 
         stock.setHasTested(request.getHasTested());
         stock.setDateOfArrival(request.getDateOfArrival());
@@ -239,5 +271,181 @@ public class StockServiceImpl implements StockService {
 
         Stock updatedStock = stockRepository.save(stock);
         return mapToResponse(updatedStock);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StockDTOs.ItemAvailabilityResponse getItemAvailability(Long itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found with id: " + itemId));
+
+        List<Stock> stocks = stockRepository.findConsumableStock(itemId, ApprovalStatus.APPROVED, OrderStatus.DELIVERED);
+
+        return StockDTOs.ItemAvailabilityResponse.builder()
+                .itemId(item.getId())
+                .itemName(item.getName())
+                .itemSku(item.getSku())
+                .unitOfMeasure(item.getUnitOfMeasure())
+                .totalAvailableUnits(sumAvailableUnits(stocks))
+                .stocks(stocks.stream()
+                        .map(stock -> StockDTOs.AvailableStockEntry.builder()
+                                .stockId(stock.getId())
+                                .stockIdentityNumber(stock.getStockIdentityNumber())
+                                .batchNumber(stock.getBatchNumber())
+                                .orderNumber(stock.getOrder().getOrderNumber())
+                                .availableUnits(stock.getAvailableUnits())
+                                .dateOfArrival(stock.getDateOfArrival())
+                                .build())
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public Map<Stock, BigDecimal> consumeItemStock(Item item, BigDecimal quantity, Long currentUserId) {
+        List<Stock> stocks = stockRepository.findConsumableStockForUpdate(item.getId(), ApprovalStatus.APPROVED, OrderStatus.DELIVERED);
+
+        BigDecimal totalAvailable = sumAvailableUnits(stocks);
+        if (totalAvailable.compareTo(quantity) < 0) {
+            throw new InsufficientStockException(
+                    "Insufficient stock for item '" + item.getName() + "': requested " + quantity.stripTrailingZeros().toPlainString()
+                            + ", available " + totalAvailable.stripTrailingZeros().toPlainString(),
+                    item.getId(), quantity, totalAvailable);
+        }
+
+        Map<Stock, BigDecimal> consumed = new LinkedHashMap<>();
+        BigDecimal remaining = quantity;
+        for (Stock stock : stocks) {
+            if (remaining.signum() == 0) {
+                break;
+            }
+            BigDecimal taken = stock.getAvailableUnits().min(remaining);
+            stock.setAvailableUnits(stock.getAvailableUnits().subtract(taken));
+            setUpdatedBy(stock, currentUserId);
+            consumed.put(stock, taken);
+            remaining = remaining.subtract(taken);
+        }
+
+        stockRepository.saveAll(consumed.keySet());
+        return consumed;
+    }
+
+    @Override
+    @Transactional
+    public void restoreStock(Map<Long, BigDecimal> unitsByStockId, Long currentUserId) {
+        if (unitsByStockId.isEmpty()) {
+            return;
+        }
+        List<Stock> stocks = stockRepository.findAllByIdForUpdate(unitsByStockId.keySet());
+        for (Stock stock : stocks) {
+            stock.setAvailableUnits(stock.getAvailableUnits().add(unitsByStockId.get(stock.getId())));
+            setUpdatedBy(stock, currentUserId);
+        }
+        stockRepository.saveAll(stocks);
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal lockConsumableUnits(Long itemId) {
+        return sumAvailableUnits(stockRepository.findConsumableStockForUpdate(itemId, ApprovalStatus.APPROVED, OrderStatus.DELIVERED));
+    }
+
+    @Override
+    @Transactional
+    public void takeBackStock(Map<Long, BigDecimal> unitsByStockId, Long currentUserId) {
+        if (unitsByStockId.isEmpty()) {
+            return;
+        }
+        List<Stock> stocks = stockRepository.findAllByIdForUpdate(unitsByStockId.keySet());
+        for (Stock stock : stocks) {
+            BigDecimal units = unitsByStockId.get(stock.getId());
+            if (stock.getAvailableUnits().compareTo(units) < 0) {
+                throw new ApiException(
+                        "Stock " + stock.getStockIdentityNumber() + " no longer has the " + units.stripTrailingZeros().toPlainString()
+                                + " units returned to it (available " + stock.getAvailableUnits().stripTrailingZeros().toPlainString() + ")",
+                        "REVERSAL_NOT_POSSIBLE", HttpStatus.CONFLICT);
+            }
+        }
+        for (Stock stock : stocks) {
+            stock.setAvailableUnits(stock.getAvailableUnits().subtract(unitsByStockId.get(stock.getId())));
+            setUpdatedBy(stock, currentUserId);
+        }
+        stockRepository.saveAll(stocks);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StockDTOs.ItemAvailabilitySummary> getItemsAvailability(List<Long> itemIds, boolean inStockOnly) {
+        boolean filterByIds = itemIds != null && !itemIds.isEmpty();
+        List<Item> items = filterByIds
+                ? itemRepository.findAllById(itemIds)
+                : itemRepository.findByIsActiveTrueOrderByNameAsc();
+
+        Map<Long, BigDecimal> totals = (filterByIds
+                ? stockRepository.sumConsumableUnitsByItem(itemIds, ApprovalStatus.APPROVED, OrderStatus.DELIVERED)
+                : stockRepository.sumConsumableUnitsByItem(ApprovalStatus.APPROVED, OrderStatus.DELIVERED))
+                .stream()
+                .collect(Collectors.toMap(StockRepository.ItemUnitsTotal::getItemId, StockRepository.ItemUnitsTotal::getTotalUnits));
+
+        return items.stream()
+                .map(item -> StockDTOs.ItemAvailabilitySummary.builder()
+                        .itemId(item.getId())
+                        .itemName(item.getName())
+                        .itemSku(item.getSku())
+                        .unitOfMeasure(item.getUnitOfMeasure())
+                        .totalAvailableUnits(totals.getOrDefault(item.getId(), BigDecimal.ZERO))
+                        .build())
+                .filter(summary -> !inStockOnly || summary.getTotalAvailableUnits().signum() > 0)
+                .collect(Collectors.toList());
+    }
+
+    private Order lockOrder(Stock stock) {
+        return orderRepository.findByOrderNumberForUpdate(stock.getOrder().getOrderNumber())
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with number: " + stock.getOrder().getOrderNumber()));
+    }
+
+    /**
+     * Stock is received against one order, so the units recorded on all of that order's stock entries
+     * (passed + defected, rejected entries excluded) can never exceed the ordered quantity.
+     */
+    private void ensureWithinOrderQuantity(Order order, Long stockId, BigDecimal unitsForThisEntry, String field) {
+        BigDecimal recordedElsewhere = stockRepository.sumRecordedUnitsForOrder(
+                order.getOrderNumber(), stockId == null ? -1L : stockId, ApprovalStatus.REJECTED);
+        BigDecimal allowed = order.getOrderQuantity().subtract(recordedElsewhere).max(BigDecimal.ZERO);
+        if (unitsForThisEntry.compareTo(allowed) > 0) {
+            String unit = order.getUnitType();
+            throw fieldError(field, "Stock cannot exceed the ordered quantity. Order " + order.getOrderNumber() + " is for "
+                    + plain(order.getOrderQuantity()) + " " + unit + " and " + plain(recordedElsewhere) + " " + unit
+                    + " are already recorded in other stock entries, so this entry can hold at most " + plain(allowed) + " " + unit
+                    + " (units passed + defected).");
+        }
+    }
+
+    private void ensureArrivalNotBeforeOrder(Order order, java.time.LocalDate dateOfArrival) {
+        if (dateOfArrival != null && dateOfArrival.isBefore(order.getOrderDate())) {
+            throw fieldError("dateOfArrival", "Date of arrival cannot be before the order date (" + order.getOrderDate() + ")");
+        }
+    }
+
+    private ApiException fieldError(String field, String message) {
+        return new ApiException(message, "VALIDATION_FAILED", HttpStatus.BAD_REQUEST,
+                List.of(new com.tinqa.procurement.common.response.ApiResponse.ApiErrorItem(field, message)));
+    }
+
+    private String plain(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    // Service-to-service movements have no procurement user; keep the last user who touched the entry
+    private void setUpdatedBy(Stock stock, Long currentUserId) {
+        if (currentUserId != null) {
+            stock.setUpdatedBy(currentUserId);
+        }
+    }
+
+    private BigDecimal sumAvailableUnits(List<Stock> stocks) {
+        return stocks.stream()
+                .map(Stock::getAvailableUnits)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
