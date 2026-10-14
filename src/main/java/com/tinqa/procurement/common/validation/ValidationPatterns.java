@@ -13,6 +13,10 @@ public final class ValidationPatterns {
     public static final String PERSON_NAME = "^[\\p{L}][\\p{L}\\p{M} .'-]*$";
     public static final String PERSON_NAME_MESSAGE = "can only contain letters, spaces, dots, apostrophes and hyphens";
 
+    // Optional names (middle name): blank is accepted and means "none"; a value must be a valid name
+    public static final String OPTIONAL_PERSON_NAME = "^\\s*$|^\\s*[\\p{L}][\\p{L}\\p{M} .'-]*$";
+    public static final String OPTIONAL_PERSON_NAME_MESSAGE = PERSON_NAME_MESSAGE + ", or be left blank";
+
     // Single-line business text (names of things, addresses, designations): starts with a letter, digit, # or (
     public static final String SINGLE_LINE_TEXT = "^[\\p{L}\\p{N}#(][\\p{L}\\p{M}\\p{N} .,'&()/#:+_@%-]*$";
     public static final String SINGLE_LINE_TEXT_MESSAGE = "can only contain letters, numbers, spaces and . , ' & ( ) / # : + _ @ % -";

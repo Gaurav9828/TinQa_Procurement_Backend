@@ -22,7 +22,7 @@ public class UpdateEmployeeRequest {
     @Pattern(regexp = ValidationPatterns.PERSON_NAME, message = "First name " + ValidationPatterns.PERSON_NAME_MESSAGE)
     private String firstName;
     @Size(max = 100, message = "Middle name cannot exceed 100 characters")
-    @Pattern(regexp = ValidationPatterns.PERSON_NAME, message = "Middle name " + ValidationPatterns.PERSON_NAME_MESSAGE)
+    @Pattern(regexp = ValidationPatterns.OPTIONAL_PERSON_NAME, message = "Middle name " + ValidationPatterns.OPTIONAL_PERSON_NAME_MESSAGE)
     private String middleName;
     @Size(max = 100, message = "Last name cannot exceed 100 characters")
     @Pattern(regexp = ValidationPatterns.PERSON_NAME, message = "Last name " + ValidationPatterns.PERSON_NAME_MESSAGE)

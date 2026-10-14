@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 public class ItemStockMovementServiceImpl implements ItemStockMovementService {
 
     static final String INSUFFICIENT_ITEM_STOCK = "INSUFFICIENT_ITEM_STOCK";
-    static final String RETURN_EXCEEDS_CONSUMED = "RETURN_EXCEEDS_CONSUMED";
 
     private static final String UNKNOWN = "UNKNOWN";
 
@@ -53,6 +52,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         List<ItemStockMovementDTOs.Line> lines = request.getLines();
         validateLines(lines);
         Map<Long, Item> items = loadItems(lines);
+        movementRepository.lockReference(request.getSource(), request.getReference());
 
         ItemStockMovement movement = claim(ItemStockMovement.builder()
                 .movementId(request.getMovementId())
@@ -64,7 +64,6 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
 
         // Check every line (locking the rows involved) before moving anything, so failures report all problems
         List<ApiResponse.ApiErrorItem> shortages = new ArrayList<>();
-        List<ApiResponse.ApiErrorItem> overReturns = new ArrayList<>();
         Map<Integer, List<ItemStockMovementAllocationRepository.StockNetUnits>> returnPlans = new HashMap<>();
         for (int i = 0; i < lines.size(); i++) {
             ItemStockMovementDTOs.Line line = lines.get(i);
@@ -77,24 +76,14 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                             + plain(line.getQuantity()) + ", available " + plain(available)));
                 }
             } else {
-                List<ItemStockMovementAllocationRepository.StockNetUnits> held = allocationRepository.findHeldUnitsByStock(
-                        request.getSource(), request.getReference(), item.getId(), ItemStockMovementStatus.APPLIED);
-                BigDecimal totalHeld = held.stream()
-                        .map(ItemStockMovementAllocationRepository.StockNetUnits::getNetUnits)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal toReturn = line.getQuantity().negate();
-                if (totalHeld.compareTo(toReturn) < 0) {
-                    overReturns.add(error(field, "Cannot return " + plain(toReturn) + " of " + item.getName()
-                            + " for " + request.getReference() + ": only " + plain(totalHeld) + " were consumed by it"));
-                }
-                returnPlans.put(i, held);
+                // Returns are capped at what the reference still holds (e.g. after a rejected product released
+                // its stock), so they can never create stock out of nothing
+                returnPlans.put(i, allocationRepository.findHeldUnitsByStock(
+                        request.getSource(), request.getReference(), item.getId(), ItemStockMovementStatus.APPLIED));
             }
         }
         if (!shortages.isEmpty()) {
             throw new ApiException(joinMessages(shortages), INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT, shortages);
-        }
-        if (!overReturns.isEmpty()) {
-            throw new ApiException(joinMessages(overReturns), RETURN_EXCEEDS_CONSUMED, HttpStatus.BAD_REQUEST, overReturns);
         }
 
         for (int i = 0; i < lines.size(); i++) {
@@ -135,6 +124,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         }
 
         ItemStockMovement movement = found.get();
+        movementRepository.lockReference(movement.getSource(), movement.getReference());
         if (movement.getStatus() == ItemStockMovementStatus.REVERSED) {
             return toResponse(movement);
         }
@@ -185,6 +175,44 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         return movementRepository.findByMovementId(movementId)
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Item stock movement not found: " + movementId));
+    }
+
+    @Override
+    @Transactional
+    public ItemStockMovementDTOs.MovementResponse releaseReference(String source, String reference, String performedBy) {
+        return reconcileReference(source, reference, Map.of(), performedBy);
+    }
+
+    @Override
+    @Transactional
+    public ItemStockMovementDTOs.MovementResponse reconcileReference(String source, String reference,
+                                                                     Map<Long, BigDecimal> targetUnitsByItem, String performedBy) {
+        movementRepository.lockReference(source, reference);
+        Map<Long, BigDecimal> held = allocationRepository.findHeldUnitsByItem(source, reference, ItemStockMovementStatus.APPLIED)
+                .stream()
+                .collect(Collectors.toMap(ItemStockMovementAllocationRepository.ItemNetUnits::getItemId,
+                        ItemStockMovementAllocationRepository.ItemNetUnits::getNetUnits));
+
+        Set<Long> itemIds = new TreeSet<>(held.keySet());
+        itemIds.addAll(targetUnitsByItem.keySet());
+        List<ItemStockMovementDTOs.Line> lines = new ArrayList<>();
+        for (Long itemId : itemIds) {
+            BigDecimal delta = targetUnitsByItem.getOrDefault(itemId, BigDecimal.ZERO).max(BigDecimal.ZERO)
+                    .subtract(held.getOrDefault(itemId, BigDecimal.ZERO));
+            if (delta.signum() != 0) {
+                lines.add(ItemStockMovementDTOs.Line.builder().itemId(itemId).quantity(delta).build());
+            }
+        }
+        if (lines.isEmpty()) {
+            return null;
+        }
+        return applyMovement(ItemStockMovementDTOs.MovementRequest.builder()
+                .movementId(UUID.randomUUID())
+                .source(source)
+                .reference(reference)
+                .lines(lines)
+                .performedBy(performedBy)
+                .build());
     }
 
     private ItemStockMovementDTOs.MovementResponse replay(ItemStockMovement existing, ItemStockMovementDTOs.MovementRequest request) {

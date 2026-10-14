@@ -31,3 +31,6 @@ tinqa:
   internal-api:
     # Shared secret other TinQa services send in X-Internal-Api-Key. Empty = internal API disabled.
     key: ${TINQA_INTERNAL_API_KEY:}
+  product-approval:
+    # Maker-checker: false = the Admin L2 who submitted a product cannot also approve/reject/cancel it
+    allow-self-decision: ${TINQA_PRODUCT_APPROVAL_ALLOW_SELF_DECISION:false}

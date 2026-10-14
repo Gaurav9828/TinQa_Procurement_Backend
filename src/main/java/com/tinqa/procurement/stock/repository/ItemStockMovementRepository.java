@@ -14,6 +14,14 @@ public interface ItemStockMovementRepository extends JpaRepository<ItemStockMove
 
     Optional<ItemStockMovement> findByMovementId(UUID movementId);
 
+    /**
+     * Serialises every movement of one source/reference (e.g. one Ecommerce product) for the rest of the
+     * transaction, so the units it holds are read and changed consistently.
+     */
+    @Query(value = "SELECT CAST(pg_advisory_xact_lock(hashtextextended('item-stock-ref:' || :source || ':' || :reference, 0)) AS text)",
+            nativeQuery = true)
+    String lockReference(@Param("source") String source, @Param("reference") String reference);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM ItemStockMovement m WHERE m.movementId = :movementId")
     Optional<ItemStockMovement> findByMovementIdForUpdate(@Param("movementId") UUID movementId);

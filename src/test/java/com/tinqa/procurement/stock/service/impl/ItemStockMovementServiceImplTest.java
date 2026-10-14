@@ -111,16 +111,87 @@ class ItemStockMovementServiceImplTest {
     }
 
     @Test
-    void returningMoreThanReferenceConsumedIsRejected() {
+    void returnsAreCappedAtWhatTheReferenceStillHolds() {
         when(allocationRepository.findHeldUnitsByStock(SOURCE, REFERENCE, 7L, ItemStockMovementStatus.APPLIED))
                 .thenReturn(List.of(held(10L, "1")));
 
-        ApiException exception = assertThrows(ApiException.class,
-                () -> service.applyMovement(request(UUID.randomUUID(), line(7L, "-2"))));
+        var result = service.applyMovement(request(UUID.randomUUID(), line(7L, "-2")));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
-        assertEquals("RETURN_EXCEEDS_CONSUMED", exception.getErrorCode());
-        verify(stockService, never()).restoreStock(any(), any());
+        verify(stockService).restoreStock(Map.of(10L, new BigDecimal("1")), null);
+        assertEquals(0, new BigDecimal("-1").compareTo(result.getLines().getFirst().getQuantity()));
+    }
+
+    @Test
+    void returningWhenNothingIsHeldMovesNothing() {
+        when(allocationRepository.findHeldUnitsByStock(SOURCE, REFERENCE, 7L, ItemStockMovementStatus.APPLIED)).thenReturn(List.of());
+
+        var result = service.applyMovement(request(UUID.randomUUID(), line(7L, "-2")));
+
+        verify(stockService).restoreStock(Map.of(), null);
+        assertTrue(result.getLines().isEmpty());
+    }
+
+    @Test
+    void everyMovementLocksItsReference() {
+        when(stockService.lockConsumableUnits(7L)).thenReturn(BigDecimal.TEN);
+        when(stockService.consumeItemStock(any(), any(), any())).thenReturn(Map.of());
+
+        service.applyMovement(request(UUID.randomUUID(), line(7L, "1")));
+
+        verify(movementRepository).lockReference(SOURCE, REFERENCE);
+    }
+
+    @Test
+    void releaseReturnsEverythingTheReferenceHolds() {
+        when(allocationRepository.findHeldUnitsByItem(SOURCE, REFERENCE, ItemStockMovementStatus.APPLIED))
+                .thenReturn(List.of(heldItem(7L, "2"), heldItem(8L, "1")));
+        when(allocationRepository.findHeldUnitsByStock(SOURCE, REFERENCE, 7L, ItemStockMovementStatus.APPLIED))
+                .thenReturn(List.of(held(10L, "2")));
+        when(allocationRepository.findHeldUnitsByStock(SOURCE, REFERENCE, 8L, ItemStockMovementStatus.APPLIED))
+                .thenReturn(List.of(held(11L, "1")));
+
+        var result = service.releaseReference(SOURCE, REFERENCE, "admin_l2");
+
+        assertEquals(2, result.getLines().size());
+        verify(stockService).restoreStock(Map.of(10L, new BigDecimal("2")), null);
+        verify(stockService).restoreStock(Map.of(11L, new BigDecimal("1")), null);
+        verify(stockService, never()).consumeItemStock(any(), any(), any());
+    }
+
+    @Test
+    void releasingAReferenceThatHoldsNothingRecordsNoMovement() {
+        when(allocationRepository.findHeldUnitsByItem(SOURCE, REFERENCE, ItemStockMovementStatus.APPLIED)).thenReturn(List.of());
+
+        assertNull(service.releaseReference(SOURCE, REFERENCE, "admin_l2"));
+        verify(movementRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void reconcileConsumesShortfallAndReturnsExcess() {
+        // holds 1 Motherboard + 2 Cable; needs 3 Motherboard and no Cable
+        when(allocationRepository.findHeldUnitsByItem(SOURCE, REFERENCE, ItemStockMovementStatus.APPLIED))
+                .thenReturn(List.of(heldItem(7L, "1"), heldItem(8L, "2")));
+        when(allocationRepository.findHeldUnitsByStock(SOURCE, REFERENCE, 8L, ItemStockMovementStatus.APPLIED))
+                .thenReturn(List.of(held(11L, "2")));
+        when(stockService.lockConsumableUnits(7L)).thenReturn(BigDecimal.TEN);
+        when(stockService.consumeItemStock(motherboard, new BigDecimal("2"), null)).thenReturn(Map.of(stock(1L), new BigDecimal("2")));
+
+        service.reconcileReference(SOURCE, REFERENCE, Map.of(7L, new BigDecimal("3")), "admin_l1");
+
+        verify(stockService).consumeItemStock(motherboard, new BigDecimal("2"), null);
+        verify(stockService).restoreStock(Map.of(11L, new BigDecimal("2")), null);
+    }
+
+    @Test
+    void reconcileFailsWithoutMovingAnythingWhenStockIsShort() {
+        when(allocationRepository.findHeldUnitsByItem(SOURCE, REFERENCE, ItemStockMovementStatus.APPLIED)).thenReturn(List.of());
+        when(stockService.lockConsumableUnits(7L)).thenReturn(BigDecimal.ONE);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.reconcileReference(SOURCE, REFERENCE, Map.of(7L, new BigDecimal("2")), "admin_l1"));
+
+        assertEquals("INSUFFICIENT_ITEM_STOCK", exception.getErrorCode());
+        verify(stockService, never()).consumeItemStock(any(), any(), any());
     }
 
     @Test
@@ -232,6 +303,13 @@ class ItemStockMovementServiceImplTest {
 
     private Stock stock(Long id) {
         return Stock.builder().id(id).batchNumber("BAT-" + id).build();
+    }
+
+    private ItemStockMovementAllocationRepository.ItemNetUnits heldItem(Long itemId, String units) {
+        return new ItemStockMovementAllocationRepository.ItemNetUnits() {
+            public Long getItemId() { return itemId; }
+            public BigDecimal getNetUnits() { return new BigDecimal(units); }
+        };
     }
 
     private ItemStockMovementAllocation allocation(ItemStockMovement movement, Long itemId, Long stockId, String units) {
