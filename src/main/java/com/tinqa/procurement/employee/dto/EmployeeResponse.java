@@ -38,6 +38,13 @@ public class EmployeeResponse {
     private String personalEmail;
     private String workEmail;
     private EmployeeConstants status;
+    // Who created the employee and, for employees that needed approval, the Admin L2 decision
+    private Long createdBy;
+    private String createdByUsername;
+    private Long approvalDecidedBy;
+    private String approvalDecidedByUsername;
+    private LocalDateTime approvalDecidedAt;
+    private String approvalRejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

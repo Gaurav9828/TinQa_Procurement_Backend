@@ -77,6 +77,19 @@ public class Employee {
     @Column(name = "personal_email", length = 255)
     private String personalEmail;
 
+    // User who created this employee (null for seeded / older records)
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "approval_decided_by")
+    private Long approvalDecidedBy;
+
+    @Column(name = "approval_decided_at")
+    private LocalDateTime approvalDecidedAt;
+
+    @Column(name = "approval_rejection_reason", length = 500)
+    private String approvalRejectionReason;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private EmployeeConstants status;

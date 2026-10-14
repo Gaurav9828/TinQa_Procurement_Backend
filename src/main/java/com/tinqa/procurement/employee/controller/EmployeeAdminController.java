@@ -3,6 +3,7 @@ package com.tinqa.procurement.employee.controller;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.employee.constants.EmployeeConstants;
 import com.tinqa.procurement.employee.dto.CreateEmployeeRequest;
+import com.tinqa.procurement.employee.dto.EmployeeApprovalDecisionRequest;
 import com.tinqa.procurement.employee.dto.EmployeeResponse;
 import com.tinqa.procurement.employee.dto.UpdateEmployeeRequest;
 import com.tinqa.procurement.employee.service.EmployeeService;
@@ -18,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1/admin/employees")
@@ -143,6 +145,41 @@ public class EmployeeAdminController {
                         .success(true)
                         .message("Employee permanently deleted successfully")
                         .data(null)
+                        .timestamp(Instant.now())
+                        .path(httpServletRequest.getRequestURI())
+                        .build()
+        );
+    }
+
+    // 7. New employees waiting for Admin L2 approval (Approvals hub), oldest first
+    @GetMapping("/pending-approvals")
+    @PreAuthorize("hasRole('ADMIN_L2')")
+    public ResponseEntity<ApiResponse<List<EmployeeResponse>>> getPendingApprovals(HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(
+                ApiResponse.<List<EmployeeResponse>>builder()
+                        .success(true)
+                        .message("Employees waiting for approval retrieved successfully")
+                        .data(employeeService.getPendingApprovals())
+                        .timestamp(Instant.now())
+                        .path(httpServletRequest.getRequestURI())
+                        .build()
+        );
+    }
+
+    // 8. Approve (account enabled) or reject (account deactivated, reason kept) a new employee (ADMIN_L2 only)
+    @PatchMapping("/{id}/approval")
+    @PreAuthorize("hasRole('ADMIN_L2')")
+    public ResponseEntity<ApiResponse<EmployeeResponse>> decideApproval(
+            @PathVariable Long id,
+            @Valid @RequestBody EmployeeApprovalDecisionRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        EmployeeResponse data = employeeService.decideApproval(id, request);
+        return ResponseEntity.ok(
+                ApiResponse.<EmployeeResponse>builder()
+                        .success(true)
+                        .message("APPROVED".equals(request.getDecision()) ? "Employee approved successfully" : "Employee rejected")
+                        .data(data)
                         .timestamp(Instant.now())
                         .path(httpServletRequest.getRequestURI())
                         .build()

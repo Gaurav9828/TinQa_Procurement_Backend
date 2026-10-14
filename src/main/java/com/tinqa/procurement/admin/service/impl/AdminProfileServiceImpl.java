@@ -12,6 +12,10 @@ import com.tinqa.procurement.common.exception.ConflictException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
+import com.tinqa.procurement.employee.service.EmployeeContactValidator;
+import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.common.validation.OptionalText;
+import com.tinqa.procurement.common.validation.PhoneNumbers;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
@@ -47,6 +51,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
     private final EmployeeProfileChangeRequestRepository employeeProfileChangeRequestRepository;
     private final CurrentUserProvider currentUserProvider;
     private final UserRepository userRepository;
+    private final EmployeeContactValidator contactValidator;
 
 
     // ============================================================
@@ -87,6 +92,14 @@ public class AdminProfileServiceImpl implements AdminProfileService {
                                         "Employee profile not found"
                                 ));
 
+        List<ApiResponse.ApiErrorItem> duplicates = new ArrayList<>();
+        contactValidator.checkContacts(employee.getId(),
+                request.getPrimaryPhone() != null ? request.getPrimaryPhone() : employee.getPhone(),
+                request.getAlternatePhone() != null ? request.getAlternatePhone() : employee.getAlternatePhone(),
+                request.getPersonalEmail(), EmployeeContactValidator.Fields.ADMIN_PROFILE, duplicates);
+        contactValidator.throwIfAny(duplicates);
+        normalizeContacts(request);
+
         boolean approvalRequired = !isAdminL2(currentUser) && hasApprovalChanges(employee, request);
         if(!approvalRequired){
             updateAllEditableFields(employee, request);
@@ -114,7 +127,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
 
         return (Objects.nonNull(request.getDateOfBirth()) && !Objects.equals(employee.getDateOfBirth(), request.getDateOfBirth()))
                 || (Objects.nonNull(request.getFirstName()) && !Objects.equals(employee.getFirstName(), request.getFirstName()))
-                || (Objects.nonNull(request.getMiddleName()) && !Objects.equals(employee.getMiddleName(), request.getMiddleName()))
+                || OptionalText.changes(employee.getMiddleName(), request.getMiddleName())
                 || (Objects.nonNull(request.getLastName()) && !Objects.equals(employee.getLastName(), request.getLastName()))
                 || (Objects.nonNull(request.getDepartment()) && !Objects.equals(employee.getDepartment(), request.getDepartment()))
                 || (Objects.nonNull(request.getDesignation()) && !Objects.equals(employee.getDesignation(), request.getDesignation()))
@@ -129,7 +142,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
     public boolean hasApprovalChangesInCurrentRequest(Employee employee, AdminProfileUpdateRequest request) {
         return hasChanged(employee.getDateOfBirth(), request.getDateOfBirth())
                 || hasChanged(employee.getFirstName(), request.getFirstName())
-                || hasChanged(employee.getMiddleName(), request.getMiddleName())
+                || OptionalText.changes(employee.getMiddleName(), request.getMiddleName())
                 || hasChanged(employee.getLastName(), request.getLastName())
                 || hasChanged(employee.getDepartment(), request.getDepartment())
                 || hasChanged(employee.getDesignation(), request.getDesignation())
@@ -155,6 +168,18 @@ public class AdminProfileServiceImpl implements AdminProfileService {
     // DIRECTLY EDITABLE FIELDS
     // ============================================================
 
+
+    private void normalizeContacts(AdminProfileUpdateRequest request) {
+        if (request.getPrimaryPhone() != null) {
+            request.setPrimaryPhone(PhoneNumbers.normalize(request.getPrimaryPhone()));
+        }
+        if (request.getAlternatePhone() != null) {
+            request.setAlternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()));
+        }
+        if (request.getPersonalEmail() != null && !request.getPersonalEmail().isBlank()) {
+            request.setPersonalEmail(request.getPersonalEmail().trim().toLowerCase(Locale.ROOT));
+        }
+    }
 
     private void updateDirectlyEditableFields(Employee employee, AdminProfileUpdateRequest request) {
         if (Objects.nonNull(request.getDisplayName()) && !Objects.equals(employee.getDisplayName(), request.getDisplayName())) {
@@ -184,8 +209,9 @@ public class AdminProfileServiceImpl implements AdminProfileService {
         if (Objects.nonNull(request.getFirstName())) {
             employee.setFirstName(request.getFirstName());
         }
+        // Middle name is optional: blank removes it
         if (Objects.nonNull(request.getMiddleName())) {
-            employee.setMiddleName(request.getMiddleName());
+            employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
         }
         if (Objects.nonNull(request.getLastName())) {
             employee.setLastName(request.getLastName());
@@ -246,7 +272,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
          * Middle Name
          */
 
-        if (hasChanged(
+        if (OptionalText.changes(
                 employee.getMiddleName(),
                 request.getMiddleName())) {
 
@@ -346,7 +372,8 @@ public class AdminProfileServiceImpl implements AdminProfileService {
                          */
                         .dateOfBirth(request.getDateOfBirth())
                         .firstName(request.getFirstName())
-                        .middleName(request.getMiddleName())
+                        // "" = remove the middle name once approved; null = not requested
+                        .middleName(request.getMiddleName() == null ? null : request.getMiddleName().trim())
                         .lastName(request.getLastName())
                         .department(request.getDepartment())
                         .designation(request.getDesignation())
@@ -558,7 +585,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
             fields.add("firstName");
         }
 
-        if (Objects.nonNull(request.getMiddleName()) && !Objects.equals(employee.getMiddleName(), request.getMiddleName())) {
+        if (OptionalText.changes(employee.getMiddleName(), request.getMiddleName())) {
             fields.add("middleName");
         }
 

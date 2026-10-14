@@ -35,8 +35,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public LoginResponse authenticateAdmin(AdminLoginRequest request) {
         User user = findUser(request.getUsername());
 
-        validateAccount(user);
         validatePassword(request.getPassword(), user.getPassword());
+        validateAccount(user);
         validateAuthClient(user, AuthClient.WEB);
         validateRole(user);
 
@@ -47,8 +47,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public LoginResponse authenticateMobile(MobileLoginRequest request) {
         User user = findUser(request.getMobileNumber());
 
-        validateAccount(user);
         validatePassword(request.getPassword(), user.getPassword());
+        validateAccount(user);
         validateAuthClient(user, AuthClient.MOBILE);
 
         return buildAuthenticationResponse(user);

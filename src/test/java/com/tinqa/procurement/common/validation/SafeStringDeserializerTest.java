@@ -50,4 +50,18 @@ class SafeStringDeserializerTest {
         assertThrows(UnsafeInputException.class,
                 () -> mapper.readValue("{\"street\":\"see https://evil.example\"}", DealerDTOs.CreateRequest.class));
     }
+
+    @Test
+    void proposedProductChangesAreKeptVerbatimButChangeSummaryIsStillScreened() throws Exception {
+        var request = mapper.readValue("""
+                {"proposedChanges":{"description":"Line 1\\nDetails at https://tinqa.com/x","warranties":[{"generalTermsAndConditions":"T&C"}]},
+                 "changeSummary":[{"label":"Image","oldValue":"https://cdn.tinqa.com/a.png","newValue":"https://cdn.tinqa.com/b.png"}]}
+                """, com.tinqa.procurement.productapproval.dto.ProductApprovalDTOs.SubmitRequest.class);
+        assertEquals("Line 1\nDetails at https://tinqa.com/x", request.getProposedChanges().get("description").asText());
+        assertEquals("https://cdn.tinqa.com/b.png", request.getChangeSummary().getFirst().getNewValue());
+
+        assertThrows(UnsafeInputException.class, () -> mapper.readValue(
+                "{\"changeSummary\":[{\"label\":\"Title\",\"newValue\":\"<script>alert(1)</script>\"}]}",
+                com.tinqa.procurement.productapproval.dto.ProductApprovalDTOs.SubmitRequest.class));
+    }
 }

@@ -34,7 +34,7 @@ public class CreateEmployeeRequest {
     private String firstName;
 
     @Size(max = 100, message = "Middle name cannot exceed 100 characters")
-    @Pattern(regexp = ValidationPatterns.PERSON_NAME, message = "Middle name " + ValidationPatterns.PERSON_NAME_MESSAGE)
+    @Pattern(regexp = ValidationPatterns.OPTIONAL_PERSON_NAME, message = "Middle name " + ValidationPatterns.OPTIONAL_PERSON_NAME_MESSAGE)
     private String middleName;
 
     @NotBlank(message = "Last name is required")

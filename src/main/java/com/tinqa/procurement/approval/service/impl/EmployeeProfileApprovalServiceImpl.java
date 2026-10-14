@@ -1,5 +1,6 @@
 package com.tinqa.procurement.approval.service.impl;
 
+import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalRequest;
 import com.tinqa.procurement.approval.dto.EmployeeProfileApprovalResponse;
 import com.tinqa.procurement.approval.entity.EmployeeProfileChangeRequest;
@@ -173,8 +174,9 @@ public class EmployeeProfileApprovalServiceImpl
             employee.setFirstName(request.getFirstName());
         }
 
-        if (Objects.nonNull(request.getMiddleName()) && !Objects.equals(employee.getMiddleName(), request.getMiddleName())) {
-            employee.setMiddleName(request.getMiddleName());
+        // Middle name is optional: a blank requested value removes it
+        if (OptionalText.changes(employee.getMiddleName(), request.getMiddleName())) {
+            employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
         }
 
         if (Objects.nonNull(request.getLastName()) && !Objects.equals(employee.getLastName(), request.getLastName())) {

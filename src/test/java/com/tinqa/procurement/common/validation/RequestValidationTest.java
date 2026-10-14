@@ -200,4 +200,31 @@ class RequestValidationTest {
         return violations.stream().collect(Collectors.toMap(
                 v -> v.getPropertyPath().toString(), ConstraintViolation::getMessage, (a, b) -> a + " | " + b));
     }
+
+    // ---------- middle name is optional everywhere ----------
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "   ", "Kumar", " Kumar ", "D'Souza", "Anne-Marie"})
+    void blankOrValidMiddleNameIsAccepted(String middleName) {
+        var create = CreateEmployeeRequest.builder()
+                .username("rohan.mehta").email("rohan@tinqa.com").firstName("Rohan").middleName(middleName).lastName("Mehta")
+                .dateOfBirth(LocalDate.now().minusYears(30)).gender("MALE").designation("Buyer").department("Supply Chain")
+                .employmentType("FULL_TIME").joiningDate(LocalDate.now().minusYears(1)).phone("9876543213").build();
+        var update = com.tinqa.procurement.employee.dto.UpdateEmployeeRequest.builder().middleName(middleName).build();
+        var profile = new com.tinqa.procurement.admin.dto.AdminProfileUpdateRequest();
+        profile.setMiddleName(middleName);
+
+        assertFalse(errors(create).containsKey("middleName"), "create: " + middleName);
+        assertFalse(errors(update).containsKey("middleName"), "update: " + middleName);
+        assertFalse(errors(profile).containsKey("middleName"), "profile: " + middleName);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"K2", "-Kumar", "Ku<b>mar", "Kumar!", "123"})
+    void invalidMiddleNameIsRejected(String middleName) {
+        var update = com.tinqa.procurement.employee.dto.UpdateEmployeeRequest.builder().middleName(middleName).build();
+        assertEquals("Middle name can only contain letters, spaces, dots, apostrophes and hyphens, or be left blank",
+                errors(update).get("middleName"), middleName);
+    }
 }
