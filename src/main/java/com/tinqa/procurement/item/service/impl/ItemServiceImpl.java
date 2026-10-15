@@ -1,15 +1,14 @@
 package com.tinqa.procurement.item.service.impl;
 
-import com.tinqa.procurement.common.entity.Category;
-import com.tinqa.procurement.common.enums.CategoryType;
+import com.tinqa.procurement.category.entity.Category;
+import com.tinqa.procurement.category.enums.CategoryType;
+import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.common.dto.CategoryDTOs;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.entity.ItemWarranty;
-import com.tinqa.procurement.common.entity.Category;
-import com.tinqa.procurement.common.repository.CategoryRepository;
+import com.tinqa.procurement.item.mapper.ItemMapper;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.item.service.ItemService;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
@@ -31,36 +30,9 @@ import java.util.stream.Collectors;
 public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryService categoryService;
     private final CurrentUserProvider currentUserProvider;
-
-    @Override
-    @Transactional
-    public CategoryDTOs.Response createCategory(CategoryDTOs.CreateRequest request) {
-        if (categoryRepository.existsByCode(request.getCode())) {
-            throw new BadRequestException("Category code already exists: " + request.getCode());
-        }
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-
-        Category category = Category.builder()
-                .name(request.getName())
-                .type(CategoryType.ITEM)
-                .code(request.getCode())
-                .description(request.getDescription())
-                .createdBy(currentUserId)
-                .updatedBy(currentUserId)
-                .build();
-
-        return mapToCategoryResponse(categoryRepository.save(category));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoryDTOs.Response> getAllCategories() {
-        return categoryRepository.findByType(CategoryType.ITEM).stream()
-                .map(this::mapToCategoryResponse)
-                .collect(Collectors.toList());
-    }
+    private final ItemMapper itemMapper;
 
     @Override
     @Transactional
@@ -68,11 +40,8 @@ public class ItemServiceImpl implements ItemService {
         if (itemRepository.existsBySku(request.getSku())) {
             throw new BadRequestException("SKU already exists: " + request.getSku());
         }
-
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
-
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        Category category = categoryService.getCategory(request.getCategoryId(), CategoryType.ITEM);
+        Long currentUserId = currentUserProvider.getCurrentUserId();
 
         Item item = Item.builder()
                 .category(category)
@@ -89,22 +58,17 @@ public class ItemServiceImpl implements ItemService {
                 .createdBy(currentUserId)
                 .updatedBy(currentUserId)
                 .build();
-
         syncWarranties(item, request.getWarranties(), currentUserId);
 
-        return mapToItemResponse(itemRepository.save(item));
+        return itemMapper.toResponse(itemRepository.save(item));
     }
 
     @Override
     @Transactional
     public ItemDTOs.Response updateItem(Long id, ItemDTOs.UpdateRequest request) {
-        Item item = itemRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + id));
-
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
-
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        Item item = itemRepository.findByIdWithDetails(id).orElseThrow(() -> itemNotFound(id));
+        Category category = categoryService.getCategory(request.getCategoryId(), CategoryType.ITEM);
+        Long currentUserId = currentUserProvider.getCurrentUserId();
 
         item.setCategory(category);
         item.setName(request.getName());
@@ -117,60 +81,51 @@ public class ItemServiceImpl implements ItemService {
         item.setDescription(request.getDescription());
         item.setAttributes(request.getAttributes());
         item.setUpdatedBy(currentUserId);
-
         if (request.getIsActive() != null) {
             item.setIsActive(request.getIsActive());
         }
-
+        // Null leaves the warranties untouched; a list replaces them
         if (request.getWarranties() != null) {
             syncWarranties(item, request.getWarranties(), currentUserId);
         }
 
-        return mapToItemResponse(itemRepository.save(item));
+        return itemMapper.toResponse(itemRepository.save(item));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ItemDTOs.Response getItemById(Long id) {
-        Item item = itemRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + id));
-        return mapToItemResponse(item);
+        return itemMapper.toResponse(itemRepository.findByIdWithDetails(id).orElseThrow(() -> itemNotFound(id)));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ItemDTOs.WarrantyResponse> getItemWarranties(Long itemId) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + itemId));
-        return item.getWarranties().stream()
-                .map(ItemDTOs.WarrantyResponse::from)
-                .collect(Collectors.toList());
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> itemNotFound(itemId));
+        return itemMapper.toWarrantyResponses(item.getWarranties());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ItemDTOs.Response> getAllItems(Pageable pageable) {
-        return itemRepository.findAll(pageable)
-                .map(this::mapToItemResponse);
+        return itemRepository.findAll(pageable).map(itemMapper::toResponse);
     }
 
     @Override
     @Transactional
     public void deleteItem(Long id) {
-        Item item = itemRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + id));
+        Item item = itemRepository.findById(id).orElseThrow(() -> itemNotFound(id));
         item.setIsActive(false);
-        item.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
+        item.setUpdatedBy(currentUserProvider.getCurrentUserId());
         itemRepository.save(item);
     }
 
     /**
-     * Makes the item's warranties match the requested set: entries with an id update the
-     * matching warranty, entries without an id are added, and the rest are removed.
+     * Makes the item's warranties match the requested set: entries with an id update the matching warranty,
+     * entries without an id are added, and the rest are removed.
      */
     private void syncWarranties(Item item, List<ItemDTOs.WarrantyRequest> requests, Long currentUserId) {
         List<ItemDTOs.WarrantyRequest> warrantyRequests = requests == null ? List.of() : requests;
-
         Map<Long, ItemWarranty> existingById = item.getWarranties().stream()
                 .collect(Collectors.toMap(ItemWarranty::getId, Function.identity()));
 
@@ -190,17 +145,9 @@ public class ItemServiceImpl implements ItemService {
         item.getWarranties().removeIf(warranty -> !requestedIds.contains(warranty.getId()));
 
         for (ItemDTOs.WarrantyRequest request : warrantyRequests) {
-            ItemWarranty warranty;
-            if (request.getId() == null) {
-                warranty = ItemWarranty.builder()
-                        .item(item)
-                        .createdBy(currentUserId)
-                        .build();
-                item.getWarranties().add(warranty);
-            } else {
-                warranty = existingById.get(request.getId());
-            }
-
+            ItemWarranty warranty = request.getId() == null
+                    ? newWarranty(item, currentUserId)
+                    : existingById.get(request.getId());
             warranty.setWarrantyType(request.getWarrantyType());
             warranty.setTitle(request.getTitle());
             warranty.setDurationValue(request.getDurationValue());
@@ -216,41 +163,16 @@ public class ItemServiceImpl implements ItemService {
         }
     }
 
-    private CategoryDTOs.Response mapToCategoryResponse(Category category) {
-        CategoryDTOs.Response res = new CategoryDTOs.Response();
-        res.setId(category.getId());
-        res.setName(category.getName());
-        res.setCode(category.getCode());
-        res.setDescription(category.getDescription());
-        res.setIsActive(category.getIsActive());
-        res.setCreatedAt(category.getCreatedAt());
-        res.setUpdatedAt(category.getUpdatedAt());
-        return res;
+    private static ItemWarranty newWarranty(Item item, Long currentUserId) {
+        ItemWarranty warranty = ItemWarranty.builder()
+                .item(item)
+                .createdBy(currentUserId)
+                .build();
+        item.getWarranties().add(warranty);
+        return warranty;
     }
 
-    private ItemDTOs.Response mapToItemResponse(Item item) {
-        ItemDTOs.Response res = new ItemDTOs.Response();
-        res.setId(item.getId());
-        res.setCategoryId(item.getCategory().getId());
-        res.setCategoryName(item.getCategory().getName());
-        res.setName(item.getName());
-        res.setBrand(item.getBrand());
-        res.setSku(item.getSku());
-        res.setUnitOfMeasure(item.getUnitOfMeasure());
-        res.setMrp(item.getMrp());
-        res.setCountryOfOrigin(item.getCountryOfOrigin());
-        res.setRawMaterialsUsed(item.getRawMaterialsUsed());
-        res.setTermsAndCondition(item.getTermsAndCondition());
-        res.setDescription(item.getDescription());
-        res.setAttributes(item.getAttributes());
-        res.setWarranties(item.getWarranties().stream()
-                .map(ItemDTOs.WarrantyResponse::from)
-                .collect(Collectors.toList()));
-        res.setIsActive(item.getIsActive());
-        res.setCreatedAt(item.getCreatedAt());
-        res.setUpdatedAt(item.getUpdatedAt());
-        res.setCreatedBy(item.getCreatedBy());
-        res.setUpdatedBy(item.getUpdatedBy());
-        return res;
+    private static ResourceNotFoundException itemNotFound(Long id) {
+        return new ResourceNotFoundException("Item not found with ID: " + id);
     }
 }

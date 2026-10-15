@@ -1,6 +1,6 @@
 package com.tinqa.procurement.admin.dto;
 
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -39,6 +39,8 @@ public class AdminProfileResponse {
 
     private String designation;
 
+    private String designationLabel;
+
     private String workEmail;
 
     private String username;
@@ -51,7 +53,7 @@ public class AdminProfileResponse {
 
     private LocalDate dateOfBirth;
 
-    private EmployeeConstants status;
+    private EmployeeStatus status;
 
     private boolean approvalPending;
 

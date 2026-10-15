@@ -49,6 +49,11 @@ public final class ValidationPatterns {
     public static final String GENDER = "MALE|FEMALE|OTHER";
     public static final String EMPLOYMENT_TYPE = "FULL_TIME|PART_TIME|CONTRACT|INTERN|CONSULTANT|TEMPORARY";
     public static final String ROLE = "(?i)ADMIN_L1|ADMIN_L2|DEALER|INSPECTOR";
+    // Must list exactly the Designation codes (checked by a test)
+    public static final String DESIGNATION = "(?i)\\s*(SUPER_ADMIN|STORE_MANAGER|DEALER_MANAGER|CATALOG_SPECIALIST|FULFILLMENT_SPECIALIST"
+            + "|DELIVERY_RIDER|FLEET_COORDINATOR|CUSTOMER_SUPPORT|FINANCIAL_AUDITOR)\\s*";
+    public static final String DESIGNATION_MESSAGE = "must be one of SUPER_ADMIN, STORE_MANAGER, DEALER_MANAGER, CATALOG_SPECIALIST, "
+            + "FULFILLMENT_SPECIALIST, DELIVERY_RIDER, FLEET_COORDINATOR, CUSTOMER_SUPPORT or FINANCIAL_AUDITOR";
 
     private ValidationPatterns() {
     }

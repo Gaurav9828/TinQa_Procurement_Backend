@@ -2,7 +2,6 @@ package com.tinqa.procurement.employee.dto;
 
 import com.tinqa.procurement.common.validation.*;
 import jakarta.validation.constraints.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -55,11 +54,10 @@ public class CreateEmployeeRequest {
     private String gender;
 
     @NotBlank(message = "Designation is required")
-    @Size(max = 100, message = "Designation cannot exceed 100 characters")
-    @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Designation " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    @Pattern(regexp = ValidationPatterns.DESIGNATION, message = "Designation " + ValidationPatterns.DESIGNATION_MESSAGE)
     private String designation;
 
-    @NotBlank(message = "Department is required")
+    // Optional: the department follows the designation; a different value is rejected
     @Size(max = 100, message = "Department cannot exceed 100 characters")
     @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Department " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
     private String department;

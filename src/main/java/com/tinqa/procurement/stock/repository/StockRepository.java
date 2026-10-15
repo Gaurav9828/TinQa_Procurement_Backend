@@ -24,8 +24,6 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
         BigDecimal getTotalUnits();
     }
 
-    Optional<Stock> findByStockIdentityNumber(String stockIdentityNumber);
-
     // Units (passed + defected) already recorded against an order, ignoring rejected entries and one entry being edited
     @Query("""
             SELECT COALESCE(SUM(s.unitsPassedTest + s.defectedUnits), 0)
@@ -38,8 +36,6 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
                                         @Param("excludeStockId") Long excludeStockId,
                                         @Param("rejected") ApprovalStatus rejected);
     List<Stock> findByApprovalStatus(ApprovalStatus approvalStatus);
-    List<Stock> findByOrderOrderNumber(String orderNumber);
-
     Optional<Stock> findFirstByOrderOrderNumber(String orderNumber);
 
     /**
@@ -73,6 +69,11 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     List<Stock> findConsumableStockForUpdate(@Param("itemId") Long itemId,
                                              @Param("approvalStatus") ApprovalStatus approvalStatus,
                                              @Param("orderStatus") OrderStatus orderStatus);
+
+    // Row lock for read-modify-write changes to one stock entry
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Stock s WHERE s.id = :id")
+    Optional<Stock> findByIdForUpdate(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Stock s WHERE s.id IN :ids")

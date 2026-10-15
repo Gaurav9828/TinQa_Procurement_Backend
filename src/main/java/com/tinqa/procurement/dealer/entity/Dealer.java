@@ -1,6 +1,6 @@
 package com.tinqa.procurement.dealer.entity;
 
-import com.tinqa.procurement.common.entity.Category;
+import com.tinqa.procurement.category.entity.Category;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -46,6 +46,10 @@ public class Dealer {
 
     @Column(nullable = false, length = 100)
     private String city;
+
+    // Optional: India Post may be unreachable, so admins can enter the address without it
+    @Column(length = 100)
+    private String district;
 
     @Column(nullable = false, length = 100)
     private String state;

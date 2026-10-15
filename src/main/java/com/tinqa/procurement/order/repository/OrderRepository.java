@@ -14,8 +14,6 @@ import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
-    Optional<Order> findByOrderNumber(String orderNumber);
-
     // Row lock so stock recorded against the order cannot exceed its quantity under concurrent requests
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM Order o WHERE o.orderNumber = :orderNumber")

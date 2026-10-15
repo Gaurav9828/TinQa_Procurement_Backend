@@ -1,8 +1,11 @@
 package com.tinqa.procurement.stock.service.impl;
 
+import com.tinqa.procurement.common.constant.ErrorCodes;
+import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.stock.dto.ItemStockMovementDTOs;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
@@ -31,8 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ItemStockMovementServiceImpl implements ItemStockMovementService {
 
-    static final String INSUFFICIENT_ITEM_STOCK = "INSUFFICIENT_ITEM_STOCK";
-
+    // Source and reference of a placeholder recorded when an unknown movement is reversed
     private static final String UNKNOWN = "UNKNOWN";
 
     private final ItemStockMovementRepository movementRepository;
@@ -40,6 +43,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
     private final StockRepository stockRepository;
     private final ItemRepository itemRepository;
     private final StockService stockService;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -72,8 +76,8 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             if (line.getQuantity().signum() > 0) {
                 BigDecimal available = stockService.lockConsumableUnits(item.getId());
                 if (available.compareTo(line.getQuantity()) < 0) {
-                    shortages.add(error(field, "Not enough stock for " + item.getName() + ": need "
-                            + plain(line.getQuantity()) + ", available " + plain(available)));
+                    shortages.add(ApiErrors.error(field, "Not enough stock for " + item.getName() + ": need "
+                            + Quantities.plain(line.getQuantity()) + ", available " + Quantities.plain(available)));
                 }
             } else {
                 // Returns are capped at what the reference still holds (e.g. after a rejected product released
@@ -83,7 +87,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             }
         }
         if (!shortages.isEmpty()) {
-            throw new ApiException(joinMessages(shortages), INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT, shortages);
+            throw new ApiException(ApiErrors.joinMessages(shortages), ErrorCodes.INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT, shortages);
         }
 
         for (int i = 0; i < lines.size(); i++) {
@@ -118,7 +122,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                     .reference(details.getReference() == null || details.getReference().isBlank() ? UNKNOWN : details.getReference())
                     .status(ItemStockMovementStatus.REVERSED)
                     .performedBy(details.getPerformedBy())
-                    .reversedAt(LocalDateTime.now())
+                    .reversedAt(LocalDateTime.now(clock))
                     .reversedBy(details.getPerformedBy())
                     .build()));
         }
@@ -155,7 +159,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                 if (held.compareTo(stockEntry.getValue()) < 0) {
                     throw new ApiException("Movement " + movementId + " cannot be reversed: units it consumed were already "
                             + "returned by a later movement for " + movement.getReference() + ". Reverse that movement first.",
-                            "REVERSAL_NOT_POSSIBLE", HttpStatus.CONFLICT);
+                            ErrorCodes.REVERSAL_NOT_POSSIBLE, HttpStatus.CONFLICT);
                 }
             }
         }
@@ -164,7 +168,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         stockService.restoreStock(consumedByStock, null);
 
         movement.setStatus(ItemStockMovementStatus.REVERSED);
-        movement.setReversedAt(LocalDateTime.now());
+        movement.setReversedAt(LocalDateTime.now(clock));
         movement.setReversedBy(details.getPerformedBy());
         return toResponse(movementRepository.save(movement));
     }
@@ -220,7 +224,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         if (!placeholder && (!existing.getSource().equals(request.getSource())
                 || !existing.getReference().equals(request.getReference()))) {
             throw new ApiException("Movement " + request.getMovementId() + " was already used for "
-                    + existing.getSource() + " " + existing.getReference(), "MOVEMENT_ID_CONFLICT", HttpStatus.CONFLICT);
+                    + existing.getSource() + " " + existing.getReference(), ErrorCodes.MOVEMENT_ID_CONFLICT, HttpStatus.CONFLICT);
         }
         return toResponse(existing);
     }
@@ -231,7 +235,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             return movementRepository.saveAndFlush(movement);
         } catch (DataIntegrityViolationException exception) {
             throw new ApiException("Movement " + movement.getMovementId() + " is already being processed. Retry to get its result.",
-                    "MOVEMENT_IN_PROGRESS", HttpStatus.CONFLICT);
+                    ErrorCodes.MOVEMENT_IN_PROGRESS, HttpStatus.CONFLICT);
         }
     }
 
@@ -241,14 +245,14 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         for (int i = 0; i < lines.size(); i++) {
             ItemStockMovementDTOs.Line line = lines.get(i);
             if (line.getQuantity().signum() == 0) {
-                errors.add(error("lines[" + i + "].quantity", "Quantity cannot be zero"));
+                errors.add(ApiErrors.error("lines[" + i + "].quantity", "Quantity cannot be zero"));
             }
             if (!itemIds.add(line.getItemId())) {
-                errors.add(error("lines[" + i + "].itemId", "Item " + line.getItemId() + " is listed more than once; combine its quantities"));
+                errors.add(ApiErrors.error("lines[" + i + "].itemId", "Item " + line.getItemId() + " is listed more than once; combine its quantities"));
             }
         }
         if (!errors.isEmpty()) {
-            throw new ApiException(joinMessages(errors), "INVALID_MOVEMENT_LINES", HttpStatus.BAD_REQUEST, errors);
+            throw new ApiException(ApiErrors.joinMessages(errors), ErrorCodes.INVALID_MOVEMENT_LINES, HttpStatus.BAD_REQUEST, errors);
         }
     }
 
@@ -259,11 +263,11 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         List<ApiResponse.ApiErrorItem> missing = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             if (!items.containsKey(lines.get(i).getItemId())) {
-                missing.add(error("lines[" + i + "].itemId", "Item not found with ID: " + lines.get(i).getItemId()));
+                missing.add(ApiErrors.error("lines[" + i + "].itemId", "Item not found with ID: " + lines.get(i).getItemId()));
             }
         }
         if (!missing.isEmpty()) {
-            throw new ApiException(joinMessages(missing), "ITEM_NOT_FOUND", HttpStatus.BAD_REQUEST, missing);
+            throw new ApiException(ApiErrors.joinMessages(missing), ErrorCodes.ITEM_NOT_FOUND, HttpStatus.BAD_REQUEST, missing);
         }
         return items;
     }
@@ -322,17 +326,5 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                 .reversedBy(movement.getReversedBy())
                 .lines(lines)
                 .build();
-    }
-
-    private ApiResponse.ApiErrorItem error(String field, String message) {
-        return new ApiResponse.ApiErrorItem(field, message);
-    }
-
-    private String joinMessages(List<ApiResponse.ApiErrorItem> errors) {
-        return errors.stream().map(ApiResponse.ApiErrorItem::getMessage).collect(Collectors.joining("; "));
-    }
-
-    private String plain(BigDecimal value) {
-        return value.stripTrailingZeros().toPlainString();
     }
 }

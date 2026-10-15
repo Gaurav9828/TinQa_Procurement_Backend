@@ -1,6 +1,7 @@
 package com.tinqa.procurement.employee.model;
 
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
+import com.tinqa.procurement.security.access.Designation;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,9 +15,9 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "employee")
-@Builder                          // <--- Enables Employee.builder()
-@NoArgsConstructor                 // <--- Required for JPA / Hibernate
-@AllArgsConstructor                // <--- Required by Lombok @Builder
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Employee {
 
     @Id
@@ -47,8 +48,10 @@ public class Employee {
     @Column(name = "gender", nullable = false, length = 20)
     private String gender;
 
+    // Decides the employee's permission groups (see DesignationAccess)
+    @Enumerated(EnumType.STRING)
     @Column(name = "designation", nullable = false, length = 100)
-    private String designation;
+    private Designation designation;
 
     @Column(name = "department", nullable = false, length = 100)
     private String department;
@@ -92,7 +95,7 @@ public class Employee {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private EmployeeConstants status;
+    private EmployeeStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

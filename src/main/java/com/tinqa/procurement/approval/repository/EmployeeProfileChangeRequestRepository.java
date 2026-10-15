@@ -19,11 +19,6 @@ public interface EmployeeProfileChangeRequestRepository
             String status
     );
 
-    List<EmployeeProfileChangeRequest>
-    findByEmployeeIdOrderByRequestedAtDesc(
-            Long employeeId
-    );
-
     boolean existsByEmployeeIdAndStatus(
             Long employeeId,
             String status

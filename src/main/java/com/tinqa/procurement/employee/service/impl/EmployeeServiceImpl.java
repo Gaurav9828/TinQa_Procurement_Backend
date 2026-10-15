@@ -1,21 +1,29 @@
 package com.tinqa.procurement.employee.service.impl;
 
-import com.tinqa.procurement.common.exception.ApiException;
+import com.tinqa.procurement.common.constant.AppConstants;
+import com.tinqa.procurement.common.constant.ErrorCodes;
+import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.BadRequestException;
+import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.common.validation.PhoneNumbers;
-import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.config.EmployeeProperties;
 import com.tinqa.procurement.employee.dto.CreateEmployeeRequest;
 import com.tinqa.procurement.employee.dto.EmployeeApprovalDecisionRequest;
 import com.tinqa.procurement.employee.dto.EmployeeResponse;
 import com.tinqa.procurement.employee.dto.UpdateEmployeeRequest;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
+import com.tinqa.procurement.employee.mapper.EmployeeMapper;
 import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.employee.service.EmployeeContactValidator;
 import com.tinqa.procurement.employee.service.EmployeeService;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.security.access.CurrentAccess;
+import com.tinqa.procurement.security.access.Designation;
+import com.tinqa.procurement.security.access.DesignationAccess;
+import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.AuthClient;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
@@ -25,31 +33,38 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
 
-    private static final String DEFAULT_PASSWORD = "TinQa";
-
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserProvider currentUserProvider;
+    private final CurrentAccess currentAccess;
     private final EmployeeContactValidator contactValidator;
     private final NotificationService notificationService;
+    private final EmployeeMapper employeeMapper;
+    private final EmployeeProperties employeeProperties;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -58,7 +73,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         List<ApiResponse.ApiErrorItem> invalid = new ArrayList<>();
         checkJoiningAfterAdulthood(request.getDateOfBirth(), request.getJoiningDate(), invalid);
-        throwIfInvalid(invalid);
+        ApiErrors.throwIfAny(invalid);
 
         List<ApiResponse.ApiErrorItem> duplicates = new ArrayList<>();
         contactValidator.checkNewAccount(request.getUsername(), request.getEmail(), duplicates);
@@ -66,132 +81,123 @@ public class EmployeeServiceImpl implements EmployeeService {
                 EmployeeContactValidator.Fields.EMPLOYEE, duplicates);
         contactValidator.throwIfAny(duplicates);
 
-        Role userRole = request.getRole() == null || request.getRole().isBlank()
+        Role requestedRole = OptionalText.blankToNull(request.getRole()) == null
                 ? Role.ADMIN_L1
-                : Role.valueOf(request.getRole().trim().toUpperCase());
+                : Role.valueOf(request.getRole().trim().toUpperCase(Locale.ROOT));
 
-        // Same rule as stock, documents and profile changes: what an ADMIN_L1 creates waits for Admin L2, and a new
-        // ADMIN_L2 account always needs a second Admin L2, so nobody can create L2 accounts alone
-        boolean needsApproval = creator.getRole() != Role.ADMIN_L2 || userRole == Role.ADMIN_L2;
+        Designation designation = Designation.fromCode(request.getDesignation()).orElseThrow();
+        // Level 2 only exists for designations with approval powers
+        Role role = DesignationAccess.effectiveLevel(requestedRole, designation);
+        List<ApiResponse.ApiErrorItem> departmentErrors = new ArrayList<>();
+        checkDepartmentMatches(request.getDepartment(), designation, departmentErrors);
+        ApiErrors.throwIfAny(departmentErrors);
 
-        User user = User.builder()
+        // Maker-checker: an account waits for approval unless its creator can approve employees, and a new
+        // ADMIN_L2 or Super Admin always needs a second approver, so nobody can create a powerful account alone
+        boolean needsApproval = !currentAccess.has(Permission.EMPLOYEE_APPROVE)
+                || role == Role.ADMIN_L2
+                || designation == Designation.SUPER_ADMIN;
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        User account = User.builder()
                 .username(request.getUsername().trim())
                 .email(request.getEmail().trim().toLowerCase(Locale.ROOT))
-                .password(passwordEncoder.encode(DEFAULT_PASSWORD))
-                .role(userRole)
+                .password(passwordEncoder.encode(employeeProperties.defaultPassword()))
+                .role(role)
                 .authClient(AuthClient.WEB)
-                // A pending employee cannot sign in until Admin L2 approves them
+                // A pending employee cannot sign in until an employee approver approves them
                 .enabled(!needsApproval)
                 .accountNonLocked(true)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
-        String displayName = request.getDisplayName();
-        if (displayName == null || displayName.isBlank()) {
-            displayName = (request.getFirstName() + " " +
-                    (OptionalText.blankToNull(request.getMiddleName()) != null ? OptionalText.blankToNull(request.getMiddleName()) + " " : "") +
-                    request.getLastName()).trim();
-        }
-
-        User savedUser;
+        User savedAccount;
         Employee savedEmployee;
         try {
-            savedUser = userRepository.saveAndFlush(user);
+            savedAccount = userRepository.saveAndFlush(account);
             employeeRepository.lockEmployeeCodeSequence();
-            Employee employee = Employee.builder()
-                    .userId(savedUser.getId())
-                    .employeeCode(String.format("EMP-%04d", employeeRepository.findHighestEmployeeCodeNumber() + 1))
+            savedEmployee = employeeRepository.saveAndFlush(Employee.builder()
+                    .userId(savedAccount.getId())
+                    .employeeCode(String.format(AppConstants.EMPLOYEE_CODE_FORMAT, employeeRepository.findHighestEmployeeCodeNumber() + 1))
                     .firstName(request.getFirstName().trim())
                     .middleName(OptionalText.blankToNull(request.getMiddleName()))
                     .lastName(request.getLastName().trim())
-                    .displayName(displayName.trim())
+                    .displayName(displayName(request))
                     .dateOfBirth(request.getDateOfBirth())
                     .gender(request.getGender())
-                    .designation(request.getDesignation().trim())
-                    .department(request.getDepartment().trim())
+                    .designation(designation)
+                    .department(designation.department())
                     .employmentType(request.getEmploymentType())
                     .joiningDate(request.getJoiningDate())
-                    .salaryAmount(request.getSalaryAmount() != null ? request.getSalaryAmount() : BigDecimal.ZERO)
-                    .salaryCurrency(request.getSalaryCurrency() != null ? request.getSalaryCurrency() : "INR")
+                    .salaryAmount(Objects.requireNonNullElse(request.getSalaryAmount(), BigDecimal.ZERO))
+                    .salaryCurrency(Objects.requireNonNullElse(request.getSalaryCurrency(), AppConstants.DEFAULT_CURRENCY))
                     .phone(PhoneNumbers.normalize(request.getPhone()))
                     .alternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()))
-                    .personalEmail(lowerOrNull(request.getPersonalEmail()))
-                    .status(needsApproval ? EmployeeConstants.APPROVAL_PENDING : EmployeeConstants.FIRST_LOGIN)
+                    .personalEmail(OptionalText.lowerCaseOrNull(request.getPersonalEmail()))
+                    .status(needsApproval ? EmployeeStatus.APPROVAL_PENDING : EmployeeStatus.FIRST_LOGIN)
                     .createdBy(creator.getId())
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            savedEmployee = employeeRepository.saveAndFlush(employee);
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build());
         } catch (DataIntegrityViolationException exception) {
             // Another request took one of these values between our checks and the insert
-            throw new ApiException("These details were just used for another employee. Review the form and try again.",
-                    EmployeeContactValidator.DUPLICATE_VALUE, HttpStatus.CONFLICT);
+            throw ApiErrors.conflict(ErrorCodes.DUPLICATE_VALUE,
+                    "These details were just used for another employee. Review the form and try again.");
         }
 
         if (needsApproval) {
-            notificationService.createForRole(Role.ADMIN_L2, creator.getId(), "Employee awaiting approval",
-                    savedEmployee.getDisplayName() + " (" + savedEmployee.getEmployeeCode() + ", username " + savedUser.getUsername()
-                            + ", role " + userRole + ") was created by " + creator.getUsername()
-                            + " and can't sign in until an Admin L2 approves them.");
+            notificationService.createForPermission(Permission.EMPLOYEE_APPROVE, creator.getId(), "Employee awaiting approval",
+                    savedEmployee.getDisplayName() + " (" + savedEmployee.getEmployeeCode() + ", username " + savedAccount.getUsername()
+                            + ", role " + role + ", " + designation.label() + ") was created by " + creator.getUsername()
+                            + " and can't sign in until someone approves them.");
         }
-        return mapToResponse(savedUser, savedEmployee);
+        return toResponse(savedEmployee);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<EmployeeResponse> getAllEmployees(EmployeeConstants status, String search, Pageable pageable) {
+    public Page<EmployeeResponse> getAllEmployees(EmployeeStatus status, String search, Pageable pageable) {
+        String term = OptionalText.lowerCaseOrNull(search);
         Page<Employee> employees;
-
-        if (status != null && search != null && !search.isBlank()) {
-            employees = employeeRepository.findByStatusAndSearchTerm(status, search.trim().toLowerCase(), pageable);
+        if (status != null && term != null) {
+            employees = employeeRepository.findByStatusAndSearchTerm(status, term, pageable);
         } else if (status != null) {
             employees = employeeRepository.findByStatus(status, pageable);
-        } else if (search != null && !search.isBlank()) {
-            employees = employeeRepository.findBySearchTerm(search.trim().toLowerCase(), pageable);
+        } else if (term != null) {
+            employees = employeeRepository.findBySearchTerm(term, pageable);
         } else {
             employees = employeeRepository.findAll(pageable);
         }
-
-        return employees.map(emp -> {
-            User user = userRepository.findById(emp.getUserId()).orElse(null);
-            return mapToResponse(user, emp);
-        });
+        Map<Long, User> users = usersFor(employees.getContent());
+        return employees.map(employee -> employeeMapper.toResponse(employee, users));
     }
 
     @Override
     @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeById(Long id) {
-        Employee employee = findEmployeeOrThrow(id);
-        User user = userRepository.findById(employee.getUserId()).orElse(null);
-        return mapToResponse(user, employee);
+        return toResponse(findEmployee(id));
     }
 
     @Override
     @Transactional
     public EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request) {
         Employee employee = employeeRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+                .orElseThrow(() -> employeeNotFound(id));
 
         List<ApiResponse.ApiErrorItem> invalid = new ArrayList<>();
-        checkJoiningAfterAdulthood(
-                request.getDateOfBirth() != null ? request.getDateOfBirth() : employee.getDateOfBirth(),
-                request.getJoiningDate() != null ? request.getJoiningDate() : employee.getJoiningDate(), invalid);
         LocalDate joining = request.getJoiningDate() != null ? request.getJoiningDate() : employee.getJoiningDate();
+        checkJoiningAfterAdulthood(request.getDateOfBirth() != null ? request.getDateOfBirth() : employee.getDateOfBirth(), joining, invalid);
         if (request.getLeavingDate() != null && joining != null && request.getLeavingDate().isBefore(joining)) {
-            invalid.add(new ApiResponse.ApiErrorItem("leavingDate", "Leaving date cannot be before the joining date (" + joining + ")."));
+            invalid.add(ApiErrors.error("leavingDate", "Leaving date cannot be before the joining date (" + joining + ")."));
         }
-        if (request.getStatus() != null && request.getStatus() != employee.getStatus()) {
-            if (employee.getStatus() == EmployeeConstants.APPROVAL_PENDING) {
-                invalid.add(new ApiResponse.ApiErrorItem("status",
-                        "This employee is waiting for Admin L2 approval; their status changes only through the approval decision."));
-            } else if (request.getStatus() == EmployeeConstants.APPROVAL_PENDING
-                    || request.getStatus() == EmployeeConstants.WAITING_FOR_DELETION) {
-                invalid.add(new ApiResponse.ApiErrorItem("status", "Status " + request.getStatus()
-                        + " can't be set here; use the approval or deletion request instead."));
-            }
-        }
-        throwIfInvalid(invalid);
+        checkStatusChange(employee.getStatus(), request.getStatus(), invalid);
+        checkDesignationChange(employee, request, invalid);
+        checkDepartmentMatches(request.getDepartment(),
+                Designation.fromCode(request.getDesignation()).orElse(employee.getDesignation()), invalid);
+        User account = userRepository.findById(employee.getUserId()).orElseThrow(() -> employeeNotFound(id));
+        Role requestedRole = checkRoleChange(employee, account, request, invalid);
+        ApiErrors.throwIfAny(invalid);
 
         List<ApiResponse.ApiErrorItem> duplicates = new ArrayList<>();
         contactValidator.checkContacts(employee.getId(),
@@ -200,64 +206,41 @@ public class EmployeeServiceImpl implements EmployeeService {
                 request.getPersonalEmail(), EmployeeContactValidator.Fields.EMPLOYEE, duplicates);
         contactValidator.throwIfAny(duplicates);
 
-        if (request.getFirstName() != null) employee.setFirstName(request.getFirstName());
-        // Middle name is optional: blank removes it
-        if (request.getMiddleName() != null) employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
-        if (request.getLastName() != null) employee.setLastName(request.getLastName());
-        if (request.getDisplayName() != null) employee.setDisplayName(request.getDisplayName());
-        if (request.getDateOfBirth() != null) employee.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) employee.setGender(request.getGender());
-        if (request.getDesignation() != null) employee.setDesignation(request.getDesignation());
-        if (request.getDepartment() != null) employee.setDepartment(request.getDepartment());
-        if (request.getEmploymentType() != null) employee.setEmploymentType(request.getEmploymentType());
-        if (request.getJoiningDate() != null) employee.setJoiningDate(request.getJoiningDate());
-        if (request.getLeavingDate() != null) employee.setLeavingDate(request.getLeavingDate());
-        if (request.getSalaryAmount() != null) employee.setSalaryAmount(request.getSalaryAmount());
-        if (request.getSalaryCurrency() != null) employee.setSalaryCurrency(request.getSalaryCurrency());
-        if (request.getPhone() != null) employee.setPhone(PhoneNumbers.normalize(request.getPhone()));
-        if (request.getAlternatePhone() != null) employee.setAlternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()));
-        if (request.getPersonalEmail() != null) employee.setPersonalEmail(lowerOrNull(request.getPersonalEmail()));
-        if (request.getStatus() != null) employee.setStatus(request.getStatus());
-
-        employee.setUpdatedAt(LocalDateTime.now());
-        Employee updatedEmployee = employeeRepository.save(employee);
-        User user = userRepository.findById(updatedEmployee.getUserId()).orElse(null);
-
-        return mapToResponse(user, updatedEmployee);
+        applyUpdate(employee, request);
+        // Level 2 only exists for designations with approval powers, so a move to one without them is Level 1
+        Role targetRole = DesignationAccess.effectiveLevel(requestedRole != null ? requestedRole : account.getRole(),
+                employee.getDesignation());
+        if (targetRole != account.getRole()) {
+            account.setRole(targetRole);
+            userRepository.save(account);
+        }
+        employee.setUpdatedAt(LocalDateTime.now(clock));
+        return toResponse(employeeRepository.save(employee));
     }
 
     @Override
     @Transactional
     public EmployeeResponse requestEmployeeDeletion(Long id) {
-        Employee employee = findEmployeeOrThrow(id);
-
-        if (employee.getStatus() == EmployeeConstants.WAITING_FOR_DELETION) {
+        Employee employee = findEmployee(id);
+        if (employee.getStatus() == EmployeeStatus.WAITING_FOR_DELETION) {
             throw new BadRequestException("Employee is already waiting for deletion");
         }
-
-        employee.setStatus(EmployeeConstants.WAITING_FOR_DELETION);
-        employee.setUpdatedAt(LocalDateTime.now());
-        Employee savedEmployee = employeeRepository.save(employee);
-
-        User user = userRepository.findById(savedEmployee.getUserId()).orElse(null);
-        return mapToResponse(user, savedEmployee);
+        employee.setStatus(EmployeeStatus.WAITING_FOR_DELETION);
+        employee.setUpdatedAt(LocalDateTime.now(clock));
+        return toResponse(employeeRepository.save(employee));
     }
 
     @Override
     @Transactional
     public void finalizeDeleteEmployee(Long id) {
-        Employee employee = findEmployeeOrThrow(id);
-
-        if (employee.getStatus() != EmployeeConstants.WAITING_FOR_DELETION) {
+        Employee employee = findEmployee(id);
+        if (employee.getStatus() != EmployeeStatus.WAITING_FOR_DELETION) {
             throw new BadRequestException("Employee status must be 'WAITING_FOR_DELETION' to finalize deletion");
         }
 
+        // The profile first, then its login account
         Long userId = employee.getUserId();
-
-        // 1. Delete Employee profile
         employeeRepository.delete(employee);
-
-        // 2. Delete corresponding Security User
         if (userId != null && userRepository.existsById(userId)) {
             userRepository.deleteById(userId);
         }
@@ -266,45 +249,46 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional(readOnly = true)
     public List<EmployeeResponse> getPendingApprovals() {
-        return employeeRepository.findByStatusOrderByCreatedAtAscIdAsc(EmployeeConstants.APPROVAL_PENDING).stream()
-                .map(employee -> mapToResponse(userRepository.findById(employee.getUserId()).orElse(null), employee))
-                .toList();
+        List<Employee> pending = employeeRepository.findByStatusOrderByCreatedAtAscIdAsc(EmployeeStatus.APPROVAL_PENDING);
+        Map<Long, User> users = usersFor(pending);
+        return pending.stream().map(employee -> employeeMapper.toResponse(employee, users)).toList();
     }
 
     @Override
     @Transactional
     public EmployeeResponse decideApproval(Long id, EmployeeApprovalDecisionRequest request) {
         User reviewer = currentUserProvider.getCurrentUser();
-        boolean approve = "APPROVED".equals(request.getDecision());
+        boolean approve = request.isApproved();
         String reason = request.getReason() == null ? null : request.getReason().trim();
         if (!approve && (reason == null || reason.isEmpty())) {
-            throwIfInvalid(List.of(new ApiResponse.ApiErrorItem("reason", "A reason is required to reject an employee.")));
+            throw ApiErrors.fieldError("reason", "A reason is required to reject an employee.");
         }
 
         Employee employee = employeeRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
-        if (employee.getStatus() != EmployeeConstants.APPROVAL_PENDING) {
-            throw new ApiException("Employee " + employee.getEmployeeCode() + " is not waiting for approval (status "
-                    + employee.getStatus() + ").", "EMPLOYEE_NOT_PENDING_APPROVAL", HttpStatus.CONFLICT);
+                .orElseThrow(() -> employeeNotFound(id));
+        if (employee.getStatus() != EmployeeStatus.APPROVAL_PENDING) {
+            throw ApiErrors.conflict(ErrorCodes.EMPLOYEE_NOT_PENDING_APPROVAL, "Employee " + employee.getEmployeeCode()
+                    + " is not waiting for approval (status " + employee.getStatus() + ").");
         }
         if (reviewer.getId().equals(employee.getCreatedBy()) || reviewer.getId().equals(employee.getUserId())) {
-            throw new ApiException("You created this employee, so another Admin L2 has to review them.",
-                    "EMPLOYEE_APPROVAL_SELF_DECISION", HttpStatus.FORBIDDEN);
+            throw ApiErrors.forbidden(ErrorCodes.EMPLOYEE_APPROVAL_SELF_DECISION,
+                    "You created this employee, so another Admin L2 has to review them.");
         }
 
-        User user = userRepository.findById(employee.getUserId())
+        LocalDateTime now = LocalDateTime.now(clock);
+        User account = userRepository.findById(employee.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Login account not found for employee " + employee.getEmployeeCode()));
-        user.setEnabled(approve);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
+        account.setEnabled(approve);
+        account.setUpdatedAt(now);
+        userRepository.save(account);
 
         employee.setStatus(approve
-                ? (user.isFirstLogin() ? EmployeeConstants.FIRST_LOGIN : EmployeeConstants.ACTIVE)
-                : EmployeeConstants.IN_ACTIVE);
+                ? (account.isFirstLogin() ? EmployeeStatus.FIRST_LOGIN : EmployeeStatus.ACTIVE)
+                : EmployeeStatus.IN_ACTIVE);
         employee.setApprovalDecidedBy(reviewer.getId());
-        employee.setApprovalDecidedAt(LocalDateTime.now());
+        employee.setApprovalDecidedAt(now);
         employee.setApprovalRejectionReason(approve ? null : reason);
-        employee.setUpdatedAt(LocalDateTime.now());
+        employee.setUpdatedAt(now);
         Employee saved = employeeRepository.save(employee);
 
         if (saved.getCreatedBy() != null) {
@@ -315,73 +299,129 @@ public class EmployeeServiceImpl implements EmployeeService {
                             : who + " was rejected by " + reviewer.getUsername() + ". Reason: " + reason
                             + ". Their account has been deactivated.");
         }
-        return mapToResponse(user, saved);
+        return toResponse(saved);
+    }
+
+    // Approval and deletion statuses are reached only through their own workflows
+    private void checkStatusChange(EmployeeStatus current, EmployeeStatus requested, List<ApiResponse.ApiErrorItem> errors) {
+        if (requested == null || requested == current) {
+            return;
+        }
+        if (current == EmployeeStatus.APPROVAL_PENDING) {
+            errors.add(ApiErrors.error("status",
+                    "This employee is waiting for Admin L2 approval; their status changes only through the approval decision."));
+        } else if (requested == EmployeeStatus.APPROVAL_PENDING || requested == EmployeeStatus.WAITING_FOR_DELETION) {
+            errors.add(ApiErrors.error("status", "Status " + requested + " can't be set here; use the approval or deletion request instead."));
+        }
+    }
+
+    // Only the fields that were sent change; a blank middle name removes it
+    private void applyUpdate(Employee employee, UpdateEmployeeRequest request) {
+        if (request.getFirstName() != null) employee.setFirstName(request.getFirstName());
+        if (request.getMiddleName() != null) employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
+        if (request.getLastName() != null) employee.setLastName(request.getLastName());
+        if (request.getDisplayName() != null) employee.setDisplayName(request.getDisplayName());
+        if (request.getDateOfBirth() != null) employee.setDateOfBirth(request.getDateOfBirth());
+        if (request.getGender() != null) employee.setGender(request.getGender());
+        if (request.getDesignation() != null) employee.setDesignation(Designation.fromCode(request.getDesignation()).orElseThrow());
+        // The department always follows the designation
+        if (employee.getDesignation() != null) employee.setDepartment(employee.getDesignation().department());
+        if (request.getEmploymentType() != null) employee.setEmploymentType(request.getEmploymentType());
+        if (request.getJoiningDate() != null) employee.setJoiningDate(request.getJoiningDate());
+        if (request.getLeavingDate() != null) employee.setLeavingDate(request.getLeavingDate());
+        if (request.getSalaryAmount() != null) employee.setSalaryAmount(request.getSalaryAmount());
+        if (request.getSalaryCurrency() != null) employee.setSalaryCurrency(request.getSalaryCurrency());
+        if (request.getPhone() != null) employee.setPhone(PhoneNumbers.normalize(request.getPhone()));
+        if (request.getAlternatePhone() != null) employee.setAlternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()));
+        if (request.getPersonalEmail() != null) employee.setPersonalEmail(OptionalText.lowerCaseOrNull(request.getPersonalEmail()));
+        if (request.getStatus() != null) employee.setStatus(request.getStatus());
+    }
+
+    // The designation decides access: nobody changes their own, and only an employee approver can make someone Super Admin
+    private void checkDesignationChange(Employee employee, UpdateEmployeeRequest request, List<ApiResponse.ApiErrorItem> errors) {
+        Designation requested = Designation.fromCode(request.getDesignation()).orElse(null);
+        if (requested == null || requested == employee.getDesignation()) {
+            return;
+        }
+        if (employee.getUserId().equals(currentUserProvider.getCurrentUserId())) {
+            errors.add(ApiErrors.error("designation", "You can't change your own designation. Ask another administrator."));
+        } else if (requested == Designation.SUPER_ADMIN && !currentAccess.has(Permission.EMPLOYEE_APPROVE)) {
+            errors.add(ApiErrors.error("designation", "Only an administrator who can approve employees can assign the Super Admin designation."));
+        }
+    }
+
+    // The level decides whether someone may approve, so only an employee approver changes it, never for themselves,
+    // and only between the two admin levels. Returns the new level, or null when it doesn't change.
+    private Role checkRoleChange(Employee employee, User account, UpdateEmployeeRequest request, List<ApiResponse.ApiErrorItem> errors) {
+        if (OptionalText.blankToNull(request.getRole()) == null) {
+            return null;
+        }
+        Role requested = Role.valueOf(request.getRole().trim().toUpperCase(Locale.ROOT));
+        if (requested == account.getRole()) {
+            return null;
+        }
+        if (account.getRole() != Role.ADMIN_L1 && account.getRole() != Role.ADMIN_L2) {
+            errors.add(ApiErrors.error("role", "Only administrator accounts have an admin level."));
+        } else if (employee.getUserId().equals(currentUserProvider.getCurrentUserId())) {
+            errors.add(ApiErrors.error("role", "You can't change your own admin level. Ask another administrator."));
+        } else if (!currentAccess.has(Permission.EMPLOYEE_APPROVE)) {
+            errors.add(ApiErrors.error("role", "Only an administrator who can approve employees can change an admin level."));
+        } else if (employee.getStatus() == EmployeeStatus.APPROVAL_PENDING) {
+            errors.add(ApiErrors.error("role", "This employee is waiting for approval; decide on the account first."));
+        }
+        return requested;
+    }
+
+    // The department is derived from the designation; a client may send it, but only the matching value
+    private static void checkDepartmentMatches(String requested, Designation designation, List<ApiResponse.ApiErrorItem> errors) {
+        String department = OptionalText.blankToNull(requested);
+        if (department != null && designation != null && !department.trim().equalsIgnoreCase(designation.department())) {
+            errors.add(ApiErrors.error("department", "The department follows the designation: " + designation.label()
+                    + " belongs to " + designation.department() + "."));
+        }
     }
 
     // Nobody joins before turning 18
     private void checkJoiningAfterAdulthood(LocalDate dateOfBirth, LocalDate joiningDate, List<ApiResponse.ApiErrorItem> errors) {
-        if (dateOfBirth != null && joiningDate != null && joiningDate.isBefore(dateOfBirth.plusYears(18))) {
-            errors.add(new ApiResponse.ApiErrorItem("joiningDate", "Joining date must be on or after the employee's 18th birthday ("
-                    + dateOfBirth.plusYears(18) + ")."));
+        if (dateOfBirth == null || joiningDate == null) {
+            return;
+        }
+        LocalDate adulthood = dateOfBirth.plusYears(AppConstants.MINIMUM_EMPLOYEE_AGE);
+        if (joiningDate.isBefore(adulthood)) {
+            errors.add(ApiErrors.error("joiningDate", "Joining date must be on or after the employee's 18th birthday (" + adulthood + ")."));
         }
     }
 
-    private void throwIfInvalid(List<ApiResponse.ApiErrorItem> errors) {
-        if (!errors.isEmpty()) {
-            throw new ApiException(errors.size() == 1 ? errors.getFirst().getMessage() : "One or more request fields are invalid.",
-                    "VALIDATION_FAILED", HttpStatus.BAD_REQUEST, errors);
+    // "First Middle Last" when no display name was given
+    private static String displayName(CreateEmployeeRequest request) {
+        String given = OptionalText.blankToNull(request.getDisplayName());
+        if (given != null) {
+            return given;
         }
+        String middle = OptionalText.blankToNull(request.getMiddleName());
+        return (request.getFirstName() + " " + (middle != null ? middle + " " : "") + request.getLastName()).trim();
     }
 
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+    private Employee findEmployee(Long id) {
+        return employeeRepository.findById(id).orElseThrow(() -> employeeNotFound(id));
     }
 
-    private static String lowerOrNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
+    private static ResourceNotFoundException employeeNotFound(Long id) {
+        return new ResourceNotFoundException("Employee not found with ID: " + id);
     }
 
-    private Employee findEmployeeOrThrow(Long id) {
-        return employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+    private EmployeeResponse toResponse(Employee employee) {
+        return employeeMapper.toResponse(employee, usersFor(List.of(employee)));
     }
 
-    private EmployeeResponse mapToResponse(User user, Employee employee) {
-        return EmployeeResponse.builder()
-                .id(employee.getId())
-                .userId(employee.getUserId())
-                .username(user != null ? user.getUsername() : null)
-                .employeeCode(employee.getEmployeeCode())
-                .firstName(employee.getFirstName())
-                .middleName(employee.getMiddleName())
-                .lastName(employee.getLastName())
-                .displayName(employee.getDisplayName())
-                .dateOfBirth(employee.getDateOfBirth())
-                .gender(employee.getGender())
-                .designation(employee.getDesignation())
-                .department(employee.getDepartment())
-                .employmentType(employee.getEmploymentType())
-                .joiningDate(employee.getJoiningDate())
-                .leavingDate(employee.getLeavingDate())
-                .salaryAmount(employee.getSalaryAmount())
-                .salaryCurrency(employee.getSalaryCurrency())
-                .phone(employee.getPhone())
-                .alternatePhone(employee.getAlternatePhone())
-                .personalEmail(employee.getPersonalEmail())
-                .workEmail(Objects.nonNull(user) ? user.getEmail() : "")
-                .status(employee.getStatus())
-                .createdBy(employee.getCreatedBy())
-                .createdByUsername(usernameOf(employee.getCreatedBy()))
-                .approvalDecidedBy(employee.getApprovalDecidedBy())
-                .approvalDecidedByUsername(usernameOf(employee.getApprovalDecidedBy()))
-                .approvalDecidedAt(employee.getApprovalDecidedAt())
-                .approvalRejectionReason(employee.getApprovalRejectionReason())
-                .createdAt(employee.getCreatedAt())
-                .updatedAt(employee.getUpdatedAt())
-                .build();
-    }
-
-    private String usernameOf(Long userId) {
-        return userId == null ? null : userRepository.findById(userId).map(User::getUsername).orElse(null);
+    // Every account the responses mention, loaded in one query
+    private Map<Long, User> usersFor(Collection<Employee> employees) {
+        List<Long> ids = employees.stream()
+                .flatMap(employee -> Stream.of(employee.getUserId(), employee.getCreatedBy(), employee.getApprovalDecidedBy()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        return ids.isEmpty() ? Map.of() : userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
     }
 }

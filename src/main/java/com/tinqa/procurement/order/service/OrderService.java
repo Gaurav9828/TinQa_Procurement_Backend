@@ -5,15 +5,19 @@ import com.tinqa.procurement.order.enums.OrderStatus;
 
 import java.util.List;
 
+/**
+ * Purchase orders and their forward-only status workflow. Every change is made as the signed-in user.
+ */
 public interface OrderService {
 
-    OrderDTOs.Response createOrder(OrderDTOs.CreateRequest request, Long currentUserId);
+    OrderDTOs.Response createOrder(OrderDTOs.CreateRequest request);
 
-    OrderDTOs.Response updateOrder(Long orderId, OrderDTOs.UpdateRequest request, Long currentUserId);
+    OrderDTOs.Response updateOrder(Long orderId, OrderDTOs.UpdateRequest request);
 
-    OrderDTOs.Response updateOrderStatus(Long orderId, OrderDTOs.UpdateStatusRequest request, Long currentUserId);
+    OrderDTOs.Response updateOrderStatus(Long orderId, OrderDTOs.UpdateStatusRequest request);
 
-    OrderDTOs.Response processAdminL2Approval(Long orderId, OrderDTOs.ApprovalDecisionRequest request, Long currentUserId);
+    /** Admin L2 decision on a PENDING order: DEALER_LEVEL_PENDING (approve) or CANCELLED (reject). */
+    OrderDTOs.Response processAdminL2Approval(Long orderId, OrderDTOs.ApprovalDecisionRequest request);
 
     OrderDTOs.Response getOrderById(Long orderId);
 

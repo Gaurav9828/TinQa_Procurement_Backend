@@ -3,12 +3,15 @@ package com.tinqa.procurement.product.service.impl;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ConflictException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.item.dto.ItemDTOs;
+import com.tinqa.procurement.common.util.Quantities;
+import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
+import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.product.dto.ProductDTOs;
 import com.tinqa.procurement.product.entity.Product;
 import com.tinqa.procurement.product.entity.ProductStockAllocation;
+import com.tinqa.procurement.product.mapper.ProductMapper;
 import com.tinqa.procurement.product.repository.ProductRepository;
 import com.tinqa.procurement.product.service.ProductService;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
@@ -24,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,20 +37,20 @@ public class ProductServiceImpl implements ProductService {
     private final ItemRepository itemRepository;
     private final StockService stockService;
     private final CurrentUserProvider currentUserProvider;
+    private final ProductMapper productMapper;
+    private final ReferenceNumberGenerator referenceNumbers;
 
     @Override
     @Transactional
     public ProductDTOs.Response createProduct(ProductDTOs.CreateRequest request) {
-        String productId = request.getProductId() == null || request.getProductId().isBlank()
-                ? generateProductId()
-                : request.getProductId().trim();
-
+        String requestedId = OptionalText.blankToNull(request.getProductId());
+        String productId = requestedId != null ? requestedId : referenceNumbers.productId();
         if (productRepository.existsByProductId(productId)) {
             throw new ConflictException("Product ID already exists: " + productId);
         }
 
         Item item = getActiveItem(request.getItemId());
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        Long currentUserId = currentUserProvider.getCurrentUserId();
 
         Product product = Product.builder()
                 .productId(productId)
@@ -57,49 +59,41 @@ public class ProductServiceImpl implements ProductService {
                 .createdBy(currentUserId)
                 .updatedBy(currentUserId)
                 .build();
-
         consumeStock(product, currentUserId);
 
-        return mapToProductResponse(productRepository.save(product));
+        return productMapper.toResponse(productRepository.save(product));
     }
 
     @Override
     @Transactional
     public ProductDTOs.Response updateProduct(Long id, ProductDTOs.UpdateRequest request) {
-        Product product = productRepository.findWithItemById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
-
+        Product product = findProduct(id);
         product.setIsActive(request.getIsActive());
-        product.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
-
-        return mapToProductResponse(productRepository.save(product));
+        product.setUpdatedBy(currentUserProvider.getCurrentUserId());
+        return productMapper.toResponse(productRepository.save(product));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ProductDTOs.Response getProductById(Long id) {
-        Product product = productRepository.findWithItemById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
-        return mapToProductResponse(product);
+        return productMapper.toResponse(findProduct(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ProductDTOs.Response getProductByProductId(String productId) {
-        Product product = productRepository.findByProductId(productId)
+        return productRepository.findByProductId(productId)
+                .map(productMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with product ID: " + productId));
-        return mapToProductResponse(product);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ProductDTOs.Response> getProductsByItemId(Long itemId) {
         if (!itemRepository.existsById(itemId)) {
-            throw new ResourceNotFoundException("Item not found with ID: " + itemId);
+            throw itemNotFound(itemId);
         }
-        return productRepository.findByItemIdOrderByIdAsc(itemId).stream()
-                .map(this::mapToProductResponse)
-                .collect(Collectors.toList());
+        return productRepository.findByItemIdOrderByIdAsc(itemId).stream().map(productMapper::toResponse).toList();
     }
 
     @Override
@@ -108,20 +102,17 @@ public class ProductServiceImpl implements ProductService {
         Page<Product> products = isActive == null
                 ? productRepository.findAll(pageable)
                 : productRepository.findByIsActive(isActive, pageable);
-        return products.map(this::mapToProductResponse);
+        return products.map(productMapper::toResponse);
     }
 
     @Override
     @Transactional
     public void deleteProduct(Long id) {
-        Product product = productRepository.findWithItemById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
-
+        Product product = findProduct(id);
+        // The stock the product consumed goes back to the entries it came from
         Map<Long, BigDecimal> unitsByStockId = product.getStockAllocations().stream()
-                .collect(Collectors.toMap(allocation -> allocation.getStock().getId(),
-                        ProductStockAllocation::getQuantity, BigDecimal::add));
-
-        stockService.restoreStock(unitsByStockId, currentUserProvider.getCurrentUser().getId());
+                .collect(Collectors.toMap(allocation -> allocation.getStock().getId(), ProductStockAllocation::getQuantity, BigDecimal::add));
+        stockService.restoreStock(unitsByStockId, currentUserProvider.getCurrentUserId());
         productRepository.delete(product);
     }
 
@@ -131,7 +122,7 @@ public class ProductServiceImpl implements ProductService {
         try {
             consumed = stockService.consumeItemStock(item, product.getQuantity(), currentUserId);
         } catch (InsufficientStockException exception) {
-            throw new InsufficientStockException(buildInsufficientStockMessage(item, exception),
+            throw new InsufficientStockException(insufficientStockMessage(item, exception),
                     exception.getItemId(), exception.getRequestedUnits(), exception.getAvailableUnits());
         }
 
@@ -143,64 +134,31 @@ public class ProductServiceImpl implements ProductService {
                 .build()));
     }
 
-    private String buildInsufficientStockMessage(Item item, InsufficientStockException exception) {
+    private static String insufficientStockMessage(Item item, InsufficientStockException exception) {
         String unit = item.getUnitOfMeasure();
-        String requested = exception.getRequestedUnits().stripTrailingZeros().toPlainString();
-        String available = exception.getAvailableUnits().stripTrailingZeros().toPlainString();
-
+        String itemLabel = "Item '" + item.getName() + "' (SKU: " + item.getSku() + ")";
         String reason = exception.getAvailableUnits().signum() == 0
-                ? "Item '" + item.getName() + "' (SKU: " + item.getSku() + ") is not in stock."
-                : "Item '" + item.getName() + "' (SKU: " + item.getSku() + ") does not have enough stock: requested "
-                + requested + " " + unit + ", only " + available + " " + unit + " available.";
-
+                ? itemLabel + " is not in stock."
+                : itemLabel + " does not have enough stock: requested " + Quantities.plain(exception.getRequestedUnits()) + " "
+                + unit + ", only " + Quantities.plain(exception.getAvailableUnits()) + " " + unit + " available.";
         return reason + " Please add or increase the stock for this item, then try again."
                 + " The product cannot be created without sufficient stock.";
     }
 
     private Item getActiveItem(Long itemId) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with ID: " + itemId));
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> itemNotFound(itemId));
         if (!Boolean.TRUE.equals(item.getIsActive())) {
             throw new BadRequestException("Cannot link a product to an inactive item: " + itemId);
         }
         return item;
     }
 
-    private String generateProductId() {
-        return "PRD-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+    private Product findProduct(Long id) {
+        return productRepository.findWithItemById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
     }
 
-    private ProductDTOs.Response mapToProductResponse(Product product) {
-        Item item = product.getItem();
-        ProductDTOs.Response res = new ProductDTOs.Response();
-        res.setId(product.getId());
-        res.setProductId(product.getProductId());
-        res.setItemId(item.getId());
-        res.setItemName(item.getName());
-        res.setItemSku(item.getSku());
-        res.setUnitOfMeasure(item.getUnitOfMeasure());
-        res.setQuantity(product.getQuantity());
-        res.setStockAllocations(product.getStockAllocations().stream()
-                .map(this::mapToStockAllocationResponse)
-                .collect(Collectors.toList()));
-        res.setItemWarranties(item.getWarranties().stream()
-                .map(ItemDTOs.WarrantyResponse::from)
-                .collect(Collectors.toList()));
-        res.setIsActive(product.getIsActive());
-        res.setCreatedAt(product.getCreatedAt());
-        res.setUpdatedAt(product.getUpdatedAt());
-        res.setCreatedBy(product.getCreatedBy());
-        res.setUpdatedBy(product.getUpdatedBy());
-        return res;
-    }
-
-    private ProductDTOs.StockAllocationResponse mapToStockAllocationResponse(ProductStockAllocation allocation) {
-        Stock stock = allocation.getStock();
-        ProductDTOs.StockAllocationResponse res = new ProductDTOs.StockAllocationResponse();
-        res.setStockId(stock.getId());
-        res.setStockIdentityNumber(stock.getStockIdentityNumber());
-        res.setBatchNumber(stock.getBatchNumber());
-        res.setQuantity(allocation.getQuantity());
-        return res;
+    private static ResourceNotFoundException itemNotFound(Long itemId) {
+        return new ResourceNotFoundException("Item not found with ID: " + itemId);
     }
 }

@@ -1,5 +1,6 @@
 package com.tinqa.procurement.approval.entity;
 
+import com.tinqa.procurement.approval.profile.ApprovalControlledProfile;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmployeeProfileChangeRequest {
+public class EmployeeProfileChangeRequest implements ApprovalControlledProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

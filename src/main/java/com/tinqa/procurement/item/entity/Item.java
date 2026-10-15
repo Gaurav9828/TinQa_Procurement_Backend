@@ -1,6 +1,6 @@
 package com.tinqa.procurement.item.entity;
 
-import com.tinqa.procurement.common.entity.Category;
+import com.tinqa.procurement.category.entity.Category;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;

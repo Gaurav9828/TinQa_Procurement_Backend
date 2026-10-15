@@ -2,8 +2,7 @@ package com.tinqa.procurement.employee.dto;
 
 import com.tinqa.procurement.common.validation.*;
 import jakarta.validation.constraints.*;
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
-import jakarta.validation.constraints.Email;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,9 +33,9 @@ public class UpdateEmployeeRequest {
     private LocalDate dateOfBirth;
     @Pattern(regexp = ValidationPatterns.GENDER, message = "Gender must be MALE, FEMALE or OTHER")
     private String gender;
-    @Size(max = 100, message = "Designation cannot exceed 100 characters")
-    @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Designation " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    @Pattern(regexp = ValidationPatterns.DESIGNATION, message = "Designation " + ValidationPatterns.DESIGNATION_MESSAGE)
     private String designation;
+    // Optional: the department follows the designation; a different value is rejected
     @Size(max = 100, message = "Department cannot exceed 100 characters")
     @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Department " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
     private String department;
@@ -59,5 +58,9 @@ public class UpdateEmployeeRequest {
     @Pattern(regexp = ValidationPatterns.EMAIL, message = "Personal email " + ValidationPatterns.EMAIL_MESSAGE)
     private String personalEmail;
 
-    private EmployeeConstants status;
+    private EmployeeStatus status;
+
+    // Admin level; only ADMIN_L1 / ADMIN_L2 can be set here, and only by an employee approver
+    @Pattern(regexp = "(?i)ADMIN_L1|ADMIN_L2", message = "Role must be ADMIN_L1 or ADMIN_L2")
+    private String role;
 }

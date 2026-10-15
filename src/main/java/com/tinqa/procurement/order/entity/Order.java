@@ -61,7 +61,7 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false, length = 30)
     @Builder.Default
-    private OrderStatus orderStatus = OrderStatus.PENDING;
+    private OrderStatus orderStatus = OrderStatus.QUOTATION;
 
     @Column(name = "expected_delivery")
     private LocalDate expectedDelivery;
@@ -89,4 +89,9 @@ public class Order {
 
     @Column(name = "updated_by")
     private Long updatedBy;
+
+    // Unit price x quantity, plus shipment
+    public void recalculateTotalPrice() {
+        totalPrice = unitPrice.multiply(orderQuantity).add(shipmentPrice);
+    }
 }

@@ -1,19 +1,28 @@
 package com.tinqa.procurement.item.controller;
 
+import com.tinqa.procurement.category.dto.CategoryDTOs;
+import com.tinqa.procurement.category.enums.CategoryType;
+import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.response.ApiResponse;
-import com.tinqa.procurement.common.dto.CategoryDTOs;
+import com.tinqa.procurement.common.response.ApiResponses;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.service.ItemService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.access.RequiresPermission;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -22,151 +31,59 @@ import java.util.List;
 public class ItemAdminController {
 
     private final ItemService itemService;
+    private final CategoryService categoryService;
 
-    // --- Category Endpoints ---
+    // --- Item categories ---
 
+    @RequiresPermission(Permission.ITEM_CATEGORY_MANAGE)
     @PostMapping("/categories")
-    public ResponseEntity<ApiResponse<CategoryDTOs.Response>> createCategory(
-            @Valid @RequestBody CategoryDTOs.CreateRequest request,
-            HttpServletRequest httpServletRequest) {
-
-        CategoryDTOs.Response responseData = itemService.createCategory(request);
-
-        ApiResponse<CategoryDTOs.Response> response = ApiResponse.<CategoryDTOs.Response>builder()
-                .success(true)
-                .message("Category created successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<ApiResponse<CategoryDTOs.Response>> createCategory(@Valid @RequestBody CategoryDTOs.CreateRequest request) {
+        return ApiResponses.created(categoryService.createCategory(CategoryType.ITEM, request), "Category created successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_VIEW)
     @GetMapping("/categories")
-    public ResponseEntity<ApiResponse<List<CategoryDTOs.Response>>> getAllCategories(
-            HttpServletRequest httpServletRequest) {
-
-        List<CategoryDTOs.Response> responseData = itemService.getAllCategories();
-
-        ApiResponse<List<CategoryDTOs.Response>> response = ApiResponse.<List<CategoryDTOs.Response>>builder()
-                .success(true)
-                .message("Categories retrieved successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<List<CategoryDTOs.Response>>> getAllCategories() {
+        return ApiResponses.ok(categoryService.getCategories(CategoryType.ITEM), "Categories retrieved successfully");
     }
 
-    // --- Item Endpoints ---
+    // --- Items ---
 
+    @RequiresPermission(Permission.ITEM_CREATE)
     @PostMapping
-    public ResponseEntity<ApiResponse<ItemDTOs.Response>> createItem(
-            @Valid @RequestBody ItemDTOs.CreateRequest request,
-            HttpServletRequest httpServletRequest) {
-
-        ItemDTOs.Response responseData = itemService.createItem(request);
-
-        ApiResponse<ItemDTOs.Response> response = ApiResponse.<ItemDTOs.Response>builder()
-                .success(true)
-                .message("Item created successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<ApiResponse<ItemDTOs.Response>> createItem(@Valid @RequestBody ItemDTOs.CreateRequest request) {
+        return ApiResponses.created(itemService.createItem(request), "Item created successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_UPDATE)
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ItemDTOs.Response>> updateItem(
-            @PathVariable Long id,
-            @Valid @RequestBody ItemDTOs.UpdateRequest request,
-            HttpServletRequest httpServletRequest) {
-
-        ItemDTOs.Response responseData = itemService.updateItem(id, request);
-
-        ApiResponse<ItemDTOs.Response> response = ApiResponse.<ItemDTOs.Response>builder()
-                .success(true)
-                .message("Item updated successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<ItemDTOs.Response>> updateItem(@PathVariable Long id,
+                                                                     @Valid @RequestBody ItemDTOs.UpdateRequest request) {
+        return ApiResponses.ok(itemService.updateItem(id, request), "Item updated successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_VIEW)
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ItemDTOs.Response>> getItemById(
-            @PathVariable Long id,
-            HttpServletRequest httpServletRequest) {
-
-        ItemDTOs.Response responseData = itemService.getItemById(id);
-
-        ApiResponse<ItemDTOs.Response> response = ApiResponse.<ItemDTOs.Response>builder()
-                .success(true)
-                .message("Item retrieved successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<ItemDTOs.Response>> getItemById(@PathVariable Long id) {
+        return ApiResponses.ok(itemService.getItemById(id), "Item retrieved successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_VIEW)
     @GetMapping("/{id}/warranties")
-    public ResponseEntity<ApiResponse<List<ItemDTOs.WarrantyResponse>>> getItemWarranties(
-            @PathVariable Long id,
-            HttpServletRequest httpServletRequest) {
-
-        List<ItemDTOs.WarrantyResponse> responseData = itemService.getItemWarranties(id);
-
-        ApiResponse<List<ItemDTOs.WarrantyResponse>> response = ApiResponse.<List<ItemDTOs.WarrantyResponse>>builder()
-                .success(true)
-                .message("Item warranties retrieved successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<List<ItemDTOs.WarrantyResponse>>> getItemWarranties(@PathVariable Long id) {
+        return ApiResponses.ok(itemService.getItemWarranties(id), "Item warranties retrieved successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_VIEW)
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ItemDTOs.Response>>> getAllItems(
-            Pageable pageable,
-            HttpServletRequest httpServletRequest) {
-
-        Page<ItemDTOs.Response> responseData = itemService.getAllItems(pageable);
-
-        ApiResponse<Page<ItemDTOs.Response>> response = ApiResponse.<Page<ItemDTOs.Response>>builder()
-                .success(true)
-                .message("Items retrieved successfully")
-                .data(responseData)
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<Page<ItemDTOs.Response>>> getAllItems(Pageable pageable) {
+        return ApiResponses.ok(itemService.getAllItems(pageable), "Items retrieved successfully");
     }
 
+    @RequiresPermission(Permission.ITEM_DELETE)
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteItem(
-            @PathVariable Long id,
-            HttpServletRequest httpServletRequest) {
-
+    public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable Long id) {
         itemService.deleteItem(id);
-
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .success(true)
-                .message("Item deleted successfully")
-                .timestamp(Instant.now())
-                .path(httpServletRequest.getRequestURI())
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ApiResponses.ok("Item deleted successfully");
     }
 }

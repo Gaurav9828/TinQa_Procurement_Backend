@@ -1,25 +1,28 @@
 package com.tinqa.procurement.productapproval.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tinqa.procurement.common.constant.ErrorCodes;
+import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.productapproval.config.ProductApprovalProperties;
 import com.tinqa.procurement.productapproval.dto.ProductApprovalDTOs;
 import com.tinqa.procurement.productapproval.entity.ProductApprovalRequest;
 import com.tinqa.procurement.productapproval.enums.ProductApprovalRequestType;
 import com.tinqa.procurement.productapproval.enums.ProductApprovalStatus;
 import com.tinqa.procurement.productapproval.repository.ProductApprovalRequestRepository;
 import com.tinqa.procurement.productapproval.service.ProductApprovalService;
-import com.tinqa.procurement.security.model.Role;
+import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import com.tinqa.procurement.stock.dto.ItemStockMovementDTOs;
 import com.tinqa.procurement.stock.service.ItemStockMovementService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,10 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,10 +52,8 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
     private final NotificationService notificationService;
     private final ItemStockMovementService itemStockMovementService;
     private final ItemRepository itemRepository;
-
-    // Maker-checker: the Admin L2 who submitted a product cannot also decide it
-    @Value("${tinqa.product-approval.allow-self-decision:false}")
-    private boolean allowSelfDecision;
+    private final ProductApprovalProperties properties;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -64,7 +65,7 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
             return submitUpdate(request, requester);
         }
         if (request.getRequestType() != null) {
-            throw fieldError("requestType", "requestType can only be UPDATE; omit it for a new product");
+            throw ApiErrors.fieldError("requestType", "requestType can only be UPDATE; omit it for a new product");
         }
 
         repository.lockProduct(productId);
@@ -76,12 +77,12 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         if (latest.map(r -> r.getStatus() == ProductApprovalStatus.APPROVED
                         || r.getRequestType() == ProductApprovalRequestType.UPDATE).orElse(false)
                 || repository.existsByEcommerceProductIdAndStatus(productId, ProductApprovalStatus.APPROVED)) {
-            throw error(HttpStatus.CONFLICT, "PRODUCT_ALREADY_APPROVED",
+            throw ApiErrors.conflict(ErrorCodes.PRODUCT_ALREADY_APPROVED,
                     "This product is already approved. Submit your edits as changes for approval instead.");
         }
         ProductApprovalRequestType type = latest
                 .map(r -> switch (r.getStatus()) {
-                    case CANCELLED -> throw error(HttpStatus.CONFLICT, "PRODUCT_APPROVAL_CANCELLED",
+                    case CANCELLED -> throw ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_CANCELLED,
                             "This product was cancelled and can't be resubmitted.");
                     default -> ProductApprovalRequestType.RESUBMISSION;
                 })
@@ -101,14 +102,14 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
                     .status(ProductApprovalStatus.PENDING)
                     .snapshot(request.getSnapshot())
                     .requestedBy(requester.getId())
-                    .requestedAt(OffsetDateTime.now(ZoneOffset.UTC))
+                    .requestedAt(now())
                     .build());
         } catch (DataIntegrityViolationException exception) {
             // Partial unique index: another PENDING request for this product won the race
             throw pendingConflict();
         }
 
-        notificationService.createForRole(Role.ADMIN_L2, requester.getId(), "Product awaiting approval",
+        notificationService.createForPermission(Permission.PRODUCT_APPROVAL_DECIDE, requester.getId(), "Product awaiting approval",
                 saved.getProductTitle() + " (#" + productId + ") was "
                         + (type == ProductApprovalRequestType.RESUBMISSION ? "resubmitted" : "submitted")
                         + " by " + requester.getUsername() + ".");
@@ -129,17 +130,17 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
                 case PENDING -> throw pendingConflict();
                 case APPROVED -> {
                     if (update && latest.getAppliedAt() == null) {
-                        throw error(HttpStatus.CONFLICT, "PRODUCT_UPDATE_NOT_APPLIED",
+                        throw ApiErrors.conflict(ErrorCodes.PRODUCT_UPDATE_NOT_APPLIED,
                                 "Approved changes for this product have not been applied yet.");
                     }
                 }
                 case REJECTED -> {
                     if (!update) {
-                        throw error(HttpStatus.CONFLICT, "PRODUCT_NOT_APPROVED",
+                        throw ApiErrors.conflict(ErrorCodes.PRODUCT_NOT_APPROVED,
                                 "This product isn't approved yet — edit it and resubmit it for approval.");
                     }
                 }
-                case CANCELLED -> throw error(HttpStatus.CONFLICT, "PRODUCT_APPROVAL_CANCELLED",
+                case CANCELLED -> throw ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_CANCELLED,
                         "This product was cancelled and can't be changed.");
             }
             // no request at all = product from before the approval workflow, treated as approved
@@ -157,14 +158,14 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
                     .previousSnapshot(request.getPreviousSnapshot())
                     .changeSummary(request.getChangeSummary())
                     .requestedBy(requester.getId())
-                    .requestedAt(OffsetDateTime.now(ZoneOffset.UTC))
+                    .requestedAt(now())
                     .build());
         } catch (DataIntegrityViolationException exception) {
             throw pendingConflict();
         }
 
         int changes = saved.getChangeSummary().size();
-        notificationService.createForRole(Role.ADMIN_L2, requester.getId(), "Product update awaiting approval",
+        notificationService.createForPermission(Permission.PRODUCT_APPROVAL_DECIDE, requester.getId(), "Product update awaiting approval",
                 saved.getProductTitle() + " (#" + productId + "): " + changes + " change" + (changes == 1 ? "" : "s")
                         + " requested by " + requester.getUsername() + ".");
         return toResponses(List.of(saved)).getFirst();
@@ -174,21 +175,20 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
         JsonNode proposed = request.getProposedChanges();
         if (proposed == null || proposed.isNull()) {
-            errors.add(new ApiResponse.ApiErrorItem("proposedChanges", "Proposed changes are required"));
+            errors.add(ApiErrors.error("proposedChanges", "Proposed changes are required"));
         } else if (!proposed.isObject()) {
-            errors.add(new ApiResponse.ApiErrorItem("proposedChanges", "Proposed changes must be a JSON object"));
+            errors.add(ApiErrors.error("proposedChanges", "Proposed changes must be a JSON object"));
         } else if (proposed.toString().getBytes(StandardCharsets.UTF_8).length > MAX_PROPOSED_CHANGES_BYTES) {
-            errors.add(new ApiResponse.ApiErrorItem("proposedChanges", "Proposed changes cannot exceed 1 MB"));
+            errors.add(ApiErrors.error("proposedChanges", "Proposed changes cannot exceed 1 MB"));
         }
         if (request.getPreviousSnapshot() == null) {
-            errors.add(new ApiResponse.ApiErrorItem("previousSnapshot", "Previous snapshot is required"));
+            errors.add(ApiErrors.error("previousSnapshot", "Previous snapshot is required"));
         }
         if (request.getChangeSummary() == null || request.getChangeSummary().isEmpty()) {
-            errors.add(new ApiResponse.ApiErrorItem("changeSummary", "Change summary must list at least one change"));
+            errors.add(ApiErrors.error("changeSummary", "Change summary must list at least one change"));
         }
         if (!errors.isEmpty()) {
-            throw new ApiException(errors.size() == 1 ? errors.getFirst().getMessage() : "One or more request fields are invalid.",
-                    "VALIDATION_FAILED", HttpStatus.BAD_REQUEST, errors);
+            throw ApiErrors.validationFailed(errors);
         }
     }
 
@@ -198,14 +198,14 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         User user = currentUserProvider.getCurrentUser();
         // Row lock: concurrent calls apply once; the first appliedAt is kept
         ProductApprovalRequest approval = repository.findByIdForUpdate(id)
-                .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "PRODUCT_APPROVAL_NOT_FOUND",
+                .orElseThrow(() -> ApiErrors.of(HttpStatus.NOT_FOUND, ErrorCodes.PRODUCT_APPROVAL_NOT_FOUND,
                         "Product approval request not found with ID: " + id));
         if (approval.getRequestType() != ProductApprovalRequestType.UPDATE || approval.getStatus() != ProductApprovalStatus.APPROVED) {
-            throw error(HttpStatus.CONFLICT, "PRODUCT_APPROVAL_NOT_APPLICABLE",
+            throw ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_NOT_APPLICABLE,
                     "Only approved product changes can be marked as applied.");
         }
         if (approval.getAppliedAt() == null) {
-            approval.setAppliedAt(OffsetDateTime.now(ZoneOffset.UTC));
+            approval.setAppliedAt(now());
             approval.setAppliedBy(user.getId());
             approval = repository.saveAndFlush(approval);
         }
@@ -237,34 +237,34 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         User reviewer = currentUserProvider.getCurrentUser();
         ProductApprovalStatus decision = request.getDecision();
         if (decision == ProductApprovalStatus.PENDING) {
-            throw fieldError("decision", "Decision must be APPROVED, REJECTED or CANCELLED");
+            throw ApiErrors.fieldError("decision", "Decision must be APPROVED, REJECTED or CANCELLED");
         }
         String reason = request.getReason() == null ? null : request.getReason().trim();
         if (decision != ProductApprovalStatus.APPROVED && (reason == null || reason.isEmpty())) {
-            throw fieldError("reason", "A reason is required to " + (decision == ProductApprovalStatus.REJECTED ? "reject" : "cancel")
+            throw ApiErrors.fieldError("reason", "A reason is required to " + (decision == ProductApprovalStatus.REJECTED ? "reject" : "cancel")
                     + " a product");
         }
 
         // Row lock: of two reviewers deciding at once, the second sees the first one's decision
         ProductApprovalRequest approval = repository.findByIdForUpdate(id)
-                .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "PRODUCT_APPROVAL_NOT_FOUND",
+                .orElseThrow(() -> ApiErrors.of(HttpStatus.NOT_FOUND, ErrorCodes.PRODUCT_APPROVAL_NOT_FOUND,
                         "Product approval request not found with ID: " + id));
         boolean update = approval.getRequestType() == ProductApprovalRequestType.UPDATE;
         if (update && decision == ProductApprovalStatus.CANCELLED) {
-            throw error(HttpStatus.BAD_REQUEST, "PRODUCT_APPROVAL_INVALID_DECISION", "Product changes can only be approved or rejected.");
+            throw ApiErrors.of(HttpStatus.BAD_REQUEST, ErrorCodes.PRODUCT_APPROVAL_INVALID_DECISION, "Product changes can only be approved or rejected.");
         }
         if (approval.getStatus() != ProductApprovalStatus.PENDING) {
-            throw error(HttpStatus.CONFLICT, "PRODUCT_APPROVAL_NOT_PENDING",
+            throw ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_NOT_PENDING,
                     "This request was already " + approval.getStatus().name().toLowerCase(Locale.ROOT) + ".");
         }
-        if (!allowSelfDecision && approval.getRequestedBy().equals(reviewer.getId())) {
-            throw error(HttpStatus.FORBIDDEN, "PRODUCT_APPROVAL_SELF_DECISION",
+        if (!properties.allowSelfDecision() && approval.getRequestedBy().equals(reviewer.getId())) {
+            throw ApiErrors.forbidden(ErrorCodes.PRODUCT_APPROVAL_SELF_DECISION,
                     "You submitted this product, so another Admin L2 has to review it.");
         }
 
         approval.setStatus(decision);
         approval.setDecidedBy(reviewer.getId());
-        approval.setDecidedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        approval.setDecidedAt(now());
         approval.setDecisionReason(decision == ProductApprovalStatus.APPROVED ? emptyToNull(reason) : reason);
         ProductApprovalRequest saved = repository.saveAndFlush(approval);
 
@@ -317,13 +317,13 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
             itemStockMovementService.reconcileReference(STOCK_SOURCE, stockReference(request.getEcommerceProductId()),
                     target, currentUserProvider.getCurrentUser().getUsername());
         } catch (ApiException exception) {
-            if (!"INSUFFICIENT_ITEM_STOCK".equals(exception.getErrorCode())) {
+            if (!ErrorCodes.INSUFFICIENT_ITEM_STOCK.equals(exception.getErrorCode())) {
                 throw exception;
             }
             String message = "Not enough component stock to resubmit this product. " + exception.getMessage()
                     + ". Add stock for these items, then submit again.";
-            throw new ApiException(message, "INSUFFICIENT_ITEM_STOCK", HttpStatus.CONFLICT,
-                    List.of(new ApiResponse.ApiErrorItem("snapshot.components", exception.getMessage())));
+            throw new ApiException(message, ErrorCodes.INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT,
+                    List.of(ApiErrors.error("snapshot.components", exception.getMessage())));
         }
     }
 
@@ -336,7 +336,7 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
                         .map(ItemStockMovementDTOs.LineResult::getItemId).toList()).stream()
                 .collect(Collectors.toMap(Item::getId, Item::getName));
         return " Component stock returned: " + movement.getLines().stream()
-                .map(line -> line.getQuantity().negate().stripTrailingZeros().toPlainString() + " "
+                .map(line -> Quantities.plain(line.getQuantity().negate()) + " "
                         + names.getOrDefault(line.getItemId(), "item #" + line.getItemId()))
                 .collect(Collectors.joining(", ")) + ".";
     }
@@ -348,18 +348,18 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
     private List<Long> parseProductIds(String productIds) {
         String message = "productIds must be 1 to " + MAX_PRODUCT_IDS + " comma-separated product IDs";
         if (productIds == null || productIds.isBlank()) {
-            throw fieldError("productIds", message);
+            throw ApiErrors.fieldError("productIds", message);
         }
         Set<Long> ids = new LinkedHashSet<>();
         for (String part : productIds.split(",")) {
             String value = part.trim();
             if (!value.matches("^[1-9][0-9]{0,18}$")) {
-                throw fieldError("productIds", message + "; '" + value + "' is not a valid ID");
+                throw ApiErrors.fieldError("productIds", message + "; '" + value + "' is not a valid ID");
             }
             ids.add(Long.parseLong(value));
         }
         if (ids.size() > MAX_PRODUCT_IDS) {
-            throw fieldError("productIds", message);
+            throw ApiErrors.fieldError("productIds", message);
         }
         return List.copyOf(ids);
     }
@@ -397,16 +397,11 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
     }
 
     private ApiException pendingConflict() {
-        return error(HttpStatus.CONFLICT, "PRODUCT_APPROVAL_PENDING", "This product is already waiting for Admin L2 approval.");
+        return ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_PENDING, "This product is already waiting for Admin L2 approval.");
     }
 
-    private ApiException error(HttpStatus status, String code, String message) {
-        return new ApiException(message, code, status);
-    }
-
-    private ApiException fieldError(String field, String message) {
-        return new ApiException(message, "VALIDATION_FAILED", HttpStatus.BAD_REQUEST,
-                List.of(new ApiResponse.ApiErrorItem(field, message)));
+    private OffsetDateTime now() {
+        return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
     }
 
     private static String emptyToNull(String value) {

@@ -1,5 +1,6 @@
 package com.tinqa.procurement.admin.dto;
 
+import com.tinqa.procurement.approval.profile.ApprovalControlledProfile;
 import com.tinqa.procurement.common.validation.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -9,7 +10,7 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-public class AdminProfileUpdateRequest {
+public class AdminProfileUpdateRequest implements ApprovalControlledProfile {
 
     @Size(max = 200, message = "Display name cannot exceed 200 characters")
     @Pattern(regexp = ValidationPatterns.PERSON_NAME, message = "Display name " + ValidationPatterns.PERSON_NAME_MESSAGE)

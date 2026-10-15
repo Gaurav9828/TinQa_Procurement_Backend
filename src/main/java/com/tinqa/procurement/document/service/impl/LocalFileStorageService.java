@@ -2,8 +2,9 @@ package com.tinqa.procurement.document.service.impl;
 
 import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
+import com.tinqa.procurement.document.config.FileStorageProperties;
 import com.tinqa.procurement.document.service.FileStorageService;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -11,60 +12,62 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * Stores files on the local disk under a random name, so client-supplied names never become paths.
+ */
+@Slf4j
 @Service
 public class LocalFileStorageService implements FileStorageService {
 
     private final Path fileStorageLocation;
 
-    public LocalFileStorageService(@Value("${file.upload-dir:./uploads}") String uploadDir) {
-        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+    public LocalFileStorageService(FileStorageProperties properties) {
+        this.fileStorageLocation = Paths.get(properties.uploadDir()).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation);
-        } catch (Exception ex) {
-            throw new ApiException("Could not create execution directory for uploaded files.");
+        } catch (IOException exception) {
+            throw new ApiException("Could not create execution directory for uploaded files.", exception);
         }
     }
 
     @Override
     public String storeFile(MultipartFile file, String pathPrefix) {
         String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-        try {
-            if (originalFileName.contains("..")) {
-                throw new ApiException("Filename contains invalid path sequence " + originalFileName);
-            }
+        if (originalFileName.contains("..")) {
+            throw new ApiException("Filename contains invalid path sequence " + originalFileName);
+        }
 
-            String extension = "";
-            int i = originalFileName.lastIndexOf('.');
-            if (i >= 0) {
-                extension = originalFileName.substring(i).toLowerCase(java.util.Locale.ROOT);
-            }
-
-            String newFileName = UUID.randomUUID() + extension;
-            Path targetLocation = this.fileStorageLocation.resolve(pathPrefix).resolve(newFileName);
+        int dot = originalFileName.lastIndexOf('.');
+        String extension = dot >= 0 ? originalFileName.substring(dot).toLowerCase(Locale.ROOT) : "";
+        String newFileName = UUID.randomUUID() + extension;
+        try (InputStream content = file.getInputStream()) {
+            Path targetLocation = resolve(pathPrefix).resolve(newFileName);
             Files.createDirectories(targetLocation.getParent());
-
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(content, targetLocation, StandardCopyOption.REPLACE_EXISTING);
             return pathPrefix + "/" + newFileName;
-        } catch (IOException ex) {
-            throw new ApiException("Could not store file " + originalFileName + ". Please try again!");
+        } catch (IOException exception) {
+            throw new ApiException("Could not store file " + originalFileName + ". Please try again!", exception);
         }
     }
 
     @Override
     public Resource loadFileAsResource(String storageKey) {
         try {
-            Path filePath = this.fileStorageLocation.resolve(storageKey).normalize();
-            Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists()) {
-                return resource;
-            } else {
+            Resource resource = new UrlResource(resolve(storageKey).toUri());
+            if (!resource.exists()) {
                 throw new ResourceNotFoundException("File not found " + storageKey);
             }
-        } catch (MalformedURLException ex) {
+            return resource;
+        } catch (MalformedURLException exception) {
             throw new ResourceNotFoundException("File not found " + storageKey);
         }
     }
@@ -72,10 +75,19 @@ public class LocalFileStorageService implements FileStorageService {
     @Override
     public void deleteFile(String storageKey) {
         try {
-            Path filePath = this.fileStorageLocation.resolve(storageKey).normalize();
-            Files.deleteIfExists(filePath);
-        } catch (IOException ex) {
-            // Soft ignore or log error
+            Files.deleteIfExists(resolve(storageKey));
+        } catch (IOException exception) {
+            // The document record is already gone; an orphaned file is only wasted space
+            log.warn("Could not delete stored file {}", storageKey, exception);
         }
+    }
+
+    // Keys are resolved inside the storage directory only
+    private Path resolve(String storageKey) {
+        Path path = fileStorageLocation.resolve(storageKey).normalize();
+        if (!path.startsWith(fileStorageLocation)) {
+            throw new ResourceNotFoundException("File not found " + storageKey);
+        }
+        return path;
     }
 }

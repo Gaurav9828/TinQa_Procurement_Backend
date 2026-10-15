@@ -1,144 +1,84 @@
 package com.tinqa.procurement.order.controller;
 
 import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.common.response.ApiResponses;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.service.OrderService;
-import com.tinqa.procurement.security.service.CurrentUserProvider;
-import jakarta.servlet.http.HttpServletRequest;
+import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.access.RequiresPermission;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+// Which admin level may make each status move is decided by the order workflow in the service
 @RestController
 @RequestMapping("/v1/orders")
 @RequiredArgsConstructor
 public class OrderController {
 
+    private static final String STATUS_UPDATED = "Order status updated successfully";
+
     private final OrderService orderService;
-    private final CurrentUserProvider currentUserProvider;
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_CREATE)
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
-    public ResponseEntity<ApiResponse<OrderDTOs.Response>> createOrder(
-            @Valid @RequestBody OrderDTOs.CreateRequest request,
-            HttpServletRequest servletRequest) {
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-        OrderDTOs.Response data = orderService.createOrder(request, currentUserId);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<OrderDTOs.Response>builder()
-                        .success(true)
-                        .message("Order created successfully")
-                        .data(data)
-                        .path(servletRequest.getRequestURI())
-                        .build());
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> createOrder(@Valid @RequestBody OrderDTOs.CreateRequest request) {
+        return ApiResponses.created(orderService.createOrder(request), "Order created successfully");
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_UPDATE)
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2')")
-    public ResponseEntity<ApiResponse<OrderDTOs.Response>> updateOrder(
-            @PathVariable Long id,
-            @Valid @RequestBody OrderDTOs.UpdateRequest request,
-            HttpServletRequest servletRequest) {
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-        OrderDTOs.Response data = orderService.updateOrder(id, request, currentUserId);
-        return ResponseEntity.ok(ApiResponse.<OrderDTOs.Response>builder()
-                .success(true)
-                .message("Order updated successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> updateOrder(@PathVariable Long id,
+                                                                       @Valid @RequestBody OrderDTOs.UpdateRequest request) {
+        return ApiResponses.ok(orderService.updateOrder(id, request), "Order updated successfully");
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_UPDATE_STATUS)
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2')")
-    public ResponseEntity<ApiResponse<OrderDTOs.Response>> updateOrderStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody OrderDTOs.UpdateStatusRequest request,
-            HttpServletRequest servletRequest) {
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-        OrderDTOs.Response data = orderService.updateOrderStatus(id, request, currentUserId);
-        return ResponseEntity.ok(ApiResponse.<OrderDTOs.Response>builder()
-                .success(true)
-                .message("Order status updated successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> updateOrderStatus(@PathVariable Long id,
+                                                                             @Valid @RequestBody OrderDTOs.UpdateStatusRequest request) {
+        return ApiResponses.ok(orderService.updateOrderStatus(id, request), STATUS_UPDATED);
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_APPROVE)
     @PatchMapping("/{id}/approval")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2')")
-    public ResponseEntity<ApiResponse<OrderDTOs.Response>> processAdminL2Approval(
-            @PathVariable Long id,
-            @Valid @RequestBody OrderDTOs.ApprovalDecisionRequest request,
-            HttpServletRequest servletRequest) {
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-        OrderDTOs.Response data = orderService.processAdminL2Approval(id, request, currentUserId);
-        return ResponseEntity.ok(ApiResponse.<OrderDTOs.Response>builder()
-                .success(true)
-                .message("Order status updated successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> processAdminL2Approval(@PathVariable Long id,
+                                                                                  @Valid @RequestBody OrderDTOs.ApprovalDecisionRequest request) {
+        return ApiResponses.ok(orderService.processAdminL2Approval(id, request), STATUS_UPDATED);
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
-    public ResponseEntity<ApiResponse<OrderDTOs.Response>> getOrderById(
-            @PathVariable Long id,
-            HttpServletRequest servletRequest) {
-        OrderDTOs.Response data = orderService.getOrderById(id);
-        return ResponseEntity.ok(ApiResponse.<OrderDTOs.Response>builder()
-                .success(true)
-                .message("Order retrieved successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<OrderDTOs.Response>> getOrderById(@PathVariable Long id) {
+        return ApiResponses.ok(orderService.getOrderById(id), "Order retrieved successfully");
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
-    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getAllOrders(
-            HttpServletRequest servletRequest) {
-        List<OrderDTOs.Response> data = orderService.getAllOrders();
-        return ResponseEntity.ok(ApiResponse.<List<OrderDTOs.Response>>builder()
-                .success(true)
-                .message("Orders retrieved successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getAllOrders() {
+        return ApiResponses.ok(orderService.getAllOrders(), "Orders retrieved successfully");
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
     @GetMapping("/dealer/{dealerId}")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
-    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersByDealerId(
-            @PathVariable Long dealerId,
-            HttpServletRequest servletRequest) {
-        List<OrderDTOs.Response> data = orderService.getOrdersByDealerId(dealerId);
-        return ResponseEntity.ok(ApiResponse.<List<OrderDTOs.Response>>builder()
-                .success(true)
-                .message("Orders retrieved for dealer successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersByDealerId(@PathVariable Long dealerId) {
+        return ApiResponses.ok(orderService.getOrdersByDealerId(dealerId), "Orders retrieved for dealer successfully");
     }
 
+    @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('ADMIN_L1', 'ADMIN_L2', 'MANAGER')")
-    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersByStatus(
-            @PathVariable OrderStatus status,
-            HttpServletRequest servletRequest) {
-        List<OrderDTOs.Response> data = orderService.getOrdersByStatus(status);
-        return ResponseEntity.ok(ApiResponse.<List<OrderDTOs.Response>>builder()
-                .success(true)
-                .message("Orders retrieved by status successfully")
-                .data(data)
-                .path(servletRequest.getRequestURI())
-                .build());
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersByStatus(@PathVariable OrderStatus status) {
+        return ApiResponses.ok(orderService.getOrdersByStatus(status), "Orders retrieved by status successfully");
     }
 }

@@ -1,6 +1,6 @@
 package com.tinqa.procurement.employee.service;
 
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import com.tinqa.procurement.employee.dto.CreateEmployeeRequest;
 import com.tinqa.procurement.employee.dto.EmployeeApprovalDecisionRequest;
 import com.tinqa.procurement.employee.dto.EmployeeResponse;
@@ -14,7 +14,7 @@ public interface EmployeeService {
 
     EmployeeResponse createEmployee(CreateEmployeeRequest request);
 
-    Page<EmployeeResponse> getAllEmployees(EmployeeConstants status, String search, Pageable pageable);
+    Page<EmployeeResponse> getAllEmployees(EmployeeStatus status, String search, Pageable pageable);
 
     EmployeeResponse getEmployeeById(Long id);
 

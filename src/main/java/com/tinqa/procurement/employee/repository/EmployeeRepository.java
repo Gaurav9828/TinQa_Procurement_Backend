@@ -1,6 +1,6 @@
 package com.tinqa.procurement.employee.repository;
 
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import com.tinqa.procurement.employee.model.Employee;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
-    Page<Employee> findByStatus(EmployeeConstants status, Pageable pageable);
+    Page<Employee> findByStatus(EmployeeStatus status, Pageable pageable);
 
     @Query("SELECT e FROM Employee e WHERE " +
             "(LOWER(e.firstName) LIKE %:search% OR " +
@@ -31,7 +31,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             "LOWER(e.employeeCode) LIKE %:search% OR " +
             "LOWER(e.department) LIKE %:search% OR " +
             "LOWER(e.phone) LIKE %:search%)")
-    Page<Employee> findByStatusAndSearchTerm(@Param("status") EmployeeConstants status, @Param("search") String search, Pageable pageable);
+    Page<Employee> findByStatusAndSearchTerm(@Param("status") EmployeeStatus status, @Param("search") String search, Pageable pageable);
 
     Optional<Employee> findByUserId(Long userId);
 
@@ -46,7 +46,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findFirstByPersonalEmailIgnoreCaseAndIdNot(String personalEmail, Long employeeId);
 
-    List<Employee> findByStatusOrderByCreatedAtAscIdAsc(EmployeeConstants status);
+    List<Employee> findByStatusOrderByCreatedAtAscIdAsc(EmployeeStatus status);
 
     // Highest numeric EMP-#### code in use (codes are never reused, even after deletions)
     @Query(value = "SELECT COALESCE(MAX(CAST(substring(employee_code FROM 5) AS INTEGER)), 0) FROM employee "
@@ -55,21 +55,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     @Query(value = "SELECT CAST(pg_advisory_xact_lock(hashtextextended('employee-code', 0)) AS text)", nativeQuery = true)
     String lockEmployeeCodeSequence();
-
-    boolean existsByPersonalEmailIgnoreCaseAndIdNot(
-            String personalEmail,
-            Long employeeId
-    );
-
-    boolean existsByPhoneAndIdNot(
-            String phone,
-            Long employeeId
-    );
-
-    boolean existsByAlternatePhoneAndIdNot(
-            String alternatePhone,
-            Long employeeId
-    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

@@ -2,7 +2,6 @@ package com.tinqa.procurement.item.dto;
 
 import com.tinqa.procurement.common.validation.*;
 import jakarta.validation.constraints.*;
-import com.tinqa.procurement.item.entity.ItemWarranty;
 import com.tinqa.procurement.item.enums.WarrantyDurationUnit;
 import com.tinqa.procurement.item.enums.WarrantyType;
 import jakarta.validation.Valid;
@@ -206,25 +205,5 @@ public class ItemDTOs {
         private LocalDateTime updatedAt;
         private Long createdBy;
         private Long updatedBy;
-
-        public static WarrantyResponse from(ItemWarranty warranty) {
-            WarrantyResponse res = new WarrantyResponse();
-            res.setId(warranty.getId());
-            res.setItemId(warranty.getItem().getId());
-            res.setWarrantyType(warranty.getWarrantyType());
-            res.setTitle(warranty.getTitle());
-            res.setDurationValue(warranty.getDurationValue());
-            res.setDurationUnit(warranty.getDurationUnit());
-            res.setProvider(warranty.getProvider());
-            res.setCoverage(warranty.getCoverage());
-            res.setExclusions(warranty.getExclusions());
-            res.setTermsAndConditions(warranty.getTermsAndConditions());
-            res.setIsActive(warranty.getIsActive());
-            res.setCreatedAt(warranty.getCreatedAt());
-            res.setUpdatedAt(warranty.getUpdatedAt());
-            res.setCreatedBy(warranty.getCreatedBy());
-            res.setUpdatedBy(warranty.getUpdatedBy());
-            return res;
-        }
     }
 }

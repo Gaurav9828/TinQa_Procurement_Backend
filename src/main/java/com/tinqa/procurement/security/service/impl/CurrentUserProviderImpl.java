@@ -1,5 +1,6 @@
 package com.tinqa.procurement.security.service.impl;
 
+import com.tinqa.procurement.common.exception.UnauthorizedException;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
@@ -13,28 +14,28 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CurrentUserProviderImpl implements CurrentUserProvider {
 
+    private static final String AUTHENTICATION_REQUIRED = "Authentication is required";
+
     private final UserRepository userRepository;
 
     @Override
     public User getCurrentUser() {
+        return userRepository.findByUsername(getCurrentUsername())
+                .orElseThrow(() -> new UnauthorizedException(AUTHENTICATION_REQUIRED));
+    }
 
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+    @Override
+    public Long getCurrentUserId() {
+        return getCurrentUser().getId();
+    }
 
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-
-            throw new IllegalStateException("No authenticated user found");
+    @Override
+    public String getCurrentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken || authentication.getName() == null) {
+            throw new UnauthorizedException(AUTHENTICATION_REQUIRED);
         }
-
-        String username = authentication.getName();
-
-        return userRepository.findByUsername(username)
-                .orElseThrow(() ->
-                        new IllegalStateException(
-                                "Authenticated user does not exist"
-                        )
-                );
+        return authentication.getName();
     }
 }

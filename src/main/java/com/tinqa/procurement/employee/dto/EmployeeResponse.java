@@ -1,6 +1,6 @@
 package com.tinqa.procurement.employee.dto;
 
-import com.tinqa.procurement.employee.constants.EmployeeConstants;
+import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +27,9 @@ public class EmployeeResponse {
     private LocalDate dateOfBirth;
     private String gender;
     private String designation;
+    private String designationLabel;
+    // The account's admin level (ADMIN_L1 / ADMIN_L2), or DEALER / INSPECTOR for mobile accounts
+    private String role;
     private String department;
     private String employmentType;
     private LocalDate joiningDate;
@@ -37,7 +40,7 @@ public class EmployeeResponse {
     private String alternatePhone;
     private String personalEmail;
     private String workEmail;
-    private EmployeeConstants status;
+    private EmployeeStatus status;
     // Who created the employee and, for employees that needed approval, the Admin L2 decision
     private Long createdBy;
     private String createdByUsername;

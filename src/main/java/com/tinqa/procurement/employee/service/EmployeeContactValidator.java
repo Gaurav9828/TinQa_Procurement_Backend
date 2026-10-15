@@ -1,5 +1,7 @@
 package com.tinqa.procurement.employee.service;
 
+import com.tinqa.procurement.common.constant.ErrorCodes;
+import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.validation.PhoneNumbers;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Checks that a person's identifying details are not already used by someone else, and reports every
@@ -21,8 +24,6 @@ import java.util.Objects;
 @Component
 @RequiredArgsConstructor
 public class EmployeeContactValidator {
-
-    public static final String DUPLICATE_VALUE = "DUPLICATE_VALUE";
 
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
@@ -80,15 +81,15 @@ public class EmployeeContactValidator {
         String message = errors.size() == 1
                 ? errors.getFirst().getMessage()
                 : "Some details already belong to someone else: " + String.join(" ", errors.stream().map(ApiResponse.ApiErrorItem::getMessage).toList());
-        throw new ApiException(message, DUPLICATE_VALUE, HttpStatus.CONFLICT, new ArrayList<>(errors));
+        throw new ApiException(message, ErrorCodes.DUPLICATE_VALUE, HttpStatus.CONFLICT, new ArrayList<>(errors));
     }
 
-    private java.util.Optional<Employee> phoneOwner(String normalizedPhone, long excludeEmployeeId) {
+    private Optional<Employee> phoneOwner(String normalizedPhone, long excludeEmployeeId) {
         return employeeRepository.findUsingAnyPhone(PhoneNumbers.storedVariants(normalizedPhone), excludeEmployeeId)
                 .stream().findFirst();
     }
 
-    private ApiResponse.ApiErrorItem error(String field, String message) {
-        return new ApiResponse.ApiErrorItem(field, message);
+    private static ApiResponse.ApiErrorItem error(String field, String message) {
+        return ApiErrors.error(field, message);
     }
 }

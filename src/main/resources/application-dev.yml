@@ -47,7 +47,8 @@ tinqa:
       secret: TinQaDevJwtSecretKeyMustBeAtLeast32CharactersLong!
       expiration: 86400000
 
-  initial-admin:
-    username: admin
-    email: admin@tinqa.com
-    password: 12345
+  # Local development login (see application.yml); change it in-app or override via TINQA_SUPER_ADMIN_* variables
+  super-admin:
+    username: ${TINQA_SUPER_ADMIN_USERNAME:superadmin}
+    email: ${TINQA_SUPER_ADMIN_EMAIL:superadmin@tinqa.com}
+    password: ${TINQA_SUPER_ADMIN_PASSWORD:TinQa@SuperAdmin2026}

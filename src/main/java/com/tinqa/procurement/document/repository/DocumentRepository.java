@@ -12,8 +12,6 @@ import java.util.Optional;
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSpecificationExecutor<Document> {
 
-    List<Document> findByUploadedByUserIdAndStatus(Long uploadedByUserId, DocumentStatus status);
-
     List<Document> findByOwnerId(Long userId);
 
     Optional<Document> findByIdAndStatus(Long id, DocumentStatus status);

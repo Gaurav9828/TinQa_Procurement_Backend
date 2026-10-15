@@ -12,6 +12,12 @@ public final class OptionalText {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    // Emails and other case-insensitive values: trimmed and lower-cased, blank means none
+    public static String lowerCaseOrNull(String value) {
+        String text = blankToNull(value);
+        return text == null ? null : text.toLowerCase(java.util.Locale.ROOT);
+    }
+
     /**
      * Whether an edit changes an optional value. A null request means "not sent" (no change); blank and null
      * count as the same "none".

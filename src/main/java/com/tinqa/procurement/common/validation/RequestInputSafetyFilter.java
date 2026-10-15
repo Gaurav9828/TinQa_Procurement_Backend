@@ -1,19 +1,18 @@
 package com.tinqa.procurement.common.validation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinqa.procurement.common.response.ApiResponse;
+import com.tinqa.procurement.common.constant.ErrorCodes;
+import com.tinqa.procurement.common.exception.ApiErrors;
+import com.tinqa.procurement.common.web.JsonErrorResponseWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -24,10 +23,12 @@ import java.util.Map;
 @Component
 public class RequestInputSafetyFilter extends OncePerRequestFilter {
 
-    private final ObjectMapper objectMapper;
+    private static final int MAX_PARAMETER_LENGTH = 500;
 
-    public RequestInputSafetyFilter(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    private final JsonErrorResponseWriter errorWriter;
+
+    public RequestInputSafetyFilter(JsonErrorResponseWriter errorWriter) {
+        this.errorWriter = errorWriter;
     }
 
     @Override
@@ -52,8 +53,8 @@ public class RequestInputSafetyFilter extends OncePerRequestFilter {
                     reject(request, response, parameter.getKey(), "Parameter '" + parameter.getKey() + "' " + valueViolation);
                     return;
                 }
-                if (value != null && value.length() > 500) {
-                    reject(request, response, parameter.getKey(), "Parameter '" + parameter.getKey() + "' cannot exceed 500 characters");
+                if (value != null && value.length() > MAX_PARAMETER_LENGTH) {
+                    reject(request, response, parameter.getKey(), "Parameter '" + parameter.getKey() + "' cannot exceed " + MAX_PARAMETER_LENGTH + " characters");
                     return;
                 }
             }
@@ -70,17 +71,7 @@ public class RequestInputSafetyFilter extends OncePerRequestFilter {
     }
 
     private void reject(HttpServletRequest request, HttpServletResponse response, String field, String message) throws IOException {
-        ApiResponse<Void> body = ApiResponse.<Void>builder()
-                .success(false)
-                .message(message)
-                .errorCode("UNSAFE_INPUT")
-                .errors(List.of(new ApiResponse.ApiErrorItem(field, message)))
-                .timestamp(Instant.now())
-                .path(request.getRequestURI())
-                .build();
-        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(objectMapper.writeValueAsString(body));
+        errorWriter.write(request, response, HttpServletResponse.SC_BAD_REQUEST, ErrorCodes.UNSAFE_INPUT, message,
+                List.of(ApiErrors.error(field, message)));
     }
 }

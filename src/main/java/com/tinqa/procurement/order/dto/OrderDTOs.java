@@ -99,8 +99,13 @@ public class OrderDTOs {
     public static class UpdateStatusRequest {
         @NotNull(message = "Order status is required")
         private OrderStatus status;
-        @PastOrPresent(message = "Actual delivery date cannot be in the future")
+
+        // Required for DELIVERED and ignored otherwise; checked in the service because the rule depends on the status
         private LocalDate actualDelivery;
+
+        // Required for CANCELLED, RETURN_REQUESTED, RETURN_REJECTED and REFUND_FAILED (checked in the service)
+        @Size(max = 500, message = "Reason cannot exceed 500 characters")
+        private String reason;
     }
 
     @Data

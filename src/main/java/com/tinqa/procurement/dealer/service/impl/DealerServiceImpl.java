@@ -1,15 +1,15 @@
 package com.tinqa.procurement.dealer.service.impl;
 
-import com.tinqa.procurement.common.entity.Category;
-import com.tinqa.procurement.common.enums.CategoryType;
+import com.tinqa.procurement.category.entity.Category;
+import com.tinqa.procurement.category.enums.CategoryType;
+import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
-import com.tinqa.procurement.common.repository.CategoryRepository;
 import com.tinqa.procurement.dealer.dto.DealerDTOs;
 import com.tinqa.procurement.dealer.entity.Dealer;
+import com.tinqa.procurement.dealer.mapper.DealerMapper;
 import com.tinqa.procurement.dealer.repository.DealerRepository;
 import com.tinqa.procurement.dealer.service.DealerService;
-import com.tinqa.procurement.item.dto.CategoryDTOs;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,43 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
 public class DealerServiceImpl implements DealerService {
 
     private final DealerRepository dealerRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryService categoryService;
     private final CurrentUserProvider currentUserProvider;
-
-    @Override
-    @Transactional
-    public CategoryDTOs.Response createCategory(CategoryDTOs.CreateRequest request) {
-        if (categoryRepository.existsByCode(request.getCode())) {
-            throw new BadRequestException("Category code already exists: " + request.getCode());
-        }
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
-
-        Category category = Category.builder()
-                .name(request.getName())
-                .type(CategoryType.DEALER)
-                .code(request.getCode())
-                .description(request.getDescription())
-                .createdBy(currentUserId)
-                .updatedBy(currentUserId)
-                .build();
-
-        return mapToCategoryResponse(categoryRepository.save(category));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoryDTOs.Response> getAllCategories() {
-        return categoryRepository.findByType(CategoryType.DEALER).stream()
-                .map(this::mapToCategoryResponse)
-                .collect(Collectors.toList());
-    }
+    private final DealerMapper dealerMapper;
 
     @Override
     @Transactional
@@ -64,13 +37,8 @@ public class DealerServiceImpl implements DealerService {
         if (request.getGstin() != null && dealerRepository.existsByGstin(request.getGstin())) {
             throw new BadRequestException("GSTIN already registered: " + request.getGstin());
         }
-
-        List<Category> categories = categoryRepository.findAllById(request.getCategoryIds());
-        if (categories.size() != request.getCategoryIds().size()) {
-            throw new ResourceNotFoundException("One or more Category IDs are invalid");
-        }
-
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        List<Category> categories = categoryService.getCategories(request.getCategoryIds(), CategoryType.DEALER);
+        Long currentUserId = currentUserProvider.getCurrentUserId();
 
         Dealer dealer = Dealer.builder()
                 .name(request.getName())
@@ -81,6 +49,7 @@ public class DealerServiceImpl implements DealerService {
                 .street(request.getStreet())
                 .landmark(request.getLandmark())
                 .city(request.getCity())
+                .district(request.getDistrict())
                 .state(request.getState())
                 .country(request.getCountry())
                 .pincode(request.getPincode())
@@ -98,21 +67,14 @@ public class DealerServiceImpl implements DealerService {
                 .updatedBy(currentUserId)
                 .build();
 
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        return dealerMapper.toResponse(dealerRepository.save(dealer));
     }
 
     @Override
     @Transactional
     public DealerDTOs.Response updateDealer(Long id, DealerDTOs.UpdateRequest request) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + id));
-
-        List<Category> categories = categoryRepository.findAllById(request.getCategoryIds());
-        if (categories.size() != request.getCategoryIds().size()) {
-            throw new ResourceNotFoundException("One or more Category IDs are invalid");
-        }
-
-        Long currentUserId = currentUserProvider.getCurrentUser().getId();
+        Dealer dealer = findWithCategories(id);
+        List<Category> categories = categoryService.getCategories(request.getCategoryIds(), CategoryType.DEALER);
 
         dealer.setName(request.getName());
         dealer.setTradeName(request.getTradeName());
@@ -122,164 +84,101 @@ public class DealerServiceImpl implements DealerService {
         dealer.setStreet(request.getStreet());
         dealer.setLandmark(request.getLandmark());
         dealer.setCity(request.getCity());
+        dealer.setDistrict(request.getDistrict());
         dealer.setState(request.getState());
         dealer.setCountry(request.getCountry());
         dealer.setPincode(request.getPincode());
         dealer.setGoogleMapsUrl(request.getGoogleMapsUrl());
         dealer.setGstin(request.getGstin());
-        dealer.setIsGstVerified(request.getIsGstVerified());
         dealer.setPanNumber(request.getPanNumber());
         dealer.setBusinessSince(request.getBusinessSince());
         dealer.setEmployeeCount(request.getEmployeeCount());
-        dealer.setOffersShipping(request.getOffersShipping());
-        dealer.setDoesBulkDealing(request.getDoesBulkDealing());
-        dealer.setDoesWholesaleDealing(request.getDoesWholesaleDealing());
+        // Flags are required columns: one left out of the request keeps its current value
+        setIfPresent(request.getIsGstVerified(), dealer::setIsGstVerified);
+        setIfPresent(request.getOffersShipping(), dealer::setOffersShipping);
+        setIfPresent(request.getDoesBulkDealing(), dealer::setDoesBulkDealing);
+        setIfPresent(request.getDoesWholesaleDealing(), dealer::setDoesWholesaleDealing);
+        setIfPresent(request.getIsActive(), dealer::setIsActive);
         dealer.setCategories(new HashSet<>(categories));
-        dealer.setUpdatedBy(currentUserId);
+        dealer.setUpdatedBy(currentUserProvider.getCurrentUserId());
 
-        if (request.getIsActive() != null) {
-            dealer.setIsActive(request.getIsActive());
-        }
-
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        return dealerMapper.toResponse(dealerRepository.save(dealer));
     }
 
     @Override
     @Transactional(readOnly = true)
     public DealerDTOs.Response getDealerById(Long id) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + id));
-        return mapToDealerResponse(dealer);
+        return dealerMapper.toResponse(findWithCategories(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<DealerDTOs.Response> getAllDealers(Pageable pageable) {
-        return dealerRepository.findAll(pageable)
-                .map(this::mapToDealerResponse);
+        return dealerRepository.findAll(pageable).map(dealerMapper::toResponse);
     }
 
     @Override
     @Transactional
     public void deleteDealer(Long id) {
-        Dealer dealer = dealerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + id));
+        Dealer dealer = dealerRepository.findById(id).orElseThrow(() -> dealerNotFound(id));
         dealer.setIsActive(false);
-        dealer.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
+        dealer.setUpdatedBy(currentUserProvider.getCurrentUserId());
         dealerRepository.save(dealer);
     }
 
     @Override
     @Transactional
     public DealerDTOs.Response toggleDealerStatus(Long id) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + id));
-
+        Dealer dealer = findWithCategories(id);
         dealer.setIsActive(!dealer.getIsActive());
-        dealer.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        return save(dealer);
     }
 
     @Override
     @Transactional
     public DealerDTOs.Response assignCategories(Long dealerId, Set<Long> categoryIds) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(dealerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + dealerId));
-
-        List<Category> categoriesToAdd = categoryRepository.findAllById(categoryIds);
-        if (categoriesToAdd.size() != categoryIds.size()) {
-            throw new ResourceNotFoundException("One or more Category IDs are invalid");
-        }
-
-        dealer.getCategories().addAll(categoriesToAdd);
-        dealer.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
-
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        Dealer dealer = findWithCategories(dealerId);
+        dealer.getCategories().addAll(categoryService.getCategories(categoryIds, CategoryType.DEALER));
+        return save(dealer);
     }
 
     @Override
     @Transactional
     public DealerDTOs.Response updateDealerCategories(Long dealerId, Set<Long> categoryIds) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(dealerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + dealerId));
-
-        List<Category> newCategories = categoryRepository.findAllById(categoryIds);
-        if (newCategories.size() != categoryIds.size()) {
-            throw new ResourceNotFoundException("One or more Category IDs are invalid");
-        }
-
+        Dealer dealer = findWithCategories(dealerId);
+        List<Category> categories = categoryService.getCategories(categoryIds, CategoryType.DEALER);
         dealer.getCategories().clear();
-        dealer.getCategories().addAll(newCategories);
-        dealer.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
-
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        dealer.getCategories().addAll(categories);
+        return save(dealer);
     }
 
     @Override
     @Transactional
     public DealerDTOs.Response removeCategoryFromDealer(Long dealerId, Long categoryId) {
-        Dealer dealer = dealerRepository.findByIdWithCategories(dealerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with ID: " + dealerId));
-
-        boolean removed = dealer.getCategories().removeIf(cat -> cat.getId().equals(categoryId));
-        if (!removed) {
+        Dealer dealer = findWithCategories(dealerId);
+        if (!dealer.getCategories().removeIf(category -> category.getId().equals(categoryId))) {
             throw new ResourceNotFoundException("Category ID " + categoryId + " is not mapped to Dealer ID " + dealerId);
         }
-
-        dealer.setUpdatedBy(currentUserProvider.getCurrentUser().getId());
-        return mapToDealerResponse(dealerRepository.save(dealer));
+        return save(dealer);
     }
 
-    private CategoryDTOs.Response mapToCategoryResponse(Category category) {
-        CategoryDTOs.Response res = new CategoryDTOs.Response();
-        res.setId(category.getId());
-        res.setName(category.getName());
-        res.setCode(category.getCode());
-        res.setDescription(category.getDescription());
-        res.setIsActive(category.getIsActive());
-        res.setCreatedAt(category.getCreatedAt());
-        res.setUpdatedAt(category.getUpdatedAt());
-        return res;
+    private Dealer findWithCategories(Long id) {
+        return dealerRepository.findByIdWithCategories(id).orElseThrow(() -> dealerNotFound(id));
     }
 
-    private DealerDTOs.Response mapToDealerResponse(Dealer dealer) {
-        DealerDTOs.Response res = new DealerDTOs.Response();
-        res.setId(dealer.getId());
-        res.setName(dealer.getName());
-        res.setTradeName(dealer.getTradeName());
-        res.setEmail(dealer.getEmail());
-        res.setPhoneNumber(dealer.getPhoneNumber());
-        res.setAlternatePhoneNumber(dealer.getAlternatePhoneNumber());
-        res.setStreet(dealer.getStreet());
-        res.setLandmark(dealer.getLandmark());
-        res.setCity(dealer.getCity());
-        res.setState(dealer.getState());
-        res.setCountry(dealer.getCountry());
-        res.setPincode(dealer.getPincode());
-        res.setGoogleMapsUrl(dealer.getGoogleMapsUrl());
-        res.setGstin(dealer.getGstin());
-        res.setIsGstVerified(dealer.getIsGstVerified());
-        res.setPanNumber(dealer.getPanNumber());
-        res.setBusinessSince(dealer.getBusinessSince());
-        res.setEmployeeCount(dealer.getEmployeeCount());
-        res.setOffersShipping(dealer.getOffersShipping());
-        res.setDoesBulkDealing(dealer.getDoesBulkDealing());
-        res.setDoesWholesaleDealing(dealer.getDoesWholesaleDealing());
-        res.setIsActive(dealer.getIsActive());
-        res.setCreatedAt(dealer.getCreatedAt());
-        res.setUpdatedAt(dealer.getUpdatedAt());
-        res.setCreatedBy(dealer.getCreatedBy());
-        res.setUpdatedBy(dealer.getUpdatedBy());
+    // Records who made the change, then saves
+    private DealerDTOs.Response save(Dealer dealer) {
+        dealer.setUpdatedBy(currentUserProvider.getCurrentUserId());
+        return dealerMapper.toResponse(dealerRepository.save(dealer));
+    }
 
-        Set<DealerDTOs.CategorySummary> categorySummaries = dealer.getCategories().stream().map(cat -> {
-            DealerDTOs.CategorySummary cs = new DealerDTOs.CategorySummary();
-            cs.setId(cat.getId());
-            cs.setName(cat.getName());
-            cs.setCode(cat.getCode());
-            return cs;
-        }).collect(Collectors.toSet());
+    private static ResourceNotFoundException dealerNotFound(Long id) {
+        return new ResourceNotFoundException("Dealer not found with ID: " + id);
+    }
 
-        res.setCategories(categorySummaries);
-        return res;
+    private static <T> void setIfPresent(T value, Consumer<T> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
     }
 }

@@ -1,0 +1,39 @@
+# Profile for the full-application test suite. Datasource and Redis come from Testcontainers (@ServiceConnection).
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+logging:
+  level:
+    root: WARN
+    com.tinqa.procurement: INFO
+
+file:
+  upload-dir: target/test-uploads
+
+tinqa:
+  internal-api:
+    key: test-internal-api-key
+
+  security:
+    jwt:
+      secret: TinQaTestJwtSecretKeyMustBeAtLeast32CharactersLong!
+      expiration: 3600000
+
+  super-admin:
+    username: test-superadmin
+    email: test-superadmin@tinqa.test
+    password: Test@SuperAdmin2026
+    phone: 9000000099

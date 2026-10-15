@@ -3,13 +3,11 @@ package com.tinqa.procurement.security.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users", indexes = {
-        @Index(name = "idx_users_username", columnList = "username"),
-        @Index(name = "idx_users_email", columnList = "email")
-})
+@Table(name = "users")
 @Getter
 @Setter
 @Builder
@@ -49,6 +47,9 @@ public class User {
     @Builder.Default
     @Column(nullable = false)
     private boolean isFirstLogin = true;
+
+    // Tokens issued before this moment are no longer accepted
+    private Instant passwordChangedAt;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

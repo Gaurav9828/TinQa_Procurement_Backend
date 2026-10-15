@@ -1,5 +1,7 @@
 package com.tinqa.procurement.employee.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.tinqa.procurement.common.enums.ApprovalStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -21,4 +23,9 @@ public class EmployeeApprovalDecisionRequest {
     // Required when rejecting
     @Size(max = 500, message = "Reason cannot exceed 500 characters")
     private String reason;
+
+    @JsonIgnore
+    public boolean isApproved() {
+        return ApprovalStatus.APPROVED.name().equals(decision);
+    }
 }

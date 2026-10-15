@@ -51,6 +51,11 @@ public class DealerDTOs {
         @Pattern(regexp = ValidationPatterns.CITY, message = "City " + ValidationPatterns.CITY_MESSAGE)
         private String city;
 
+        // Optional, so an address can still be entered by hand when the PIN code lookup is unavailable
+        @Size(max = 100, message = "District cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "District " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String district;
+
         @NotBlank(message = "State is required")
         @Size(max = 100, message = "State cannot exceed 100 characters")
         @Pattern(regexp = ValidationPatterns.CITY, message = "State must be a valid state name")
@@ -135,6 +140,11 @@ public class DealerDTOs {
         @Pattern(regexp = ValidationPatterns.CITY, message = "City " + ValidationPatterns.CITY_MESSAGE)
         private String city;
 
+        // Optional, so an address can still be entered by hand when the PIN code lookup is unavailable
+        @Size(max = 100, message = "District cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "District " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String district;
+
         @NotBlank(message = "State is required")
         @Size(max = 100, message = "State cannot exceed 100 characters")
         @Pattern(regexp = ValidationPatterns.CITY, message = "State must be a valid state name")
@@ -188,6 +198,7 @@ public class DealerDTOs {
         private String street;
         private String landmark;
         private String city;
+        private String district;
         private String state;
         private String country;
         private String pincode;

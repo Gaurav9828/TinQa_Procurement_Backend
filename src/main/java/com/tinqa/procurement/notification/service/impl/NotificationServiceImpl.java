@@ -8,16 +8,21 @@ import com.tinqa.procurement.notification.mapper.NotificationMapper;
 import com.tinqa.procurement.notification.repository.NotificationRecipientRepository;
 import com.tinqa.procurement.notification.repository.NotificationRepository;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.security.access.AccessResolver;
+import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
+import com.tinqa.procurement.security.service.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -29,6 +34,9 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final UserRepository userRepository;
     private final NotificationMapper notificationMapper;
+    private final CurrentUserProvider currentUserProvider;
+    private final AccessResolver accessResolver;
+    private final Clock clock;
 
     @Override
     public NotificationResponse createForUser(
@@ -69,9 +77,12 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void createForRole(Role role, Long excludeUserId, String title, String message) {
-        userRepository.findByRoleAndEnabledTrue(role).stream()
+    public void createForPermission(Permission permission, Long excludeUserId, String title, String message) {
+        // Only employees (admin accounts) hold internal permissions
+        Stream.of(Role.ADMIN_L2, Role.ADMIN_L1)
+                .flatMap(role -> userRepository.findByRoleAndEnabledTrue(role).stream())
                 .filter(user -> !user.getId().equals(excludeUserId))
+                .filter(user -> accessResolver.resolve(user).has(permission))
                 .forEach(user -> createForUser(user.getId(), title, message));
     }
 
@@ -113,7 +124,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationResponse> getMyNotifications() {
 
-        String username = getCurrentUsername();
+        String username = currentUserProvider.getCurrentUsername();
 
         return notificationRecipientRepository
                 .findMyNotifications(username)
@@ -126,7 +137,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public long getMyUnreadCount() {
 
-        String username = getCurrentUsername();
+        String username = currentUserProvider.getCurrentUsername();
 
         return notificationRecipientRepository
                 .countUnread(username);
@@ -135,7 +146,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void markAsRead(Long recipientId) {
 
-        String username = getCurrentUsername();
+        String username = currentUserProvider.getCurrentUsername();
 
         NotificationRecipient recipient =
                 notificationRecipientRepository
@@ -151,7 +162,7 @@ public class NotificationServiceImpl implements NotificationService {
         if (!recipient.isRead()) {
             recipient.setRead(true);
             recipient.setReadAt(
-                    java.time.LocalDateTime.now()
+                    LocalDateTime.now(clock)
             );
 
             notificationRecipientRepository.save(recipient);
@@ -161,7 +172,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void markAllAsRead() {
 
-        String username = getCurrentUsername();
+        String username = currentUserProvider.getCurrentUsername();
 
         List<NotificationRecipient> recipients =
                 notificationRecipientRepository
@@ -171,8 +182,7 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
 
-        java.time.LocalDateTime readAt =
-                java.time.LocalDateTime.now();
+        LocalDateTime readAt = LocalDateTime.now(clock);
 
         recipients.forEach(recipient -> {
             recipient.setRead(true);
@@ -180,14 +190,6 @@ public class NotificationServiceImpl implements NotificationService {
         });
 
         notificationRecipientRepository.saveAll(recipients);
-    }
-
-    private String getCurrentUsername() {
-
-        return SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
     }
 
     // A notification without text is useless to the recipient; it means the caller had nothing to say
