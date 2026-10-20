@@ -9,5 +9,7 @@ public enum EmployeeStatus {
     BLOCKED,
     IN_ACTIVE,
     WAITING_FOR_DELETION,
-    APPROVAL_PENDING
+    APPROVAL_PENDING,
+    // Deleted by an employee approver: the record is kept (read-only, account disabled) and listed only on request
+    DELETED
 }

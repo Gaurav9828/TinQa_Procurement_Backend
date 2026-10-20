@@ -15,6 +15,8 @@ public class NotificationResponse {
 
     private String message;
 
+    private String link;
+
     private boolean read;
 
     private boolean broadcast;

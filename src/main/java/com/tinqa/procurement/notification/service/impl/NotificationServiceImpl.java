@@ -42,7 +42,8 @@ public class NotificationServiceImpl implements NotificationService {
     public NotificationResponse createForUser(
             Long userId,
             String title,
-            String message) {
+            String message,
+            String link) {
 
         if (isBlank(title, message)) {
             log.warn("Skipped notification with empty title or message for user {}", userId);
@@ -58,6 +59,7 @@ public class NotificationServiceImpl implements NotificationService {
         Notification notification = Notification.builder()
                 .title(title)
                 .message(message)
+                .link(link)
                 .broadcast(false)
                 .build();
 
@@ -77,13 +79,13 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void createForPermission(Permission permission, Long excludeUserId, String title, String message) {
+    public void createForPermission(Permission permission, Long excludeUserId, String title, String message, String link) {
         // Only employees (admin accounts) hold internal permissions
         Stream.of(Role.ADMIN_L2, Role.ADMIN_L1)
                 .flatMap(role -> userRepository.findByRoleAndEnabledTrue(role).stream())
                 .filter(user -> !user.getId().equals(excludeUserId))
                 .filter(user -> accessResolver.resolve(user).has(permission))
-                .forEach(user -> createForUser(user.getId(), title, message));
+                .forEach(user -> createForUser(user.getId(), title, message, link));
     }
 
     @Override

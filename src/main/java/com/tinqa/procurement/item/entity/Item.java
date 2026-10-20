@@ -12,8 +12,10 @@ import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Entity
 @Table(name = "items")
@@ -28,9 +30,16 @@ public class Item {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    // An item can sit in several categories; dealers see the items of the categories they are assigned
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "item_category_mappings",
+            joinColumns = @JoinColumn(name = "item_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id")
+    )
+    @BatchSize(size = 50)
+    @Builder.Default
+    private Set<Category> categories = new HashSet<>();
 
     @Column(nullable = false)
     private String name;

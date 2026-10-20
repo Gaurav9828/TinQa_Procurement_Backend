@@ -28,8 +28,12 @@ public enum Permission {
     DEALER_CREATE(DEALER_MANAGEMENT, "Onboard dealers"),
     DEALER_UPDATE(DEALER_MANAGEMENT, "Edit dealers"),
     DEALER_TOGGLE_STATUS(DEALER_MANAGEMENT, "Activate or deactivate dealers"),
-    DEALER_CATEGORY_MANAGE(DEALER_MANAGEMENT, "Create dealer categories and assign them"),
+    DEALER_CATEGORY_MANAGE(DEALER_MANAGEMENT, "Assign item categories to dealers"),
     DEALER_DELETE(DEALER_APPROVAL, "Remove dealers"),
+    // Dealer logins (/v1/admin/dealers/{id}/login, /v1/admin/dealer-logins): a Dealer Manager creates one, and it can
+    // sign in once someone else approves it
+    DEALER_LOGIN_MANAGE(DEALER_MANAGEMENT, "Create dealer logins, disable them and reset their passwords"),
+    DEALER_LOGIN_APPROVE(DEALER_APPROVAL, "Approve or reject dealer logins"),
 
     // Procurement orders (/v1/orders)
     PROCUREMENT_ORDER_VIEW(PROCUREMENT_ORDER_READ, "View procurement orders"),
@@ -37,6 +41,9 @@ public enum Permission {
     PROCUREMENT_ORDER_UPDATE(PROCUREMENT_ORDER_MANAGEMENT, "Edit quotations"),
     PROCUREMENT_ORDER_UPDATE_STATUS(PROCUREMENT_ORDER_MANAGEMENT, "Progress orders (submit, ship, deliver, returns, refunds)"),
     PROCUREMENT_ORDER_APPROVE(PROCUREMENT_ORDER_APPROVAL, "Approve orders, confirm with dealers and decide returns"),
+    // /v1/orders/change-requests: a dealer's edit to a quotation only applies once approved. The dealer is the maker,
+    // so any Dealer Manager (either level) is the checker
+    DEALER_QUOTATION_CHANGE_APPROVE(PROCUREMENT_ORDER_MANAGEMENT, "Approve or reject dealers' changes to their quotations"),
 
     // Catalog: items (/v1/admin/items), procurement products (/v1/admin/products), product approvals
     // (/v1/product-approvals) and storefront products (Ecommerce /api/products)
@@ -67,7 +74,8 @@ public enum Permission {
     CUSTOMER_ORDER_PRE_ORDER_APPROVE(CUSTOMER_ORDER_MANAGEMENT, "Accept pre-orders"),
     CUSTOMER_ORDER_TRACKING_UPDATE(DELIVERY_OPERATIONS, "Update shipment tracking and delivery status"),
     // Ecommerce PATCH /api/orders/{n}/delivery-status: only out for delivery, delivered, customer unavailable,
-    // invalid address, customer cancelled delivery and re-attempt; every other status needs the permission above
+    // invalid address, customer cancelled delivery and re-attempt; every other status needs the permission above.
+    // Held by delivery riders and their senior, the fleet coordinator
     DELIVERY_STATUS_UPDATE(LAST_MILE_DELIVERY, "Record delivery outcomes (out for delivery, delivered, failed attempts)"),
     DELIVERY_ASSIGN(DELIVERY_OPERATIONS, "Assign deliveries to riders (not wired yet)"),
 
@@ -86,7 +94,7 @@ public enum Permission {
 
     // Company profile (Ecommerce /api/admin/company)
     COMPANY_PROFILE_VIEW(COMPANY_PROFILE_READ, "View the company profile and its versions"),
-    COMPANY_PROFILE_EDIT(COMPANY_PROFILE_MANAGEMENT, "Draft, submit and withdraw company profile changes"),
+    COMPANY_PROFILE_EDIT(COMPANY_PROFILE_MANAGEMENT, "Draft, submit, withdraw and delete your own company profile changes"),
     COMPANY_PROFILE_APPROVE(COMPANY_PROFILE_APPROVAL, "Approve or reject company profile changes"),
 
     // Documents (/v1/documents)
@@ -95,21 +103,33 @@ public enum Permission {
     DOCUMENT_DELETE(DOCUMENT_MANAGEMENT, "Delete documents"),
     DOCUMENT_APPROVE(DOCUMENT_APPROVAL, "Approve or reject documents"),
 
-    // Money (not wired yet: the payments, finance and analytics screens have no backend endpoints yet)
-    PAYMENT_VIEW(PAYMENT_READ, "View payments and chalans"),
-    PAYMENT_RECORD(PAYMENT_MANAGEMENT, "Record payments and chalans"),
-    PAYMENT_APPROVE(PAYMENT_APPROVAL, "Approve payments and dealer payouts"),
-    FINANCE_REPORT_VIEW(FINANCE_REPORTING, "View sales, tax, revenue and COD reports"),
-    FINANCE_REPORT_EXPORT(FINANCE_REPORTING, "Export finance reports"),
+    // Money. Payments are not wired yet; finance reports and expenses are served by Ecommerce /api/admin/finance
+    PAYMENT_VIEW(PAYMENT_READ, "View payments and chalans (not wired yet)"),
+    PAYMENT_RECORD(PAYMENT_MANAGEMENT, "Record payments and chalans (not wired yet)"),
+    PAYMENT_APPROVE(PAYMENT_APPROVAL, "Approve payments and dealer payouts (not wired yet)"),
+    FINANCE_REPORT_VIEW(FINANCE_REPORTING, "View the company account, ledger and profit & loss / cash flow analytics"),
+    FINANCE_REPORT_EXPORT(FINANCE_REPORTING, "Export finance reports (PDF, Excel, Word)"),
+    // Expenses and other vouchers (Ecommerce /api/admin/finance/vouchers): raised, approved by someone else, then
+    // posted to the company account. Shipping costs entered when an order ships become vouchers too
+    EXPENSE_VIEW(EXPENSE_READ, "View expenses and other vouchers"),
+    EXPENSE_SUBMIT(EXPENSE_MANAGEMENT, "Raise expenses and other vouchers for approval"),
+    EXPENSE_APPROVE(EXPENSE_APPROVAL, "Approve, reject or reverse expenses (posts them to the company account)"),
     ANALYTICS_VIEW(ANALYTICS, "View analytics dashboards"),
 
     // Platform (not wired yet)
     SYSTEM_SETTINGS_MANAGE(SYSTEM_ADMINISTRATION, "Manage global settings, payment gateways and shipping rates"),
     AUDIT_LOG_VIEW(SYSTEM_ADMINISTRATION, "View audit logs"),
+    // Ecommerce DELETE /api/admin/company/profile/drafts/{id}: anyone's draft, not only your own (COMPANY_PROFILE_EDIT)
+    COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),
+    // Web UI only (static content, no endpoint): the user guide page and its per-role PDF downloads
+    USER_GUIDE_VIEW(USER_GUIDE, "View the user guide and download role guides as PDF"),
 
-    // Dealer portal (not wired yet)
-    DEALER_QUOTATION_SUBMIT(DEALER_PORTAL, "Submit quotations for open requests"),
-    DEALER_ORDER_RESPOND(DEALER_PORTAL, "Accept, reject or confirm bulk orders");
+    // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
+    DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),
+    DEALER_QUOTATION_SUBMIT(DEALER_PORTAL, "Create quotations"),
+    DEALER_QUOTATION_CHANGE_REQUEST(DEALER_PORTAL, "Request changes to your quotations (a Dealer Manager approves them)"),
+    DEALER_ORDER_RESPOND(DEALER_PORTAL, "Accept or reject orders awaiting your confirmation"),
+    DEALER_ORDER_SHIP(DEALER_PORTAL, "Mark your confirmed orders as shipped");
 
     /** Prefix of the Spring Security authority each permission is granted as. */
     public static final String AUTHORITY_PREFIX = "PERM_";

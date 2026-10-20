@@ -2,6 +2,7 @@ package com.tinqa.procurement.stock.notification;
 
 import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.util.Quantities;
+import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.security.access.Permission;
@@ -29,7 +30,33 @@ public class StockNotifier {
                 + Quantities.plain(stock.getDefectedUnits()) + " " + unit + " defected of " + order.getItem().getName()
                 + " from `" + order.getDealer().getName() + "`, arrived on " + stock.getDateOfArrival()
                 + ". Submitted by " + submitter.getUsername() + " and waiting for your approval.";
-        notificationService.createForPermission(Permission.STOCK_APPROVE, submitter.getId(), "Stock Approval Required", message);
+        notificationService.createForPermission(Permission.STOCK_APPROVE, submitter.getId(), "Stock Approval Required", message, NotificationLinks.APPROVALS);
+    }
+
+    /** Everyone who can approve stock, except the submitter, learns that a change to an approved entry waits for them. */
+    public void changeApprovalRequired(Stock stock, Order order, User submitter) {
+        String unit = order.getUnitType();
+        String message = "Stock " + stock.getStockIdentityNumber() + " (batch " + stock.getBatchNumber() + ") for order "
+                + order.getOrderNumber() + " was changed by " + submitter.getUsername() + ": passed "
+                + Quantities.plain(stock.getApprovedUnitsPassed()) + " → " + Quantities.plain(stock.getUnitsPassedTest()) + " " + unit
+                + ", defected " + Quantities.plain(stock.getApprovedDefectedUnits()) + " → " + Quantities.plain(stock.getDefectedUnits())
+                + " " + unit + ". Finance and any added units wait for your approval.";
+        notificationService.createForPermission(Permission.STOCK_APPROVE, submitter.getId(), "Stock Change Approval Required",
+                message, NotificationLinks.APPROVALS);
+    }
+
+    /** The last updater learns the decision on their change, unless they made it themselves. Call before updating it. */
+    public void changeDecided(Stock stock, User approver, ApprovalStatus decision, String rejectionReason) {
+        if (stock.getUpdatedBy() == null || Objects.equals(stock.getUpdatedBy(), approver.getId())) {
+            return;
+        }
+        boolean rejected = decision == ApprovalStatus.REJECTED;
+        String message = "The change to stock batch " + stock.getBatchNumber() + " was "
+                + (rejected ? "rejected by " + approver.getUsername() + " and the counts restored"
+                + (rejectionReason == null || rejectionReason.isBlank() ? "." : ". Reason: " + rejectionReason)
+                : "approved by " + approver.getUsername() + ".");
+        notificationService.createForUser(stock.getUpdatedBy(), rejected ? "Stock Change Rejected" : "Stock Change Approved",
+                message, NotificationLinks.STOCKS);
     }
 
     /** The last updater of the entry learns the decision, unless they made it themselves. Call before updating it. */
@@ -42,6 +69,6 @@ public class StockNotifier {
         String message = rejected
                 ? "Stock Batch: " + stock.getBatchNumber() + " cancelled by ID: " + approver.getUsername() + ". Reason: " + rejectionReason
                 : "Stock Batch " + stock.getBatchNumber() + " approved by ID: " + approver.getUsername() + ".";
-        notificationService.createForUser(stock.getUpdatedBy(), title, message);
+        notificationService.createForUser(stock.getUpdatedBy(), title, message, NotificationLinks.STOCKS);
     }
 }

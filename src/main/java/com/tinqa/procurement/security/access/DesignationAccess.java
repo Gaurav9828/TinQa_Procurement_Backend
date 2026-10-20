@@ -38,7 +38,9 @@ public final class DesignationAccess {
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT,
-                PAYMENT_READ));
+                PAYMENT_READ,
+                EXPENSE_READ, EXPENSE_MANAGEMENT,
+                USER_GUIDE));
 
         grant(Designation.DEALER_MANAGER, EnumSet.of(
                 DEALER_READ, DEALER_MANAGEMENT, DEALER_APPROVAL,
@@ -46,7 +48,8 @@ public final class DesignationAccess {
                 CATALOG_READ,
                 INVENTORY_READ,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT,
-                PAYMENT_READ));
+                PAYMENT_READ,
+                EXPENSE_READ, EXPENSE_MANAGEMENT));
 
         grant(Designation.CATALOG_SPECIALIST, EnumSet.of(
                 CATALOG_READ, CATALOG_MANAGEMENT,
@@ -56,14 +59,18 @@ public final class DesignationAccess {
         grant(Designation.FULFILLMENT_SPECIALIST, EnumSet.of(
                 CATALOG_READ,
                 INVENTORY_READ, INVENTORY_MANAGEMENT,
-                CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS));
+                CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
+                EXPENSE_READ, EXPENSE_MANAGEMENT));
 
         // Riders only record what happened at the door; the rest of the lifecycle stays with the roles above
         grant(Designation.DELIVERY_RIDER, EnumSet.of(
                 CUSTOMER_ORDER_READ, LAST_MILE_DELIVERY));
 
+        // The riders' senior: records the same delivery outcomes as a rider, and also moves orders along the rest
+        // of the delivery leg (e.g. sending a refused or undeliverable parcel back to the warehouse)
         grant(Designation.FLEET_COORDINATOR, EnumSet.of(
-                CUSTOMER_ORDER_READ, DELIVERY_OPERATIONS));
+                CUSTOMER_ORDER_READ, LAST_MILE_DELIVERY, DELIVERY_OPERATIONS,
+                EXPENSE_READ, EXPENSE_MANAGEMENT));
 
         grant(Designation.CUSTOMER_SUPPORT, EnumSet.of(
                 CUSTOMER_SUPPORT,
@@ -74,6 +81,17 @@ public final class DesignationAccess {
         grant(Designation.FINANCIAL_AUDITOR, EnumSet.of(
                 ANALYTICS, FINANCE_REPORTING,
                 PAYMENT_READ,
+                REFUND_READ,
+                CUSTOMER_ORDER_READ,
+                PROCUREMENT_ORDER_READ,
+                DOCUMENT_READ,
+                EXPENSE_READ));
+
+        // Keeps the books: approves expenses (posting them to the company account), reads every money flow
+        grant(Designation.FINANCE_MANAGER, EnumSet.of(
+                ANALYTICS, FINANCE_REPORTING,
+                EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
+                PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,
                 PROCUREMENT_ORDER_READ,

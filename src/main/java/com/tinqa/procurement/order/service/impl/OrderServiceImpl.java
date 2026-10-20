@@ -10,21 +10,27 @@ import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
 import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.dealer.entity.Dealer;
 import com.tinqa.procurement.dealer.repository.DealerRepository;
+import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
 import com.tinqa.procurement.item.entity.Item;
-import com.tinqa.procurement.item.repository.ItemRepository;
+import com.tinqa.procurement.order.change.QuotationChangeService;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.entity.OrderStatusHistory;
 import com.tinqa.procurement.order.enums.OrderStatus;
+import com.tinqa.procurement.order.invoice.OrderInvoiceService;
 import com.tinqa.procurement.order.mapper.OrderMapper;
 import com.tinqa.procurement.order.notification.OrderStatusNotifier;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.repository.OrderStatusHistoryRepository;
+import com.tinqa.procurement.order.service.OrderEditor;
 import com.tinqa.procurement.order.service.OrderService;
+import com.tinqa.procurement.order.tax.QuotationTax;
 import com.tinqa.procurement.order.workflow.OrderStatusTransitions;
 import com.tinqa.procurement.security.access.CurrentAccess;
 import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import com.tinqa.procurement.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,19 +44,22 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-    // No stock entry is being edited when an order's quantity changes
-    private static final long NO_STOCK_ENTRY = -1L;
-
     private final OrderRepository orderRepository;
     private final DealerRepository dealerRepository;
-    private final ItemRepository itemRepository;
     private final StockRepository stockRepository;
+    private final UserRepository userRepository;
+    private final OrderEditor orderEditor;
+    private final QuotationChangeService quotationChangeService;
+    private final OrderInvoiceService orderInvoiceService;
     private final OrderStatusHistoryRepository statusHistoryRepository;
+    private final PurchasePostingRecorder purchasePostings;
     private final CurrentUserProvider currentUserProvider;
     private final CurrentAccess currentAccess;
     private final OrderStatusNotifier statusNotifier;
@@ -62,9 +71,9 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDTOs.Response createOrder(OrderDTOs.CreateRequest request) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        Dealer dealer = findDealer(request.getDealerId());
-        Item item = findItem(request.getItemId());
-        ensureExpectedDeliveryNotBeforeOrder(request.getOrderDate(), request.getExpectedDelivery());
+        Dealer dealer = orderEditor.findDealer(request.getDealerId());
+        Item item = orderEditor.findItem(request.getItemId());
+        OrderEditor.ensureExpectedDeliveryNotBeforeOrder(request.getOrderDate(), request.getExpectedDelivery());
 
         Order order = Order.builder()
                 .orderNumber(referenceNumbers.orderNumber())
@@ -75,7 +84,6 @@ public class OrderServiceImpl implements OrderService {
                 .unitPrice(request.getUnitPrice())
                 .shipmentPrice(request.getShipmentPrice())
                 // Optional JSON details are stored as {} when not sent (the columns are NOT NULL)
-                .taxBreakup(orEmpty(request.getTaxBreakup()))
                 .orderStatus(OrderStatus.QUOTATION)
                 .expectedDelivery(request.getExpectedDelivery())
                 .orderDate(request.getOrderDate())
@@ -84,10 +92,11 @@ public class OrderServiceImpl implements OrderService {
                 .updatedBy(currentUserId)
                 .build();
         order.recalculateTotalPrice();
+        order.setTaxBreakup(QuotationTax.normalise(request.getTaxBreakup(), order.getTotalPrice()));
 
         Order saved = orderRepository.save(order);
         recordHistory(saved, null, OrderStatus.QUOTATION, currentUserId, null, null);
-        return orderMapper.toResponse(saved);
+        return respond(saved);
     }
 
     @Override
@@ -97,33 +106,12 @@ public class OrderServiceImpl implements OrderService {
         // Locked: stock entries are checked against this order's quantity under the same lock
         Order order = lockOrder(orderId);
         ensureEditable(order, actor);
-
-        if (request.getDealerId() != null && !request.getDealerId().equals(order.getDealer().getId())) {
-            order.setDealer(findDealer(request.getDealerId()));
-        }
-        if (request.getItemId() != null && !request.getItemId().equals(order.getItem().getId())) {
-            order.setItem(findItem(request.getItemId()));
-        }
-        if (request.getOrderQuantity() != null) {
-            BigDecimal received = stockRepository.sumRecordedUnitsForOrder(order.getOrderNumber(), NO_STOCK_ENTRY, ApprovalStatus.REJECTED);
-            if (request.getOrderQuantity().compareTo(received) < 0) {
-                throw ApiErrors.fieldError("orderQuantity", "Order quantity cannot be less than the "
-                        + Quantities.plain(received) + " " + order.getUnitType() + " already received into stock");
-            }
-            order.setOrderQuantity(request.getOrderQuantity());
-        }
-        if (request.getUnitType() != null) order.setUnitType(request.getUnitType());
-        if (request.getUnitPrice() != null) order.setUnitPrice(request.getUnitPrice());
-        if (request.getShipmentPrice() != null) order.setShipmentPrice(request.getShipmentPrice());
-        if (request.getTaxBreakup() != null) order.setTaxBreakup(request.getTaxBreakup());
-        if (request.getExpectedDelivery() != null) order.setExpectedDelivery(request.getExpectedDelivery());
-        if (request.getOrderDate() != null) order.setOrderDate(request.getOrderDate());
-        if (request.getAdditionalInfo() != null) order.setAdditionalInfo(request.getAdditionalInfo());
-        order.recalculateTotalPrice();
-        ensureExpectedDeliveryNotBeforeOrder(order.getOrderDate(), order.getExpectedDelivery());
+        // A dealer's change waiting for approval was made against the current terms: decide it first
+        quotationChangeService.ensureNotPending(order);
+        orderEditor.apply(order, request);
 
         order.setUpdatedBy(actor.getId());
-        return orderMapper.toResponse(orderRepository.save(order));
+        return respond(orderRepository.save(order));
     }
 
     @Override
@@ -141,6 +129,10 @@ public class OrderServiceImpl implements OrderService {
         Permission needed = OrderStatusTransitions.permissionForStatusChange(from, to)
                 .orElseThrow(() -> invalidTransition(order, to, ""));
         currentAccess.require(needed, "move order " + order.getOrderNumber() + " from " + from.label() + " to " + to.label());
+        // Submitting or cancelling a quotation would leave a dealer's waiting change undecided
+        if (from == OrderStatus.QUOTATION) {
+            quotationChangeService.ensureNotPending(order);
+        }
 
         String reason = OptionalText.blankToNull(request.getReason());
         if (reason == null && OrderStatusTransitions.REASON_REQUIRED.contains(to)) {
@@ -150,6 +142,11 @@ public class OrderServiceImpl implements OrderService {
         LocalDate actualDelivery = null;
         if (to == OrderStatus.DELIVERED) {
             actualDelivery = validatedActualDelivery(order, request.getActualDelivery());
+            // The dealer's invoice must match the quotation, or an approver accepts it with a reason
+            String invoiceNote = orderInvoiceService.acceptForDelivery(order, request.getInvoiceOverrideReason(), actor);
+            if (invoiceNote != null) {
+                reason = reason == null ? invoiceNote : reason + " · " + invoiceNote;
+            }
             order.setActualDelivery(actualDelivery);
         }
 
@@ -191,9 +188,34 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
+    public OrderDTOs.Response processDealerResponse(Order order, boolean accepted, String reason) {
+        User actor = currentUserProvider.getCurrentUser();
+        OrderStatus to = accepted ? OrderStatus.CONFIRMED : OrderStatus.CANCELLED;
+        if (order.getOrderStatus() != OrderStatus.DEALER_LEVEL_PENDING) {
+            throw invalidTransition(order, to, " Only orders awaiting your confirmation can be accepted or rejected.");
+        }
+        String rejectionReason = OptionalText.blankToNull(reason);
+        if (!accepted && rejectionReason == null) {
+            throw ApiErrors.fieldError("reason", "A reason is required to reject an order.");
+        }
+        return changeStatus(order, OrderStatus.DEALER_LEVEL_PENDING, to, actor, accepted ? null : rejectionReason, null);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTOs.Response processDealerShipment(Order order) {
+        User actor = currentUserProvider.getCurrentUser();
+        if (order.getOrderStatus() != OrderStatus.CONFIRMED) {
+            throw invalidTransition(order, OrderStatus.SHIPPED, " Only confirmed orders can be marked as shipped.");
+        }
+        return changeStatus(order, OrderStatus.CONFIRMED, OrderStatus.SHIPPED, actor, null, null);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public OrderDTOs.Response getOrderById(Long orderId) {
-        return orderMapper.toResponse(orderRepository.findById(orderId).orElseThrow(() -> orderNotFound(orderId)));
+        return respond(orderRepository.findById(orderId).orElseThrow(() -> orderNotFound(orderId)));
     }
 
     @Override
@@ -217,6 +239,12 @@ public class OrderServiceImpl implements OrderService {
         return toResponses(orderRepository.findByOrderStatus(status));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderDTOs.Response> getOrdersAwaitingStock() {
+        return toResponses(orderRepository.findByOrderStatusWithoutStock(OrderStatus.DELIVERED));
+    }
+
     // Notifies the previous updater, then records the move in the order and its history
     private OrderDTOs.Response changeStatus(Order order, OrderStatus from, OrderStatus to, User actor, String reason,
                                             LocalDate actualDelivery) {
@@ -225,7 +253,11 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedBy(actor.getId());
         Order saved = orderRepository.save(order);
         recordHistory(saved, from, to, actor.getId(), reason, actualDelivery);
-        return orderMapper.toResponse(saved);
+        // Purchases are booked from stock, not on delivery; a refund gives back whatever was booked
+        if (to == OrderStatus.REFUND_COMPLETED) {
+            purchasePostings.refund(saved);
+        }
+        return respond(saved);
     }
 
     private LocalDate validatedActualDelivery(Order order, LocalDate actualDelivery) {
@@ -257,12 +289,6 @@ public class OrderServiceImpl implements OrderService {
                 + " to " + to.label() + "." + hint, ErrorCodes.INVALID_STATUS_TRANSITION, HttpStatus.CONFLICT);
     }
 
-    private void ensureExpectedDeliveryNotBeforeOrder(LocalDate orderDate, LocalDate expectedDelivery) {
-        if (orderDate != null && expectedDelivery != null && expectedDelivery.isBefore(orderDate)) {
-            throw ApiErrors.fieldError("expectedDelivery", "Expected delivery date cannot be before the order date (" + orderDate + ")");
-        }
-    }
-
     private void recordHistory(Order order, OrderStatus from, OrderStatus to, Long actorId, String reason, LocalDate actualDelivery) {
         statusHistoryRepository.save(OrderStatusHistory.builder()
                 .orderId(order.getId())
@@ -275,21 +301,25 @@ public class OrderServiceImpl implements OrderService {
                 .build());
     }
 
+    private OrderDTOs.Response respond(Order order) {
+        return toResponses(List.of(order)).getFirst();
+    }
+
+    // Marks quotations a dealer raised themselves, and those with a dealer's change waiting for approval
     private List<OrderDTOs.Response> toResponses(List<Order> orders) {
-        return orders.stream().map(orderMapper::toResponse).toList();
+        Set<Long> pendingChange = quotationChangeService.ordersWithPendingChange(orders.stream().map(Order::getId).toList());
+        Set<Long> dealerAccounts = userRepository.findAllById(orders.stream().map(Order::getCreatedBy).collect(Collectors.toSet()))
+                .stream().filter(user -> user.getRole() == Role.DEALER).map(User::getId).collect(Collectors.toSet());
+        return orders.stream().map(order -> {
+            OrderDTOs.Response response = orderMapper.toResponse(order);
+            response.setDealerChangePending(pendingChange.contains(order.getId()));
+            response.setRaisedByDealer(dealerAccounts.contains(order.getCreatedBy()));
+            return response;
+        }).toList();
     }
 
     private Order lockOrder(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> orderNotFound(orderId));
-    }
-
-    private Dealer findDealer(Long dealerId) {
-        return dealerRepository.findById(dealerId).orElseThrow(() -> dealerNotFound(dealerId));
-    }
-
-    private Item findItem(Long itemId) {
-        return itemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with id: " + itemId));
     }
 
     private static Map<String, Object> orEmpty(Map<String, Object> value) {

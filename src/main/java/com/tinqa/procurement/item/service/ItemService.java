@@ -1,6 +1,7 @@
 package com.tinqa.procurement.item.service;
 
 import com.tinqa.procurement.item.dto.ItemDTOs;
+import com.tinqa.procurement.item.dto.ItemFilter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -20,7 +21,7 @@ public interface ItemService {
 
     List<ItemDTOs.WarrantyResponse> getItemWarranties(Long itemId);
 
-    Page<ItemDTOs.Response> getAllItems(Pageable pageable);
+    Page<ItemDTOs.Response> getAllItems(ItemFilter filter, Pageable pageable);
 
     /** Soft delete: the item is deactivated. */
     void deleteItem(Long id);

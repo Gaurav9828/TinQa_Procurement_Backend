@@ -3,6 +3,8 @@ package com.tinqa.procurement.stock.controller;
 import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
+import com.tinqa.procurement.order.dto.OrderDTOs;
+import com.tinqa.procurement.order.service.OrderService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
 import com.tinqa.procurement.stock.dto.StockDTOs;
@@ -29,12 +31,21 @@ public class StockController {
     private static final String AVAILABILITY_RETRIEVED = "Item stock availability retrieved successfully";
 
     private final StockService stockService;
+    private final OrderService orderService;
 
     @RequiresPermission(Permission.STOCK_CREATE)
     @PostMapping
     public ResponseEntity<ApiResponse<StockDTOs.Response>> createStockFromOrder(@Valid @RequestBody StockDTOs.CreateFromOrderRequest request) {
         return ApiResponses.created(stockService.createStockFromOrder(request),
                 "Stock created from Order successfully and submitted for Admin L2 approval");
+    }
+
+    // Delivered purchase orders not yet received into stock. Gated by STOCK_CREATE rather than PROCUREMENT_ORDER_VIEW,
+    // so warehouse staff can receive deliveries without seeing the rest of procurement
+    @RequiresPermission(Permission.STOCK_CREATE)
+    @GetMapping("/receivable-orders")
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getReceivableOrders() {
+        return ApiResponses.ok(orderService.getOrdersAwaitingStock(), "Delivered orders awaiting stock retrieved successfully");
     }
 
     @RequiresPermission(Permission.STOCK_ADJUST)

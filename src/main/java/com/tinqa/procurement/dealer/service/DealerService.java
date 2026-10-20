@@ -1,9 +1,11 @@
 package com.tinqa.procurement.dealer.service;
 
 import com.tinqa.procurement.dealer.dto.DealerDTOs;
+import com.tinqa.procurement.dealer.dto.DealerFilter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -18,7 +20,10 @@ public interface DealerService {
 
     DealerDTOs.Response getDealerById(Long id);
 
-    Page<DealerDTOs.Response> getAllDealers(Pageable pageable);
+    Page<DealerDTOs.Response> getAllDealers(DealerFilter filter, Pageable pageable);
+
+    /** Distinct dealer cities (case-insensitive), sorted, for the list filter. */
+    List<String> getDealerCities();
 
     /** Soft delete: the dealer is deactivated. */
     void deleteDealer(Long id);

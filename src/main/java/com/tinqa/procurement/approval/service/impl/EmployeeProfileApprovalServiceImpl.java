@@ -13,6 +13,7 @@ import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
+import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.access.CurrentAccess;
 import com.tinqa.procurement.security.access.Permission;
@@ -94,7 +95,7 @@ public class EmployeeProfileApprovalServiceImpl implements EmployeeProfileApprov
             title = "Profile Change Request Rejected";
             message = "Your profile change request has been rejected. Reason: " + decision.getRejectionReason();
         }
-        notificationService.createForUser(changeRequest.getRequestedBy(), title, message);
+        notificationService.createForUser(changeRequest.getRequestedBy(), title, message, NotificationLinks.PROFILE);
 
         changeRequest.setApprovedBy(reviewer.getId());
         changeRequest.setReviewedAt(now);

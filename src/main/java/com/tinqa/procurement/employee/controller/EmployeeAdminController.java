@@ -42,7 +42,7 @@ public class EmployeeAdminController {
         return ApiResponses.created(employeeService.createEmployee(request), "Employee created successfully");
     }
 
-    // Filter by status and/or a search term over name, code, department and phone
+    // Filter by status and/or a search term over name, code, department and phone; DELETED only when asked for
     @RequiresPermission(Permission.EMPLOYEE_VIEW)
     @GetMapping
     public ResponseEntity<ApiResponse<Page<EmployeeResponse>>> getAllEmployees(
@@ -72,11 +72,11 @@ public class EmployeeAdminController {
         return ApiResponses.ok(employeeService.requestEmployeeDeletion(id), "Employee status set to WAITING_FOR_DELETION");
     }
 
+    // Marks the employee DELETED (the record is kept and stays visible under that status filter)
     @RequiresPermission(Permission.EMPLOYEE_DELETE)
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> finalizeDeleteEmployee(@PathVariable Long id) {
-        employeeService.finalizeDeleteEmployee(id);
-        return ApiResponses.ok("Employee permanently deleted successfully");
+    public ResponseEntity<ApiResponse<EmployeeResponse>> finalizeDeleteEmployee(@PathVariable Long id) {
+        return ApiResponses.ok(employeeService.finalizeDeleteEmployee(id), "Employee deleted. The record is kept with status DELETED.");
     }
 
     // New employees waiting for Admin L2 approval, oldest first

@@ -1,5 +1,6 @@
 package com.tinqa.procurement;
 
+import com.tinqa.procurement.security.access.Designation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tinqa.procurement.support.IntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
@@ -106,10 +107,10 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void superAdminDesignationNeedsAnEmployeeApprover() throws Exception {
-        Map<String, Object> superAdmin = body("username", uniq("sa"), "email", uniq("sa") + "@tinqa.test",
+        Map<String, Object> superAdmin = withPanAndAddress(body("username", uniq("sa"), "email", uniq("sa") + "@tinqa.test",
                 "firstName", letters(), "lastName", letters(), "dateOfBirth", "1990-01-15", "gender", "MALE",
                 "designation", "SUPER_ADMIN", "department", "Administration", "employmentType", "FULL_TIME",
-                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L1");
+                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L1"));
         // Even an approver can't create a Super Admin alone
         JsonNode created = data(post("/v1/admin/employees", l2a.token(), superAdmin, 201));
         assertThat(created.get("status").asText()).isEqualTo("APPROVAL_PENDING");
@@ -141,17 +142,18 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void departmentFollowsTheDesignation() throws Exception {
-        Map<String, Object> rider = body("username", uniq("dr"), "email", uniq("dr") + "@tinqa.test",
+        Map<String, Object> rider = withPanAndAddress(body("username", uniq("dr"), "email", uniq("dr") + "@tinqa.test",
                 "firstName", letters(), "lastName", letters(), "dateOfBirth", "1990-01-15", "gender", "MALE",
                 "designation", "DELIVERY_RIDER", "employmentType", "FULL_TIME",
-                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L1");
+                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L1"));
         JsonNode created = data(post("/v1/admin/employees", l2a.token(), rider, 201));
         assertThat(created.get("department").asText()).isEqualTo("Logistics & Delivery");
         long id = created.get("id").asLong();
 
         // A department that doesn't match the designation is refused
         Map<String, Object> mismatched = new java.util.LinkedHashMap<>(rider);
-        mismatched.putAll(body("username", uniq("dr"), "email", uniq("dr") + "@tinqa.test", "phone", nextLocalMobile(), "department", "Finance & Accounts"));
+        mismatched.putAll(body("username", uniq("dr"), "email", uniq("dr") + "@tinqa.test", "phone", nextLocalMobile(),
+                "panNumber", nextPersonalPan(), "department", "Finance & Accounts"));
         JsonNode refused = post("/v1/admin/employees", l2a.token(), mismatched, 400);
         assertThat(refused.get("errors").get(0).get("field").asText()).isEqualTo("department");
 
@@ -171,10 +173,10 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
     @Test
     void levelTwoOnlyExistsWhereADesignationCanApprove() throws Exception {
         // A rider has no approval powers, so asking for Level 2 gives Level 1 (and no second approver is needed)
-        Map<String, Object> rider = body("username", uniq("lv"), "email", uniq("lv") + "@tinqa.test",
+        Map<String, Object> rider = withPanAndAddress(body("username", uniq("lv"), "email", uniq("lv") + "@tinqa.test",
                 "firstName", letters(), "lastName", letters(), "dateOfBirth", "1990-01-15", "gender", "MALE",
                 "designation", "DELIVERY_RIDER", "employmentType", "FULL_TIME",
-                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L2");
+                "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", "ADMIN_L2"));
         JsonNode created = data(post("/v1/admin/employees", l2a.token(), rider, 201));
         assertThat(created.get("role").asText()).isEqualTo("ADMIN_L1");
         assertThat(created.get("status").asText()).isEqualTo("FIRST_LOGIN");
@@ -190,7 +192,7 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
     @Test
     void catalogDescribesEveryDesignationGroupAndPermission() throws Exception {
         JsonNode catalog = data(get("/v1/access/catalog", l1.token(), 200));
-        assertThat(catalog.get("designations")).hasSize(9);
+        assertThat(catalog.get("designations")).hasSize(Designation.values().length);
         assertThat(catalog.get("designations").get(0).get("code").asText()).isEqualTo("SUPER_ADMIN");
         assertThat(catalog.get("groups").findValues("code").stream().map(JsonNode::asText)).contains("REFUND_APPROVAL");
         assertThat(catalog.get("permissions").findValues("code").stream().map(JsonNode::asText)).contains("REFUND_APPROVE");

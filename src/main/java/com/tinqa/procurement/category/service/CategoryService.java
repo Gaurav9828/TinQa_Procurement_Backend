@@ -13,9 +13,6 @@ public interface CategoryService {
 
     List<CategoryDTOs.Response> getCategories(CategoryType type);
 
-    /** The category with this id and type; 404 if there is none (a category of another type counts as none). */
-    Category getCategory(Long id, CategoryType type);
-
     /** Every requested category, all of the given type; 404 if any id is unknown or of another type. */
     List<Category> getCategories(Collection<Long> ids, CategoryType type);
 }

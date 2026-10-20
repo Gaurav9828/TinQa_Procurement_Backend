@@ -64,7 +64,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
             User user = userRepository.findByUsername(claims.username()).orElse(null);
-            if (user == null) {
+            // A disabled account (e.g. a deleted employee) loses its open sessions at once
+            if (user == null || !user.isEnabled()) {
                 writeUnauthorized(request, response);
                 return;
             }

@@ -58,6 +58,39 @@ public class UpdateEmployeeRequest {
     @Pattern(regexp = ValidationPatterns.EMAIL, message = "Personal email " + ValidationPatterns.EMAIL_MESSAGE)
     private String personalEmail;
 
+    @Pattern(regexp = ValidationPatterns.PERSONAL_PAN, message = "PAN " + ValidationPatterns.PERSONAL_PAN_MESSAGE)
+    private String panNumber;
+
+    // Residential address
+    @Size(max = 100, message = "House number cannot exceed 100 characters")
+    @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "House number " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    private String houseNumber;
+
+    @Size(max = 500, message = "Street cannot exceed 500 characters")
+    @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Street " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    private String street;
+
+    // Optional; a blank value removes it
+    @Size(max = 255, message = "Landmark cannot exceed 255 characters")
+    @Pattern(regexp = "^\\s*$|" + ValidationPatterns.SINGLE_LINE_TEXT, message = "Landmark " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    private String landmark;
+
+    @Size(max = 100, message = "District cannot exceed 100 characters")
+    @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "District " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+    private String district;
+
+    @Size(max = 100, message = "State cannot exceed 100 characters")
+    @Pattern(regexp = ValidationPatterns.CITY, message = "State must be a valid state name")
+    private String state;
+
+    @Pattern(regexp = ValidationPatterns.PINCODE, message = "PIN code " + ValidationPatterns.PINCODE_MESSAGE)
+    private String pincode;
+
+    // Optional; a blank value removes it
+    @UrlInput
+    @GoogleMapsUrl(message = "Google Maps link must be an https Google Maps link (maps.google.com, google.com/maps, maps.app.goo.gl or goo.gl/maps)")
+    private String googleMapsUrl;
+
     private EmployeeStatus status;
 
     // Admin level; only ADMIN_L1 / ADMIN_L2 can be set here, and only by an employee approver

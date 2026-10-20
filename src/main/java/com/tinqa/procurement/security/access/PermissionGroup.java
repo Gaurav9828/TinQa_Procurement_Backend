@@ -19,11 +19,11 @@ public enum PermissionGroup {
     // Dealers (B2B partners)
     DEALER_READ("Dealers - view", false),
     DEALER_MANAGEMENT("Dealers - create and edit", false),
-    DEALER_APPROVAL("Dealers - remove dealers", true),
+    DEALER_APPROVAL("Dealers - approve dealer logins and remove dealers", true),
 
     // Procurement orders (RFQs / quotations placed with dealers)
     PROCUREMENT_ORDER_READ("Procurement orders - view", false),
-    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create and progress", false),
+    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress and decide dealers' quotation changes", false),
     PROCUREMENT_ORDER_APPROVAL("Procurement orders - approve, confirm and decide returns", true),
 
     // Catalog (items, procurement products and storefront listings)
@@ -65,14 +65,20 @@ public enum PermissionGroup {
     PAYMENT_READ("Payments - view", false),
     PAYMENT_MANAGEMENT("Payments - record", false),
     PAYMENT_APPROVAL("Payments - approve", true),
-    FINANCE_REPORTING("Finance - reports and exports", false),
+    FINANCE_REPORTING("Finance - company account, reports and exports", false),
+    EXPENSE_READ("Expenses - view", false),
+    EXPENSE_MANAGEMENT("Expenses - raise for approval", false),
+    EXPENSE_APPROVAL("Expenses - approve, reject and reverse", true),
     ANALYTICS("Analytics - dashboards", false),
 
     // Platform
     SYSTEM_ADMINISTRATION("System - settings, integrations and audit logs", true),
+    // The in-app user guide: every role's flows, downloadable as a PDF to hand to a colleague
+    USER_GUIDE("User guide - view and share role guides", false),
 
-    // External: registered dealers using the dealer portal
-    DEALER_PORTAL("Dealer portal - quotations and order responses", false);
+    // External: dealers signed in to this web app with a dealer login. Everything in it is limited to the dealer's own
+    // records on the server, whatever is asked for
+    DEALER_PORTAL("Dealer portal - own quotations, orders and bills", false);
 
     private final String label;
     private final boolean approvalLevel;

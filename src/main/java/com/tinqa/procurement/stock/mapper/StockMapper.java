@@ -1,5 +1,6 @@
 package com.tinqa.procurement.stock.mapper;
 
+import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.stock.dto.StockDTOs;
 import com.tinqa.procurement.stock.entity.Stock;
@@ -37,6 +38,11 @@ public class StockMapper {
                 .isActive(stock.getIsActive())
                 .createdAt(stock.getCreatedAt())
                 .createdBy(stock.getCreatedBy())
+                .approvedUnitsPassed(stock.getApprovedUnitsPassed())
+                .approvedDefectedUnits(stock.getApprovedDefectedUnits())
+                .changeAwaitingApproval(stock.hasChangeAwaitingApproval())
+                .heldUnits(stock.heldUnits())
+                .bookedPurchaseValue(PurchasePostingRecorder.purchaseValue(order, stock))
                 .build();
     }
 

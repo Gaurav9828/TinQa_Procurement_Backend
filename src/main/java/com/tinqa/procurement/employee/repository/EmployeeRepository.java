@@ -17,17 +17,23 @@ import java.util.Optional;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Page<Employee> findByStatus(EmployeeStatus status, Pageable pageable);
 
-    @Query("SELECT e FROM Employee e WHERE " +
+    // "All statuses" leaves out one status (DELETED), which is only listed when asked for
+    Page<Employee> findByStatusNot(EmployeeStatus excluded, Pageable pageable);
+
+    @Query("SELECT e FROM Employee e WHERE e.status <> :excluded AND " +
             "(LOWER(e.firstName) LIKE %:search% OR " +
             "LOWER(e.lastName) LIKE %:search% OR " +
+            "LOWER(CONCAT(e.firstName, ' ', e.lastName)) LIKE %:search% OR " +
             "LOWER(e.employeeCode) LIKE %:search% OR " +
             "LOWER(e.department) LIKE %:search% OR " +
             "LOWER(e.phone) LIKE %:search%)")
-    Page<Employee> findBySearchTerm(@Param("search") String search, Pageable pageable);
+    Page<Employee> findBySearchTermExcludingStatus(@Param("search") String search, @Param("excluded") EmployeeStatus excluded,
+                                                  Pageable pageable);
 
     @Query("SELECT e FROM Employee e WHERE e.status = :status AND " +
             "(LOWER(e.firstName) LIKE %:search% OR " +
             "LOWER(e.lastName) LIKE %:search% OR " +
+            "LOWER(CONCAT(e.firstName, ' ', e.lastName)) LIKE %:search% OR " +
             "LOWER(e.employeeCode) LIKE %:search% OR " +
             "LOWER(e.department) LIKE %:search% OR " +
             "LOWER(e.phone) LIKE %:search%)")
@@ -45,6 +51,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
                                      @Param("excludeEmployeeId") Long excludeEmployeeId);
 
     Optional<Employee> findFirstByPersonalEmailIgnoreCaseAndIdNot(String personalEmail, Long employeeId);
+
+    Optional<Employee> findFirstByPanNumberAndIdNot(String panNumber, Long employeeId);
 
     List<Employee> findByStatusOrderByCreatedAtAscIdAsc(EmployeeStatus status);
 

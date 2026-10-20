@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -15,11 +16,14 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -233,12 +237,37 @@ public abstract class IntegrationTestSupport {
         return "9" + String.format("%09d", next());
     }
 
+    // A valid individual PAN that no other test uses
+    protected static String nextPersonalPan() {
+        int n = next();
+        return "ABCP" + (char) ('A' + (n / 10000) % 26) + String.format("%04d", n % 10000) + "Z";
+    }
+
+    // Adds the PAN and residential address every new employee needs
+    protected static Map<String, Object> withPanAndAddress(Map<String, Object> employee) {
+        employee.putAll(body("panNumber", nextPersonalPan(), "houseNumber", "Flat 4B", "street", "12 MG Road",
+                "district", "Bengaluru Urban", "state", "Karnataka", "pincode", "560001"));
+        return employee;
+    }
+
     // ------------------------------------------------------------------ fixtures
 
-    protected long createCategory(String kind, Actor actor) throws Exception {
+    // Item categories; dealers are assigned the same categories
+    protected long createCategory(Actor actor) throws Exception {
         String code = uniq("CAT");
-        return data(post("/v1/admin/" + kind + "/categories", actor.token(),
+        return data(post("/v1/admin/items/categories", actor.token(),
                 body("name", "Category " + code, "code", code), 201)).get("id").asLong();
+    }
+
+    // Dealers and items made by createDealer() and createItem() share this category (one per test), so the dealer
+    // can quote for the item
+    private Long fixtureCategory;
+
+    protected long fixtureCategory() throws Exception {
+        if (fixtureCategory == null) {
+            fixtureCategory = createCategory(l1);
+        }
+        return fixtureCategory;
     }
 
     protected Map<String, Object> dealerBody(List<Long> categoryIds) {
@@ -248,20 +277,18 @@ public abstract class IntegrationTestSupport {
     }
 
     protected long createDealer() throws Exception {
-        long category = createCategory("dealers", l1);
-        return data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(category)), 201)).get("id").asLong();
+        return data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(fixtureCategory())), 201)).get("id").asLong();
     }
 
-    protected Map<String, Object> itemBody(long categoryId) {
-        return body("categoryId", categoryId, "name", "Item " + next(), "sku", uniq("SKU-"), "unitOfMeasure", "PCS",
+    protected Map<String, Object> itemBody(long... categoryIds) {
+        return body("categoryIds", Arrays.stream(categoryIds).boxed().toList(), "name", "Item " + next(), "sku", uniq("SKU-"), "unitOfMeasure", "PCS",
                 "mrp", new BigDecimal("1500.00"), "countryOfOrigin", "India",
                 "warranties", List.of(body("warrantyType", "MANUFACTURER", "title", "One Year",
                         "durationValue", 12, "durationUnit", "MONTHS")));
     }
 
     protected long createItem() throws Exception {
-        long category = createCategory("items", l1);
-        return data(post("/v1/admin/items", l1.token(), itemBody(category), 201)).get("id").asLong();
+        return data(post("/v1/admin/items", l1.token(), itemBody(fixtureCategory()), 201)).get("id").asLong();
     }
 
     protected Map<String, Object> orderBody(long dealerId, long itemId, String quantity) {
@@ -278,8 +305,35 @@ public abstract class IntegrationTestSupport {
         Map<String, Object> request = body("status", status);
         if (status.equals("DELIVERED")) {
             request.put("actualDelivery", LocalDate.now().toString());
+            // A delivery needs the dealer's invoice, matching the quotation
+            uploadInvoice(orderId, actor, matchingInvoice(orderId), 200);
         }
         return data(patch("/v1/orders/" + orderId + "/status", actor.token(), request, 200));
+    }
+
+    protected JsonNode uploadInvoice(long orderId, Actor actor, byte[] pdf, int expectedStatus) throws Exception {
+        return perform(MockMvcRequestBuilders.multipart("/v1/orders/" + orderId + "/invoice")
+                .file(new MockMultipartFile("file", "dealer_invoice.pdf", "application/pdf", pdf))
+                .header("Authorization", "Bearer " + actor.token()), expectedStatus);
+    }
+
+    /** An invoice PDF that shows exactly what the order's quotation says: total, and GST when it was quoted. */
+    protected byte[] matchingInvoice(long orderId) throws Exception {
+        JsonNode order = data(get("/v1/orders/" + orderId, l1.token(), 200));
+        JsonNode tax = order.get("taxBreakup");
+        List<String> lines = new ArrayList<>(List.of("TAX INVOICE", "Invoice No: T-" + orderId));
+        String total = order.get("totalPrice").decimalValue().toPlainString();
+        if (tax != null && tax.hasNonNull("gstRate")) {
+            lines.add("Taxable Value " + tax.get("taxableValue").decimalValue().toPlainString());
+            for (String key : List.of("cgst", "sgst", "igst")) {
+                if (tax.get(key).decimalValue().signum() > 0) {
+                    lines.add(key.toUpperCase() + " " + tax.get(key).decimalValue().toPlainString());
+                }
+            }
+            total = tax.get("grandTotal").decimalValue().toPlainString();
+        }
+        lines.add("Grand Total " + total);
+        return InvoicePdfs.withLines(lines.toArray(String[]::new));
     }
 
     /** Takes a new order through the whole forward workflow to DELIVERED. */

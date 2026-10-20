@@ -22,7 +22,8 @@ public interface EmployeeService {
 
     EmployeeResponse requestEmployeeDeletion(Long id);
 
-    void finalizeDeleteEmployee(Long id);
+    // Soft delete: the record is kept with status DELETED and its account disabled
+    EmployeeResponse finalizeDeleteEmployee(Long id);
 
     // New employees waiting for Admin L2, oldest first
     List<EmployeeResponse> getPendingApprovals();

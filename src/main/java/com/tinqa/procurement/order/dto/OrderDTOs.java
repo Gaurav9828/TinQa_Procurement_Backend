@@ -106,6 +106,10 @@ public class OrderDTOs {
         // Required for CANCELLED, RETURN_REQUESTED, RETURN_REJECTED and REFUND_FAILED (checked in the service)
         @Size(max = 500, message = "Reason cannot exceed 500 characters")
         private String reason;
+
+        // DELIVERED only: a Level 2 approver accepting a dealer's invoice that didn't match the quotation (checked in the service)
+        @Size(max = 400, message = "Reason for accepting the invoice cannot exceed 400 characters")
+        private String invoiceOverrideReason;
     }
 
     @Data
@@ -143,5 +147,9 @@ public class OrderDTOs {
         private Map<String, Object> additionalInfo;
         private LocalDateTime createdAt;
         private Long createdBy;
+        /** The dealer raised this quotation themselves from their dealer login */
+        private boolean raisedByDealer;
+        /** A dealer's change to this quotation waits for approval; until then it can't be edited, submitted or cancelled */
+        private boolean dealerChangePending;
     }
 }

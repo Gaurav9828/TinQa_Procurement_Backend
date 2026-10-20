@@ -6,6 +6,7 @@ import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
 import com.tinqa.procurement.item.dto.ItemDTOs;
+import com.tinqa.procurement.item.dto.ItemFilter;
 import com.tinqa.procurement.item.service.ItemService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -76,8 +78,14 @@ public class ItemAdminController {
 
     @RequiresPermission(Permission.ITEM_VIEW)
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ItemDTOs.Response>>> getAllItems(Pageable pageable) {
-        return ApiResponses.ok(itemService.getAllItems(pageable), "Items retrieved successfully");
+    public ResponseEntity<ApiResponse<Page<ItemDTOs.Response>>> getAllItems(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<Long> categoryId,
+            @RequestParam(required = false) List<String> unitOfMeasure,
+            @RequestParam(required = false) Boolean isActive,
+            Pageable pageable) {
+        ItemFilter filter = new ItemFilter(search, categoryId, unitOfMeasure, isActive);
+        return ApiResponses.ok(itemService.getAllItems(filter, pageable), "Items retrieved successfully");
     }
 
     @RequiresPermission(Permission.ITEM_DELETE)

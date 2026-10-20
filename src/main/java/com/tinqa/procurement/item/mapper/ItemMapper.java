@@ -1,10 +1,12 @@
 package com.tinqa.procurement.item.mapper;
 
+import com.tinqa.procurement.category.entity.Category;
 import com.tinqa.procurement.item.dto.ItemDTOs;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.entity.ItemWarranty;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Component
@@ -13,8 +15,10 @@ public class ItemMapper {
     public ItemDTOs.Response toResponse(Item item) {
         ItemDTOs.Response response = new ItemDTOs.Response();
         response.setId(item.getId());
-        response.setCategoryId(item.getCategory().getId());
-        response.setCategoryName(item.getCategory().getName());
+        response.setCategories(item.getCategories().stream()
+                .sorted(Comparator.comparing(Category::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toCategorySummary)
+                .toList());
         response.setName(item.getName());
         response.setBrand(item.getBrand());
         response.setSku(item.getSku());
@@ -32,6 +36,14 @@ public class ItemMapper {
         response.setCreatedBy(item.getCreatedBy());
         response.setUpdatedBy(item.getUpdatedBy());
         return response;
+    }
+
+    private ItemDTOs.CategorySummary toCategorySummary(Category category) {
+        ItemDTOs.CategorySummary summary = new ItemDTOs.CategorySummary();
+        summary.setId(category.getId());
+        summary.setName(category.getName());
+        summary.setCode(category.getCode());
+        return summary;
     }
 
     public List<ItemDTOs.WarrantyResponse> toWarrantyResponses(List<ItemWarranty> warranties) {

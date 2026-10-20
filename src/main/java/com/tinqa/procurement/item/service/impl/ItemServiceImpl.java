@@ -5,20 +5,29 @@ import com.tinqa.procurement.category.enums.CategoryType;
 import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
+import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.item.dto.ItemDTOs;
+import com.tinqa.procurement.item.dto.ItemFilter;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.entity.ItemWarranty;
 import com.tinqa.procurement.item.mapper.ItemMapper;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.item.service.ItemService;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,11 +49,11 @@ public class ItemServiceImpl implements ItemService {
         if (itemRepository.existsBySku(request.getSku())) {
             throw new BadRequestException("SKU already exists: " + request.getSku());
         }
-        Category category = categoryService.getCategory(request.getCategoryId(), CategoryType.ITEM);
+        List<Category> categories = categoryService.getCategories(request.getCategoryIds(), CategoryType.ITEM);
         Long currentUserId = currentUserProvider.getCurrentUserId();
 
         Item item = Item.builder()
-                .category(category)
+                .categories(new HashSet<>(categories))
                 .name(request.getName())
                 .brand(request.getBrand())
                 .sku(request.getSku())
@@ -67,10 +76,11 @@ public class ItemServiceImpl implements ItemService {
     @Transactional
     public ItemDTOs.Response updateItem(Long id, ItemDTOs.UpdateRequest request) {
         Item item = itemRepository.findByIdWithDetails(id).orElseThrow(() -> itemNotFound(id));
-        Category category = categoryService.getCategory(request.getCategoryId(), CategoryType.ITEM);
+        List<Category> categories = categoryService.getCategories(request.getCategoryIds(), CategoryType.ITEM);
         Long currentUserId = currentUserProvider.getCurrentUserId();
 
-        item.setCategory(category);
+        item.getCategories().clear();
+        item.getCategories().addAll(categories);
         item.setName(request.getName());
         item.setBrand(request.getBrand());
         item.setUnitOfMeasure(request.getUnitOfMeasure());
@@ -107,8 +117,8 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ItemDTOs.Response> getAllItems(Pageable pageable) {
-        return itemRepository.findAll(pageable).map(itemMapper::toResponse);
+    public Page<ItemDTOs.Response> getAllItems(ItemFilter filter, Pageable pageable) {
+        return itemRepository.findAll(matching(filter), pageable).map(itemMapper::toResponse);
     }
 
     @Override
@@ -170,6 +180,42 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         item.getWarranties().add(warranty);
         return warranty;
+    }
+
+    private static Specification<Item> matching(ItemFilter filter) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            String term = OptionalText.lowerCaseOrNull(filter.search());
+            if (term != null) {
+                String like = "%" + term + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), like),
+                        cb.like(cb.lower(root.get("sku")), like),
+                        cb.like(cb.lower(root.get("brand")), like)));
+            }
+            if (filter.categoryIds() != null && !filter.categoryIds().isEmpty()) {
+                // EXISTS keeps one row per item, so paging and counts stay right
+                Subquery<Long> inCategory = query.subquery(Long.class);
+                Root<Item> item = inCategory.correlate(root);
+                Join<Item, Category> category = item.join("categories");
+                inCategory.select(category.get("id")).where(category.get("id").in(filter.categoryIds()));
+                predicates.add(cb.exists(inCategory));
+            }
+            List<String> units = upperCased(filter.units());
+            if (!units.isEmpty()) {
+                predicates.add(cb.upper(root.get("unitOfMeasure")).in(units));
+            }
+            if (filter.isActive() != null) {
+                predicates.add(cb.equal(root.get("isActive"), filter.isActive()));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private static List<String> upperCased(List<String> values) {
+        if (values == null) return List.of();
+        return values.stream().map(OptionalText::blankToNull).filter(v -> v != null)
+                .map(v -> v.toUpperCase(Locale.ROOT)).toList();
     }
 
     private static ResourceNotFoundException itemNotFound(Long id) {

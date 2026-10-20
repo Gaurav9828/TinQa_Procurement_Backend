@@ -104,6 +104,15 @@ public class StockDTOs {
         private Boolean isActive;
         private LocalDateTime createdAt;
         private Long createdBy;
+        // The counts Admin L2 last approved (null until first approved): what finance has booked
+        private BigDecimal approvedUnitsPassed;
+        private BigDecimal approvedDefectedUnits;
+        // The counts were changed since L2's approval: the change (and its money) waits for L2
+        private Boolean changeAwaitingApproval;
+        // Passed units added since L2's approval, not usable until L2 approves them
+        private BigDecimal heldUnits;
+        // Value of the approved passed units booked as bought from the dealer (before GST)
+        private BigDecimal bookedPurchaseValue;
     }
 
     @Data

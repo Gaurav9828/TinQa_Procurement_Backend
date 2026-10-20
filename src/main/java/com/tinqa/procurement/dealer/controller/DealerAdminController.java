@@ -6,6 +6,7 @@ import com.tinqa.procurement.category.service.CategoryService;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
 import com.tinqa.procurement.dealer.dto.DealerDTOs;
+import com.tinqa.procurement.dealer.dto.DealerFilter;
 import com.tinqa.procurement.dealer.service.DealerService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -37,16 +39,11 @@ public class DealerAdminController {
 
     // --- Dealer categories ---
 
-    @RequiresPermission(Permission.DEALER_CATEGORY_MANAGE)
-    @PostMapping("/categories")
-    public ResponseEntity<ApiResponse<CategoryDTOs.Response>> createCategory(@Valid @RequestBody CategoryDTOs.CreateRequest request) {
-        return ApiResponses.created(categoryService.createCategory(CategoryType.DEALER, request), "Category created successfully");
-    }
-
+    // Dealers are assigned item categories (created under Item Management); this lists them for the dealer screens
     @RequiresPermission(Permission.DEALER_VIEW)
     @GetMapping("/categories")
     public ResponseEntity<ApiResponse<List<CategoryDTOs.Response>>> getAllCategories() {
-        return ApiResponses.ok(categoryService.getCategories(CategoryType.DEALER), "Categories fetched successfully");
+        return ApiResponses.ok(categoryService.getCategories(CategoryType.ITEM), "Categories fetched successfully");
     }
 
     // --- Dealers ---
@@ -72,8 +69,20 @@ public class DealerAdminController {
 
     @RequiresPermission(Permission.DEALER_VIEW)
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<DealerDTOs.Response>>> getAllDealers(Pageable pageable) {
-        return ApiResponses.ok(dealerService.getAllDealers(pageable), "Dealers fetched successfully");
+    public ResponseEntity<ApiResponse<Page<DealerDTOs.Response>>> getAllDealers(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<Long> categoryId,
+            @RequestParam(required = false) List<String> city,
+            @RequestParam(required = false) Boolean isActive,
+            Pageable pageable) {
+        DealerFilter filter = new DealerFilter(search, categoryId, city, isActive);
+        return ApiResponses.ok(dealerService.getAllDealers(filter, pageable), "Dealers fetched successfully");
+    }
+
+    @RequiresPermission(Permission.DEALER_VIEW)
+    @GetMapping("/cities")
+    public ResponseEntity<ApiResponse<List<String>>> getDealerCities() {
+        return ApiResponses.ok(dealerService.getDealerCities(), "Dealer cities fetched successfully");
     }
 
     @RequiresPermission(Permission.DEALER_DELETE)

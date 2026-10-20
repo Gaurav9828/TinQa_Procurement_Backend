@@ -35,7 +35,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         void appliesTheBaselineMigrationAndReportsHealthy() throws Exception {
             Integer applied = jdbc.queryForObject(
                     "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL", Integer.class);
-            assertThat(applied).isEqualTo(3);
+            assertThat(applied).isEqualTo(10);
 
             JsonNode health = get("/actuator/health", null, 200);
             assertThat(health.get("status").asText()).isEqualTo("UP");
@@ -246,10 +246,10 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
     class Employees {
 
         private Map<String, Object> employeeBody(String role) {
-            return body("username", uniq("emp"), "email", uniq("Emp") + "@Company.com",
+            return withPanAndAddress(body("username", uniq("emp"), "email", uniq("Emp") + "@Company.com",
                     "firstName", letters(), "lastName", letters(), "dateOfBirth", "1990-01-15", "gender", "MALE",
                     "designation", "DEALER_MANAGER", "employmentType", "FULL_TIME",
-                    "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", role);
+                    "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", role));
         }
 
         @Test
@@ -376,8 +376,61 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(twice.get("message").asText()).isEqualTo("Employee is already waiting for deletion");
 
             delete("/v1/admin/employees/" + id, l1.token(), 403);
+            JsonNode deleted = data(delete("/v1/admin/employees/" + id, l2a.token(), 200));
+            assertThat(deleted.get("status").asText()).isEqualTo("DELETED");
+            assertThat(deleted.get("deletedByUsername").asText()).isEqualTo(l2a.username());
+        }
+
+        @Test
+        void deletedEmployeesAreKeptAndListedOnlyUnderTheirStatus() throws Exception {
+            Map<String, Object> request = employeeBody("ADMIN_L1");
+            long id = data(post("/v1/admin/employees", l2a.token(), request, 201)).get("id").asLong();
+            patch("/v1/admin/employees/" + id + "/request-deletion", l1.token(), null, 200);
             delete("/v1/admin/employees/" + id, l2a.token(), 200);
+
+            // The row and its login stay, but the account can no longer sign in
+            assertThat(jdbc.queryForObject("SELECT status FROM employee WHERE id = ?", String.class, id)).isEqualTo("DELETED");
+            post("/auth/admin/login", null, body("username", request.get("username"), "password", DEFAULT_EMPLOYEE_PASSWORD), 400);
+
+            String lastName = (String) request.get("lastName");
+            assertThat(data(get("/v1/admin/employees?search=" + lastName, l2a.token(), 200)).get("content")).isEmpty();
+            JsonNode listed = data(get("/v1/admin/employees?status=DELETED&search=" + lastName, l2a.token(), 200));
+            assertThat(listed.get("content")).hasSize(1);
+            assertThat(data(get("/v1/admin/employees/" + id, l2a.token(), 200)).get("status").asText()).isEqualTo("DELETED");
+
+            // Only someone who can delete employees sees deleted records
+            get("/v1/admin/employees?status=DELETED", l1.token(), 403);
             get("/v1/admin/employees/" + id, l1.token(), 404);
+
+            // A deleted record is read-only
+            JsonNode locked = put("/v1/admin/employees/" + id, l2a.token(), body("firstName", letters()), 409);
+            assertThat(locked.get("errorCode").asText()).isEqualTo("EMPLOYEE_DELETED");
+            delete("/v1/admin/employees/" + id, l2a.token(), 400);
+        }
+
+        @Test
+        void newEmployeesNeedAUniquePersonalPanAndAnAddress() throws Exception {
+            Map<String, Object> missing = employeeBody("ADMIN_L1");
+            missing.remove("panNumber");
+            missing.remove("pincode");
+            JsonNode invalid = post("/v1/admin/employees", l2a.token(), missing, 400);
+            assertThat(invalid.get("errors").findValuesAsText("field")).contains("panNumber", "pincode");
+
+            Map<String, Object> business = employeeBody("ADMIN_L1");
+            business.put("panNumber", "ABCCE1234F");
+            post("/v1/admin/employees", l2a.token(), business, 400);
+
+            Map<String, Object> request = employeeBody("ADMIN_L1");
+            request.put("googleMapsUrl", "https://maps.app.goo.gl/abc123");
+            JsonNode created = data(post("/v1/admin/employees", l2a.token(), request, 201));
+            assertThat(created.get("panNumber").asText()).isEqualTo(request.get("panNumber"));
+            assertThat(created.get("pincode").asText()).isEqualTo("560001");
+            assertThat(created.get("googleMapsUrl").asText()).isEqualTo("https://maps.app.goo.gl/abc123");
+
+            Map<String, Object> samePan = employeeBody("ADMIN_L1");
+            samePan.put("panNumber", request.get("panNumber"));
+            JsonNode conflict = post("/v1/admin/employees", l2a.token(), samePan, 409);
+            assertThat(conflict.get("errors").findValuesAsText("field")).containsExactly("panNumber");
         }
     }
 
@@ -463,32 +516,31 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
     class Dealers {
 
         @Test
-        void categoryCodesAreUniquePerCategoryType() throws Exception {
+        void dealersAreAssignedItemCategories() throws Exception {
             String code = uniq("SHARED");
-            JsonNode created = data(post("/v1/admin/dealers/categories", l1.token(), body("name", "Dealer " + code, "code", code), 201));
+            JsonNode created = data(post("/v1/admin/items/categories", l1.token(), body("name", "Item " + code, "code", code), 201));
             assertThat(created.get("code").asText()).isEqualTo(code);
             assertThat(created.get("isActive").asBoolean()).isTrue();
 
-            JsonNode duplicate = post("/v1/admin/dealers/categories", l1.token(), body("name", "Other " + code, "code", code), 400);
+            JsonNode duplicate = post("/v1/admin/items/categories", l1.token(), body("name", "Other " + code, "code", code), 400);
             assertThat(duplicate.get("message").asText()).isEqualTo("Category code already exists: " + code);
 
-            post("/v1/admin/items/categories", l1.token(), body("name", "Item " + code, "code", code), 201);
-
+            // The dealer screens offer the item categories
             JsonNode list = data(get("/v1/admin/dealers/categories", l1.token(), 200));
             assertThat(list.findValuesAsText("code")).contains(code);
-        }
 
-        @Test
-        void dealersOnlyAcceptDealerCategories() throws Exception {
-            long itemCategory = createCategory("items", l1);
-            JsonNode response = post("/v1/admin/dealers", l1.token(), dealerBody(List.of(itemCategory)), 404);
-            assertThat(response.get("errorCode").asText()).isEqualTo("RESOURCE_NOT_FOUND");
+            long categoryId = created.get("id").asLong();
+            JsonNode dealer = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(categoryId)), 201));
+            assertThat(dealer.get("categories").findValues("id").stream().map(JsonNode::asLong)).containsExactly(categoryId);
+
+            JsonNode unknown = post("/v1/admin/dealers", l1.token(), dealerBody(List.of(999999L)), 404);
+            assertThat(unknown.get("errorCode").asText()).isEqualTo("RESOURCE_NOT_FOUND");
         }
 
         @Test
         void dealerLifecycle() throws Exception {
-            long first = createCategory("dealers", l1);
-            long second = createCategory("dealers", l1);
+            long first = createCategory(l1);
+            long second = createCategory(l1);
             Map<String, Object> request = dealerBody(List.of(first));
             JsonNode dealer = data(post("/v1/admin/dealers", l1.token(), request, 201));
             long id = dealer.get("id").asLong();
@@ -528,8 +580,36 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         }
 
         @Test
+        void dealerListIsFilteredOnTheServer() throws Exception {
+            long category = createCategory(l1);
+            long other = createCategory(l1);
+            String city = "Town" + letters();
+            Map<String, Object> firstBody = dealerBody(List.of(category));
+            firstBody.put("city", city);
+            long first = data(post("/v1/admin/dealers", l1.token(), firstBody, 201)).get("id").asLong();
+            long second = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(category, other)), 201)).get("id").asLong();
+            long third = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(other)), 201)).get("id").asLong();
+
+            assertThat(dealerIds("categoryId=" + category)).containsExactlyInAnyOrder(first, second);
+            // A dealer in both categories is listed once
+            assertThat(dealerIds("categoryId=" + category + "&categoryId=" + other)).containsExactlyInAnyOrder(first, second, third);
+            assertThat(dealerIds("city=" + city.toLowerCase())).containsExactly(first);
+            assertThat(dealerIds("search=" + firstBody.get("email").toString().toUpperCase())).containsExactly(first);
+            assertThat(dealerIds("search=" + city.substring(4) + "&categoryId=" + category)).containsExactly(first);
+            assertThat(data(get("/v1/admin/dealers/cities", l1.token(), 200))).extracting(JsonNode::asText).contains(city);
+
+            patch("/v1/admin/dealers/" + second + "/toggle-status", l1.token(), null, 200);
+            assertThat(dealerIds("categoryId=" + category + "&isActive=false")).containsExactly(second);
+            assertThat(dealerIds("categoryId=" + category + "&isActive=true")).containsExactly(first);
+        }
+
+        private List<Long> dealerIds(String query) throws Exception {
+            return topLevelIds(data(get("/v1/admin/dealers?size=1000&" + query, l1.token(), 200)));
+        }
+
+        @Test
         void dealerTaxAndAddressFieldsAreValidated() throws Exception {
-            Map<String, Object> request = dealerBody(List.of(createCategory("dealers", l1)));
+            Map<String, Object> request = dealerBody(List.of(createCategory(l1)));
             request.put("gstin", "BADGSTIN");
             request.put("pincode", "012345");
             JsonNode invalid = post("/v1/admin/dealers", l1.token(), request, 400);
@@ -543,12 +623,12 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void itemLifecycleWithWarranties() throws Exception {
-            long category = createCategory("items", l1);
+            long category = createCategory(l1);
             Map<String, Object> request = itemBody(category);
             JsonNode item = data(post("/v1/admin/items", l1.token(), request, 201));
             long id = item.get("id").asLong();
             long warrantyId = item.get("warranties").get(0).get("id").asLong();
-            assertThat(item.get("categoryId").asLong()).isEqualTo(category);
+            assertThat(item.get("categories").findValues("id").stream().map(JsonNode::asLong)).containsExactly(category);
             assertThat(item.get("warranties").get(0).get("title").asText()).isEqualTo("One Year");
 
             JsonNode duplicate = post("/v1/admin/items", l1.token(), request, 400);
@@ -578,9 +658,41 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         }
 
         @Test
-        void itemsOnlyAcceptItemCategories() throws Exception {
-            long dealerCategory = createCategory("dealers", l1);
-            post("/v1/admin/items", l1.token(), itemBody(dealerCategory), 404);
+        void itemListIsFilteredOnTheServer() throws Exception {
+            long category = createCategory(l1);
+            long other = createCategory(l1);
+            Map<String, Object> kgBody = itemBody(category);
+            kgBody.put("unitOfMeasure", "KG");
+            kgBody.put("name", "Bulk" + letters());
+            JsonNode kg = data(post("/v1/admin/items", l1.token(), kgBody, 201));
+            long kgId = kg.get("id").asLong();
+            long pcsId = data(post("/v1/admin/items", l1.token(), itemBody(category), 201)).get("id").asLong();
+            long otherId = data(post("/v1/admin/items", l1.token(), itemBody(other), 201)).get("id").asLong();
+            JsonNode both = data(post("/v1/admin/items", l1.token(), itemBody(category, other), 201));
+            long bothId = both.get("id").asLong();
+            assertThat(both.get("categories")).hasSize(2);
+
+            assertThat(itemIds("categoryId=" + category)).containsExactlyInAnyOrder(kgId, pcsId, bothId);
+            // An item in both categories is listed once
+            assertThat(itemIds("categoryId=" + category + "&categoryId=" + other)).containsExactlyInAnyOrder(kgId, pcsId, otherId, bothId);
+            assertThat(itemIds("categoryId=" + category + "&unitOfMeasure=kg")).containsExactly(kgId);
+            assertThat(itemIds("search=" + kg.get("sku").asText().toLowerCase())).containsExactly(kgId);
+            assertThat(itemIds("search=" + kgBody.get("name").toString().toUpperCase())).containsExactly(kgId);
+
+            delete("/v1/admin/items/" + pcsId, l1.token(), 200);
+            assertThat(itemIds("categoryId=" + category + "&isActive=false")).containsExactly(pcsId);
+            assertThat(itemIds("categoryId=" + category + "&isActive=true")).containsExactlyInAnyOrder(kgId, bothId);
+        }
+
+        private List<Long> itemIds(String query) throws Exception {
+            return topLevelIds(data(get("/v1/admin/items?size=1000&" + query, l1.token(), 200)));
+        }
+
+        @Test
+        void itemsNeedAtLeastOneKnownCategory() throws Exception {
+            JsonNode none = post("/v1/admin/items", l1.token(), itemBody(), 400);
+            assertThat(none.get("errors").findValuesAsText("field")).contains("categoryIds");
+            post("/v1/admin/items", l1.token(), itemBody(createCategory(l1), 999999L), 404);
         }
     }
 
@@ -736,10 +848,19 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             long id = createStock(order.get("orderNumber").asText(), "8", "1").get("id").asLong();
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
 
+            // Added units are recorded but held back from use until Admin L2 approves the change
             JsonNode added = data(post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Recount"), 200));
             assertThat(added.get("unitsPassedTest").decimalValue()).isEqualByComparingTo("9");
-            assertThat(added.get("availableUnits").decimalValue()).isEqualByComparingTo("9");
+            assertThat(added.get("availableUnits").decimalValue()).isEqualByComparingTo("8");
+            assertThat(added.get("heldUnits").decimalValue()).isEqualByComparingTo("1");
+            assertThat(added.get("changeAwaitingApproval").asBoolean()).isTrue();
+            assertThat(notificationTitles(l2a)).contains("Stock Change Approval Required");
+            assertThat(data(get("/v1/stocks?status=PENDING", l2a.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
             post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Recount"), 400);
+            JsonNode approvedChange = data(post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200));
+            assertThat(approvedChange.get("availableUnits").decimalValue()).isEqualByComparingTo("9");
+            assertThat(approvedChange.get("changeAwaitingApproval").asBoolean()).isFalse();
+            assertThat(data(get("/v1/stocks?status=PENDING", l2a.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).doesNotContain(id);
 
             JsonNode insufficient = post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 100, "reason", "Loss"), 400);
             assertThat(insufficient.get("message").asText()).startsWith("Insufficient stock available");
@@ -808,6 +929,119 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             JsonNode inStock = data(get("/v1/stocks/items/availability?inStockOnly=true&itemIds=" + item + "," + emptyItem, l1.token(), 200));
             assertThat(inStock).hasSize(1);
             assertThat(inStock.get(0).get("itemId").asLong()).isEqualTo(item);
+        }
+
+        @Test
+        void purchasesAreBookedOnlyWhenAdminL2Approves() throws Exception {
+            // 10 PCS at 100.00 plus 50.00 shipment
+            JsonNode order = deliveredOrder(createDealer(), createItem(), "10");
+            String orderNumber = order.get("orderNumber").asText();
+            assertThat(bookedAmounts(orderNumber)).isEmpty();
+
+            // Recorded, not approved: nothing is bought yet
+            long id = createStock(orderNumber, "8", "1").get("id").asLong();
+            assertThat(bookedAmounts(orderNumber)).isEmpty();
+
+            JsonNode approved = data(post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200));
+            assertThat(bookedAmounts(orderNumber)).containsExactly(new BigDecimal("850.00"));
+            assertThat(approved.get("bookedPurchaseValue").decimalValue()).isEqualByComparingTo("850.00");
+            assertThat(approved.get("approvedUnitsPassed").decimalValue()).isEqualByComparingTo("8");
+
+            // A change waits for L2: nothing moves until it is approved
+            post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Re-tested"), 200);
+            assertThat(bookedAmounts(orderNumber)).containsExactly(new BigDecimal("850.00"));
+            post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
+            assertThat(bookedAmounts(orderNumber)).containsExactly(new BigDecimal("850.00"), new BigDecimal("100.00"));
+
+            // Consuming stock is not a purchase change
+            post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 2, "reason", "Used"), 200);
+            Map<String, Object> correction = body("batchNumber", "BATCH-F1", "dealerId", order.get("dealerId").asLong(),
+                    "itemId", order.get("itemId").asLong(), "unitsPassedTest", 7, "defectedUnits", 3, "hasTested", true,
+                    "dateOfArrival", LocalDate.now().toString());
+            JsonNode corrected = data(put("/v1/stocks/" + id, l1.token(), correction, 200));
+            assertThat(corrected.get("availableUnits").decimalValue()).isEqualByComparingTo("5");
+            assertThat(bookedAmounts(orderNumber)).hasSize(2);
+            post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
+            assertThat(bookedAmounts(orderNumber)).containsExactly(
+                    new BigDecimal("850.00"), new BigDecimal("100.00"), new BigDecimal("-200.00"));
+
+            // A rejected change puts the approved counts back (units taken off come back into use) and books nothing
+            correction.put("unitsPassedTest", 6);
+            assertThat(data(put("/v1/stocks/" + id, l1.token(), correction, 200)).get("availableUnits").decimalValue())
+                    .isEqualByComparingTo("4");
+            JsonNode restored = data(post("/v1/stocks/" + id + "/approval", l2a.token(),
+                    body("decision", "REJECTED", "rejectionReason", "Not re-tested"), 200));
+            assertThat(restored.get("approvalStatus").asText()).isEqualTo("APPROVED");
+            assertThat(restored.get("unitsPassedTest").decimalValue()).isEqualByComparingTo("7");
+            assertThat(restored.get("availableUnits").decimalValue()).isEqualByComparingTo("5");
+            assertThat(restored.get("changeAwaitingApproval").asBoolean()).isFalse();
+            assertThat(bookedAmounts(orderNumber)).hasSize(3);
+
+            List<JsonNode> events = purchaseEvents(orderNumber);
+            assertThat(events).extracting(event -> event.get("reason").asText())
+                    .containsExactly("STOCK_APPROVED", "STOCK_CHANGE_APPROVED", "STOCK_CHANGE_APPROVED");
+            assertThat(events.getFirst().get("postingKey").asText()).startsWith("PROCUREMENT_PURCHASE:");
+            assertThat(events.getFirst().get("quantity").decimalValue()).isEqualByComparingTo("8");
+            // No GST breakup on the quotation: no input tax
+            assertThat(events.getFirst().get("cgst").decimalValue()).isEqualByComparingTo("0");
+            assertThat(events.getFirst().get("supplyType").isNull()).isTrue();
+
+            // A rejected entry buys nothing, and never did
+            JsonNode other = deliveredOrder(createDealer(), createItem(), "4");
+            long rejected = createStock(other.get("orderNumber").asText(), "4", "0").get("id").asLong();
+            post("/v1/stocks/" + rejected + "/approval", l2a.token(), body("decision", "REJECTED", "rejectionReason", "Failed QA"), 200);
+            assertThat(bookedAmounts(other.get("orderNumber").asText())).isEmpty();
+        }
+
+        @Test
+        void purchasesCarryTheQuotedGstOnTheApprovedValue() throws Exception {
+            // 10 PCS at 100.00 + 50.00 shipment = 1,050.00 taxable; CGST + SGST at 18 %: 94.50 each
+            long dealer = createDealer();
+            long item = createItem();
+            Map<String, Object> request = orderBody(dealer, item, "10");
+            request.put("taxBreakup", Map.of("supplyType", "INTRA_STATE", "gstRate", 18, "hsnSac", "8541"));
+            long orderId = data(post("/v1/orders", l1.token(), request, 201)).get("id").asLong();
+            moveOrder(orderId, l1, "PENDING");
+            patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+            moveOrder(orderId, l2a, "CONFIRMED");
+            moveOrder(orderId, l1, "SHIPPED");
+            String orderNumber = moveOrder(orderId, l1, "DELIVERED").get("orderNumber").asText();
+
+            long id = createStock(orderNumber, "10", "0").get("id").asLong();
+            post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
+            JsonNode full = purchaseEvents(orderNumber).getFirst();
+            assertThat(full.get("amount").decimalValue()).isEqualByComparingTo("1050.00");
+            assertThat(full.get("cgst").decimalValue()).isEqualByComparingTo("94.50");
+            assertThat(full.get("sgst").decimalValue()).isEqualByComparingTo("94.50");
+            assertThat(full.get("igst").decimalValue()).isEqualByComparingTo("0");
+            assertThat(full.get("gstRate").decimalValue()).isEqualByComparingTo("18");
+            assertThat(full.get("supplyType").asText()).isEqualTo("INTRA_STATE");
+            assertThat(full.get("hsnSac").asText()).isEqualTo("8541");
+            assertThat(full.get("dealerState").asText()).isEqualTo("Karnataka");
+            // The dealer's invoice uploaded for the delivery: the document the input tax is claimed on
+            assertThat(full.get("dealerInvoiceUploadedAt").isNull()).isFalse();
+
+            // Two units taken off and approved: 850.00 taxable, 76.50 each, so 18.00 each comes back
+            put("/v1/stocks/" + id, l1.token(), body("batchNumber", "BATCH-G1", "dealerId", dealer,
+                    "itemId", item,
+                    "unitsPassedTest", 8, "defectedUnits", 2, "hasTested", true, "dateOfArrival", LocalDate.now().toString()), 200);
+            post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
+            JsonNode less = purchaseEvents(orderNumber).getLast();
+            assertThat(less.get("amount").decimalValue()).isEqualByComparingTo("-200.00");
+            assertThat(less.get("cgst").decimalValue()).isEqualByComparingTo("-18.00");
+            assertThat(less.get("sgst").decimalValue()).isEqualByComparingTo("-18.00");
+        }
+
+        private List<JsonNode> purchaseEvents(String orderNumber) throws Exception {
+            JsonNode feed = data(perform(MockMvcRequestBuilders.get("/v1/internal/finance/purchase-events")
+                    .param("limit", "500").header(INTERNAL_KEY_HEADER, INTERNAL_API_KEY), 200));
+            return StreamSupport.stream(feed.get("events").spliterator(), false)
+                    .filter(event -> orderNumber.equals(event.get("orderNumber").asText())).toList();
+        }
+
+        private List<BigDecimal> bookedAmounts(String orderNumber) {
+            return jdbc.queryForList("SELECT p.amount FROM purchase_postings p JOIN orders o ON o.id = p.order_id "
+                    + "WHERE o.order_number = ? ORDER BY p.id", BigDecimal.class, orderNumber);
         }
     }
 
@@ -1095,5 +1329,12 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             patch("/v1/notifications/read-all", token, null, 200);
             assertThat(data(get("/v1/notifications/unread-count", token, 200)).get("unreadCount").asLong()).isZero();
         }
+    }
+
+    // Ids of the page's rows only (rows also carry nested categories and warranties with ids of their own)
+    private static List<Long> topLevelIds(JsonNode page) {
+        List<Long> ids = new java.util.ArrayList<>();
+        page.get("content").forEach(row -> ids.add(row.get("id").asLong()));
+        return ids;
     }
 }

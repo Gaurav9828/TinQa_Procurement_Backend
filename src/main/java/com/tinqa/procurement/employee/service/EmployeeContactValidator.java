@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -72,6 +73,19 @@ public class EmployeeContactValidator {
                     .ifPresent(owner -> errors.add(error(fields.personalEmail(),
                             "Personal email '" + personalEmail.trim() + "' is already used by employee " + owner.getEmployeeCode() + ".")));
         }
+    }
+
+    /**
+     * @param employeeId the employee being edited, or null for a new one
+     */
+    public void checkPan(Long employeeId, String panNumber, List<ApiResponse.ApiErrorItem> errors) {
+        if (panNumber == null || panNumber.isBlank()) {
+            return;
+        }
+        String pan = panNumber.trim().toUpperCase(Locale.ROOT);
+        employeeRepository.findFirstByPanNumberAndIdNot(pan, employeeId == null ? -1L : employeeId)
+                .ifPresent(owner -> errors.add(error("panNumber",
+                        "PAN " + pan + " is already registered to employee " + owner.getEmployeeCode() + ".")));
     }
 
     public void throwIfAny(List<ApiResponse.ApiErrorItem> errors) {

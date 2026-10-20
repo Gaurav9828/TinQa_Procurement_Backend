@@ -78,6 +78,14 @@ public class Stock {
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
 
+    // The counts Admin L2 last approved: what finance books. Null until the entry is first approved. A change to an
+    // approved entry leaves these as they were until L2 approves (or rejects) the change.
+    @Column(name = "approved_units_passed", precision = 14, scale = 3)
+    private BigDecimal approvedUnitsPassed;
+
+    @Column(name = "approved_defected_units", precision = 14, scale = 3)
+    private BigDecimal approvedDefectedUnits;
+
     @Column(name = "date_of_arrival", nullable = false)
     private LocalDate dateOfArrival;
 
@@ -98,4 +106,18 @@ public class Stock {
 
     @Column(name = "updated_by")
     private Long updatedBy;
+
+    /** An approved entry whose counts were changed since L2 approved them: the change waits for L2. */
+    public boolean hasChangeAwaitingApproval() {
+        return approvalStatus == ApprovalStatus.APPROVED && approvedUnitsPassed != null
+                && (unitsPassedTest.compareTo(approvedUnitsPassed) != 0 || defectedUnits.compareTo(approvedDefectedUnits) != 0);
+    }
+
+    /** Passed units added since L2's approval, held back from use until L2 approves them. */
+    public BigDecimal heldUnits() {
+        if (approvalStatus != ApprovalStatus.APPROVED || approvedUnitsPassed == null) {
+            return BigDecimal.ZERO;
+        }
+        return unitsPassedTest.subtract(approvedUnitsPassed).max(BigDecimal.ZERO);
+    }
 }

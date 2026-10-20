@@ -1,6 +1,8 @@
 package com.tinqa.procurement.employee.service.impl;
 
+import com.tinqa.procurement.approval.repository.EmployeeProfileChangeRequestRepository;
 import com.tinqa.procurement.common.constant.AppConstants;
+import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.constant.ErrorCodes;
 import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.BadRequestException;
@@ -19,6 +21,7 @@ import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.employee.service.EmployeeContactValidator;
 import com.tinqa.procurement.employee.service.EmployeeService;
+import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.access.CurrentAccess;
 import com.tinqa.procurement.security.access.Designation;
@@ -43,6 +46,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -64,7 +68,11 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final NotificationService notificationService;
     private final EmployeeMapper employeeMapper;
     private final EmployeeProperties employeeProperties;
+    private final EmployeeProfileChangeRequestRepository changeRequestRepository;
     private final Clock clock;
+
+    // employee_profile_change_request.status for a request dropped because its employee was deleted
+    private static final String CHANGE_REQUEST_CANCELLED = "CANCELLED";
 
     @Override
     @Transactional
@@ -79,6 +87,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         contactValidator.checkNewAccount(request.getUsername(), request.getEmail(), duplicates);
         contactValidator.checkContacts(null, request.getPhone(), request.getAlternatePhone(), request.getPersonalEmail(),
                 EmployeeContactValidator.Fields.EMPLOYEE, duplicates);
+        contactValidator.checkPan(null, request.getPanNumber(), duplicates);
         contactValidator.throwIfAny(duplicates);
 
         Role requestedRole = OptionalText.blankToNull(request.getRole()) == null
@@ -135,6 +144,14 @@ public class EmployeeServiceImpl implements EmployeeService {
                     .phone(PhoneNumbers.normalize(request.getPhone()))
                     .alternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()))
                     .personalEmail(OptionalText.lowerCaseOrNull(request.getPersonalEmail()))
+                    .panNumber(request.getPanNumber().trim().toUpperCase(Locale.ROOT))
+                    .houseNumber(request.getHouseNumber().trim())
+                    .street(request.getStreet().trim())
+                    .landmark(OptionalText.blankToNull(request.getLandmark()))
+                    .district(request.getDistrict().trim())
+                    .state(request.getState().trim())
+                    .pincode(request.getPincode().trim())
+                    .googleMapsUrl(OptionalText.blankToNull(request.getGoogleMapsUrl()))
                     .status(needsApproval ? EmployeeStatus.APPROVAL_PENDING : EmployeeStatus.FIRST_LOGIN)
                     .createdBy(creator.getId())
                     .createdAt(now)
@@ -150,7 +167,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             notificationService.createForPermission(Permission.EMPLOYEE_APPROVE, creator.getId(), "Employee awaiting approval",
                     savedEmployee.getDisplayName() + " (" + savedEmployee.getEmployeeCode() + ", username " + savedAccount.getUsername()
                             + ", role " + role + ", " + designation.label() + ") was created by " + creator.getUsername()
-                            + " and can't sign in until someone approves them.");
+                            + " and can't sign in until someone approves them.", NotificationLinks.APPROVALS);
         }
         return toResponse(savedEmployee);
     }
@@ -158,6 +175,9 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional(readOnly = true)
     public Page<EmployeeResponse> getAllEmployees(EmployeeStatus status, String search, Pageable pageable) {
+        if (status == EmployeeStatus.DELETED && !currentAccess.has(Permission.EMPLOYEE_DELETE)) {
+            throw ApiErrors.forbidden(ErrorCodes.FORBIDDEN, "Only an administrator who can delete employees can view deleted employees.");
+        }
         String term = OptionalText.lowerCaseOrNull(search);
         Page<Employee> employees;
         if (status != null && term != null) {
@@ -165,9 +185,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         } else if (status != null) {
             employees = employeeRepository.findByStatus(status, pageable);
         } else if (term != null) {
-            employees = employeeRepository.findBySearchTerm(term, pageable);
+            // Deleted employees are only listed when that status is asked for
+            employees = employeeRepository.findBySearchTermExcludingStatus(term, EmployeeStatus.DELETED, pageable);
         } else {
-            employees = employeeRepository.findAll(pageable);
+            employees = employeeRepository.findByStatusNot(EmployeeStatus.DELETED, pageable);
         }
         Map<Long, User> users = usersFor(employees.getContent());
         return employees.map(employee -> employeeMapper.toResponse(employee, users));
@@ -176,7 +197,12 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeById(Long id) {
-        return toResponse(findEmployee(id));
+        Employee employee = findEmployee(id);
+        // A deleted record is visible only to those who can delete employees
+        if (employee.getStatus() == EmployeeStatus.DELETED && !currentAccess.has(Permission.EMPLOYEE_DELETE)) {
+            throw employeeNotFound(id);
+        }
+        return toResponse(employee);
     }
 
     @Override
@@ -184,6 +210,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request) {
         Employee employee = employeeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> employeeNotFound(id));
+        ensureNotDeleted(employee);
 
         List<ApiResponse.ApiErrorItem> invalid = new ArrayList<>();
         LocalDate joining = request.getJoiningDate() != null ? request.getJoiningDate() : employee.getJoiningDate();
@@ -192,6 +219,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             invalid.add(ApiErrors.error("leavingDate", "Leaving date cannot be before the joining date (" + joining + ")."));
         }
         checkStatusChange(employee.getStatus(), request.getStatus(), invalid);
+        checkRequiredAddressKept(request, invalid);
         checkDesignationChange(employee, request, invalid);
         checkDepartmentMatches(request.getDepartment(),
                 Designation.fromCode(request.getDesignation()).orElse(employee.getDesignation()), invalid);
@@ -204,6 +232,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 request.getPhone() != null ? request.getPhone() : employee.getPhone(),
                 request.getAlternatePhone() != null ? request.getAlternatePhone() : employee.getAlternatePhone(),
                 request.getPersonalEmail(), EmployeeContactValidator.Fields.EMPLOYEE, duplicates);
+        contactValidator.checkPan(employee.getId(), request.getPanNumber(), duplicates);
         contactValidator.throwIfAny(duplicates);
 
         applyUpdate(employee, request);
@@ -222,6 +251,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public EmployeeResponse requestEmployeeDeletion(Long id) {
         Employee employee = findEmployee(id);
+        ensureNotDeleted(employee);
         if (employee.getStatus() == EmployeeStatus.WAITING_FOR_DELETION) {
             throw new BadRequestException("Employee is already waiting for deletion");
         }
@@ -232,18 +262,36 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
-    public void finalizeDeleteEmployee(Long id) {
-        Employee employee = findEmployee(id);
+    public EmployeeResponse finalizeDeleteEmployee(Long id) {
+        User deleter = currentUserProvider.getCurrentUser();
+        Employee employee = employeeRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> employeeNotFound(id));
         if (employee.getStatus() != EmployeeStatus.WAITING_FOR_DELETION) {
             throw new BadRequestException("Employee status must be 'WAITING_FOR_DELETION' to finalize deletion");
         }
-
-        // The profile first, then its login account
-        Long userId = employee.getUserId();
-        employeeRepository.delete(employee);
-        if (userId != null && userRepository.existsById(userId)) {
-            userRepository.deleteById(userId);
+        if (deleter.getId().equals(employee.getUserId())) {
+            throw ApiErrors.forbidden(ErrorCodes.FORBIDDEN, "You can't delete your own employee record. Ask another administrator.");
         }
+
+        // Soft delete: the record and its login stay for history, but the account can no longer sign in or use a token
+        LocalDateTime now = LocalDateTime.now(clock);
+        userRepository.findById(employee.getUserId()).ifPresent(account -> {
+            account.setEnabled(false);
+            account.setUpdatedAt(now);
+            userRepository.save(account);
+        });
+        // Profile changes still waiting for review no longer apply
+        changeRequestRepository.findByEmployeeIdAndStatus(employee.getId(), ApprovalStatus.PENDING.name())
+                .forEach(changeRequest -> {
+                    changeRequest.setStatus(CHANGE_REQUEST_CANCELLED);
+                    changeRequest.setUpdatedAt(now);
+                });
+
+        employee.setStatus(EmployeeStatus.DELETED);
+        employee.setDeletedBy(deleter.getId());
+        employee.setDeletedAt(now);
+        employee.setUpdatedAt(now);
+        return toResponse(employeeRepository.save(employee));
     }
 
     @Override
@@ -297,9 +345,17 @@ public class EmployeeServiceImpl implements EmployeeService {
                     approve
                             ? who + " was approved by " + reviewer.getUsername() + " and can now sign in."
                             : who + " was rejected by " + reviewer.getUsername() + ". Reason: " + reason
-                            + ". Their account has been deactivated.");
+                            + ". Their account has been deactivated.", NotificationLinks.EMPLOYEES);
         }
         return toResponse(saved);
+    }
+
+    // A deleted employee is kept for history only
+    private static void ensureNotDeleted(Employee employee) {
+        if (employee.getStatus() == EmployeeStatus.DELETED) {
+            throw ApiErrors.conflict(ErrorCodes.EMPLOYEE_DELETED,
+                    "Employee " + employee.getEmployeeCode() + " has been deleted; the record can no longer be changed.");
+        }
     }
 
     // Approval and deletion statuses are reached only through their own workflows
@@ -310,12 +366,29 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (current == EmployeeStatus.APPROVAL_PENDING) {
             errors.add(ApiErrors.error("status",
                     "This employee is waiting for Admin L2 approval; their status changes only through the approval decision."));
-        } else if (requested == EmployeeStatus.APPROVAL_PENDING || requested == EmployeeStatus.WAITING_FOR_DELETION) {
+        } else if (requested == EmployeeStatus.APPROVAL_PENDING || requested == EmployeeStatus.WAITING_FOR_DELETION
+                || requested == EmployeeStatus.DELETED) {
             errors.add(ApiErrors.error("status", "Status " + requested + " can't be set here; use the approval or deletion request instead."));
         }
     }
 
-    // Only the fields that were sent change; a blank middle name removes it
+    // PAN and the main address lines can be changed but not cleared; landmark and map link are optional
+    private static void checkRequiredAddressKept(UpdateEmployeeRequest request, List<ApiResponse.ApiErrorItem> errors) {
+        Map<String, String> required = new LinkedHashMap<>();
+        required.put("panNumber", request.getPanNumber());
+        required.put("houseNumber", request.getHouseNumber());
+        required.put("street", request.getStreet());
+        required.put("district", request.getDistrict());
+        required.put("state", request.getState());
+        required.put("pincode", request.getPincode());
+        required.forEach((field, value) -> {
+            if (value != null && value.isBlank()) {
+                errors.add(ApiErrors.error(field, "This field can't be left empty."));
+            }
+        });
+    }
+
+    // Only the fields that were sent change; a blank middle name, landmark or map link removes it
     private void applyUpdate(Employee employee, UpdateEmployeeRequest request) {
         if (request.getFirstName() != null) employee.setFirstName(request.getFirstName());
         if (request.getMiddleName() != null) employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
@@ -334,6 +407,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getPhone() != null) employee.setPhone(PhoneNumbers.normalize(request.getPhone()));
         if (request.getAlternatePhone() != null) employee.setAlternatePhone(PhoneNumbers.normalize(request.getAlternatePhone()));
         if (request.getPersonalEmail() != null) employee.setPersonalEmail(OptionalText.lowerCaseOrNull(request.getPersonalEmail()));
+        if (request.getPanNumber() != null) employee.setPanNumber(request.getPanNumber().trim().toUpperCase(Locale.ROOT));
+        if (request.getHouseNumber() != null) employee.setHouseNumber(request.getHouseNumber().trim());
+        if (request.getStreet() != null) employee.setStreet(request.getStreet().trim());
+        if (request.getLandmark() != null) employee.setLandmark(OptionalText.blankToNull(request.getLandmark()));
+        if (request.getDistrict() != null) employee.setDistrict(request.getDistrict().trim());
+        if (request.getState() != null) employee.setState(request.getState().trim());
+        if (request.getPincode() != null) employee.setPincode(request.getPincode().trim());
+        if (request.getGoogleMapsUrl() != null) employee.setGoogleMapsUrl(OptionalText.blankToNull(request.getGoogleMapsUrl()));
         if (request.getStatus() != null) employee.setStatus(request.getStatus());
     }
 
@@ -417,7 +498,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     // Every account the responses mention, loaded in one query
     private Map<Long, User> usersFor(Collection<Employee> employees) {
         List<Long> ids = employees.stream()
-                .flatMap(employee -> Stream.of(employee.getUserId(), employee.getCreatedBy(), employee.getApprovalDecidedBy()))
+                .flatMap(employee -> Stream.of(employee.getUserId(), employee.getCreatedBy(), employee.getApprovalDecidedBy(),
+                        employee.getDeletedBy()))
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();

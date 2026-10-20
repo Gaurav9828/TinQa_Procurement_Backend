@@ -1,5 +1,7 @@
 package com.tinqa.procurement.security.access;
 
+import com.tinqa.procurement.security.model.Role;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -16,11 +18,16 @@ public final class AccessDTOs {
     public record MyAccess(String role, String designation, String designationLabel, List<String> permissionGroups,
                            List<String> permissions) {
 
+        // Dealers are not employees and have no designation; they are labelled by their role instead
+        private static final String DEALER_LABEL = "Dealer";
+
         public static MyAccess of(UserAccess access) {
+            String label = access.designation() != null ? access.designation().label()
+                    : access.role() == Role.DEALER ? DEALER_LABEL : null;
             return new MyAccess(
                     access.role() == null ? null : access.role().name(),
                     access.designation() == null ? null : access.designation().name(),
-                    access.designation() == null ? null : access.designation().label(),
+                    label,
                     access.groups().stream().map(Enum::name).sorted().toList(),
                     access.permissions().stream().map(Enum::name).sorted().toList());
         }

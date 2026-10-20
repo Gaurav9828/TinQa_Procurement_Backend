@@ -39,6 +39,11 @@ public final class ValidationPatterns {
 
     public static final String GSTIN = "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$";
     public static final String PAN = "^[A-Z]{3}[ABCFGHLJPT][A-Z][0-9]{4}[A-Z]$";
+    // A person's own PAN: the fourth character is P (individual)
+    public static final String PERSONAL_PAN = "^[A-Z]{3}P[A-Z][0-9]{4}[A-Z]$";
+    public static final String PERSONAL_PAN_MESSAGE = "must be an individual's 10-character PAN like ABCPE1234F (capital letters, 4th letter P)";
+    public static final String PINCODE = "^[1-9][0-9]{5}$";
+    public static final String PINCODE_MESSAGE = "must be a 6-digit Indian PIN code";
 
     // Identifiers and codes
     public static final String CODE = "^[A-Za-z0-9][A-Za-z0-9_-]*$";
@@ -51,9 +56,9 @@ public final class ValidationPatterns {
     public static final String ROLE = "(?i)ADMIN_L1|ADMIN_L2|DEALER|INSPECTOR";
     // Must list exactly the Designation codes (checked by a test)
     public static final String DESIGNATION = "(?i)\\s*(SUPER_ADMIN|STORE_MANAGER|DEALER_MANAGER|CATALOG_SPECIALIST|FULFILLMENT_SPECIALIST"
-            + "|DELIVERY_RIDER|FLEET_COORDINATOR|CUSTOMER_SUPPORT|FINANCIAL_AUDITOR)\\s*";
+            + "|DELIVERY_RIDER|FLEET_COORDINATOR|CUSTOMER_SUPPORT|FINANCIAL_AUDITOR|FINANCE_MANAGER)\\s*";
     public static final String DESIGNATION_MESSAGE = "must be one of SUPER_ADMIN, STORE_MANAGER, DEALER_MANAGER, CATALOG_SPECIALIST, "
-            + "FULFILLMENT_SPECIALIST, DELIVERY_RIDER, FLEET_COORDINATOR, CUSTOMER_SUPPORT or FINANCIAL_AUDITOR";
+            + "FULFILLMENT_SPECIALIST, DELIVERY_RIDER, FLEET_COORDINATOR, CUSTOMER_SUPPORT, FINANCIAL_AUDITOR or FINANCE_MANAGER";
 
     private ValidationPatterns() {
     }

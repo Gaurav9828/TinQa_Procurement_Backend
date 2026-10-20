@@ -93,6 +93,15 @@ public class ProductApprovalDTOs {
         @DecimalMax(value = "100", message = "Snapshot discount percentage cannot exceed 100")
         private BigDecimal discountPercentage;
 
+        // GST included in the price (Ecommerce product). Each order charges it as CGST + SGST or IGST by place of
+        // supply. Null on products created before GST was recorded.
+        @Pattern(regexp = "^[0-9]{4}([0-9]{2}){0,2}$", message = "Snapshot HSN/SAC must be 4, 6 or 8 digits")
+        private String hsnSac;
+
+        @DecimalMin(value = "0", message = "Snapshot GST rate cannot be negative")
+        @DecimalMax(value = "40", message = "Snapshot GST rate cannot exceed 40")
+        private BigDecimal gstRate;
+
         // Units of the product built so far: on resubmission the product must again hold components x this many
         @NotNull(message = "Snapshot stock quantity is required")
         @Min(value = 0, message = "Snapshot stock quantity cannot be negative")

@@ -2,6 +2,7 @@ package com.tinqa.procurement.security.service.impl;
 
 import com.tinqa.procurement.common.constant.AppConstants;
 import com.tinqa.procurement.common.exception.BadRequestException;
+import com.tinqa.procurement.dealer.login.DealerLoginService;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.security.access.AccessDTOs;
 import com.tinqa.procurement.security.access.AccessResolver;
@@ -34,11 +35,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
 
-    private static final Set<Role> ADMIN_ROLES = EnumSet.of(Role.ADMIN_L1, Role.ADMIN_L2);
+    // The web app is for employees and for dealers with a dealer login (who only hold the dealer portal permissions)
+    private static final Set<Role> WEB_ROLES = EnumSet.of(Role.ADMIN_L1, Role.ADMIN_L2, Role.DEALER);
     private static final String LOGOUT_MESSAGE = "Logout successful";
 
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
+    private final DealerLoginService dealerLoginService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenRevocationService tokenRevocationService;
@@ -49,7 +52,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Transactional(readOnly = true)
     public LoginResponse loginAdmin(AdminLoginRequest request) {
         User user = authenticate(request.getUsername(), request.getPassword(), AuthClient.WEB);
-        if (!ADMIN_ROLES.contains(user.getRole())) {
+        if (!WEB_ROLES.contains(user.getRole())) {
             throw new BadRequestException("User does not have the required role");
         }
         return buildLoginResponse(user);
@@ -98,8 +101,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return user;
     }
 
-    // Accounts that are disabled because of the employee approval workflow say why
+    // Accounts that are disabled because of the employee or dealer login approval workflow say why
     private String disabledReason(User user) {
+        if (user.getRole() == Role.DEALER) {
+            return dealerLoginService.signInRefusal(user).orElse(AppConstants.MESSAGE_ACCOUNT_DISABLED);
+        }
         return employeeRepository.findByUserId(user.getId())
                 .map(employee -> switch (employee.getStatus()) {
                     case APPROVAL_PENDING -> "Your account is waiting for Admin L2 approval. You can sign in once it is approved.";

@@ -8,6 +8,7 @@ import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
+import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.productapproval.config.ProductApprovalProperties;
 import com.tinqa.procurement.productapproval.dto.ProductApprovalDTOs;
@@ -112,7 +113,7 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         notificationService.createForPermission(Permission.PRODUCT_APPROVAL_DECIDE, requester.getId(), "Product awaiting approval",
                 saved.getProductTitle() + " (#" + productId + ") was "
                         + (type == ProductApprovalRequestType.RESUBMISSION ? "resubmitted" : "submitted")
-                        + " by " + requester.getUsername() + ".");
+                        + " by " + requester.getUsername() + ".", NotificationLinks.APPROVALS);
         return toResponses(List.of(saved)).getFirst();
     }
 
@@ -167,7 +168,7 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         int changes = saved.getChangeSummary().size();
         notificationService.createForPermission(Permission.PRODUCT_APPROVAL_DECIDE, requester.getId(), "Product update awaiting approval",
                 saved.getProductTitle() + " (#" + productId + "): " + changes + " change" + (changes == 1 ? "" : "s")
-                        + " requested by " + requester.getUsername() + ".");
+                        + " requested by " + requester.getUsername() + ".", NotificationLinks.APPROVALS);
         return toResponses(List.of(saved)).getFirst();
     }
 
@@ -282,23 +283,23 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
             String product = saved.getProductTitle() + " (#" + saved.getEcommerceProductId() + ")";
             if (decision == ProductApprovalStatus.APPROVED) {
                 notificationService.createForUser(saved.getRequestedBy(), "Product changes approved",
-                        "Your changes to " + product + " were approved by " + reviewer.getUsername() + ".");
+                        "Your changes to " + product + " were approved by " + reviewer.getUsername() + ".", NotificationLinks.PRODUCTS);
             } else {
                 notificationService.createForUser(saved.getRequestedBy(), "Product changes rejected",
                         "Your changes to " + product + " were rejected by " + reviewer.getUsername() + ". Reason: " + reason
-                                + ". The product is unchanged; you can submit new changes.");
+                                + ". The product is unchanged; you can submit new changes.", NotificationLinks.PRODUCTS);
             }
         } else if (!saved.getRequestedBy().equals(reviewer.getId())) {
             String product = saved.getProductTitle() + " (#" + saved.getEcommerceProductId() + ")";
             switch (decision) {
                 case APPROVED -> notificationService.createForUser(saved.getRequestedBy(), "Product approved",
-                        product + " was approved by " + reviewer.getUsername() + ".");
+                        product + " was approved by " + reviewer.getUsername() + ".", NotificationLinks.PRODUCTS);
                 case REJECTED -> notificationService.createForUser(saved.getRequestedBy(), "Product rejected",
                         product + " was rejected by " + reviewer.getUsername() + ". Reason: " + reason
-                                + ". Edit the product and submit it again." + stockNote);
+                                + ". Edit the product and submit it again." + stockNote, NotificationLinks.PRODUCTS);
                 case CANCELLED -> notificationService.createForUser(saved.getRequestedBy(), "Product cancelled",
                         product + " was cancelled by " + reviewer.getUsername() + ". Reason: " + reason
-                                + ". It will stay inactive and can't be resubmitted." + stockNote);
+                                + ". It will stay inactive and can't be resubmitted." + stockNote, NotificationLinks.PRODUCTS);
                 default -> {
                 }
             }

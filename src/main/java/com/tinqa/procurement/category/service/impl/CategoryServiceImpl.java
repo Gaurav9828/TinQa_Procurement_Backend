@@ -54,13 +54,6 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public Category getCategory(Long id, CategoryType type) {
-        return categoryRepository.findByIdAndType(id, type)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public List<Category> getCategories(Collection<Long> ids, CategoryType type) {
         List<Category> categories = categoryRepository.findByIdInAndType(ids, type);
         if (categories.size() != ids.size()) {

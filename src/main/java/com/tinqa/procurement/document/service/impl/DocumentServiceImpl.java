@@ -17,6 +17,7 @@ import com.tinqa.procurement.document.repository.DocumentRepository;
 import com.tinqa.procurement.document.service.DocumentService;
 import com.tinqa.procurement.document.service.FileStorageService;
 import com.tinqa.procurement.document.service.UploadedFileValidator;
+import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.access.CurrentAccess;
 import com.tinqa.procurement.security.access.Permission;
@@ -158,7 +159,7 @@ public class DocumentServiceImpl implements DocumentService {
             String message = rejected
                     ? document.getCategory() + " Document Rejected by ID: " + reviewer.getUsername() + ". Reason: " + request.getRejectionReason()
                     : document.getCategory() + " Document approved by ID: " + reviewer.getUsername();
-            notificationService.createForUser(document.getUploadedByUserId(), title, message);
+            notificationService.createForUser(document.getUploadedByUserId(), title, message, NotificationLinks.PROFILE);
         }
 
         // The uploader stays recorded as the uploader

@@ -80,6 +80,32 @@ public class Employee {
     @Column(name = "personal_email", length = 255)
     private String personalEmail;
 
+    // Required for new employees; older records may not have them yet
+    @Column(name = "pan_number", length = 10)
+    private String panNumber;
+
+    // Residential address
+    @Column(name = "house_number", length = 100)
+    private String houseNumber;
+
+    @Column(name = "street", length = 500)
+    private String street;
+
+    @Column(name = "landmark", length = 255)
+    private String landmark;
+
+    @Column(name = "district", length = 100)
+    private String district;
+
+    @Column(name = "state", length = 100)
+    private String state;
+
+    @Column(name = "pincode", length = 10)
+    private String pincode;
+
+    @Column(name = "google_maps_url", columnDefinition = "TEXT")
+    private String googleMapsUrl;
+
     // User who created this employee (null for seeded / older records)
     @Column(name = "created_by")
     private Long createdBy;
@@ -96,6 +122,13 @@ public class Employee {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private EmployeeStatus status;
+
+    // Set when the employee is deleted (status DELETED); the row itself is never removed
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -8,6 +8,8 @@ import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
+import com.tinqa.procurement.finance.enums.PurchasePostingReason;
+import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.order.entity.Order;
@@ -52,6 +54,7 @@ public class StockServiceImpl implements StockService {
     private final StockNotifier stockNotifier;
     private final StockMapper stockMapper;
     private final ReferenceNumberGenerator referenceNumbers;
+    private final PurchasePostingRecorder purchasePostings;
     private final Clock clock;
 
     @Override
@@ -98,6 +101,7 @@ public class StockServiceImpl implements StockService {
                 .build();
 
         Stock saved = stockRepository.save(stock);
+        // Nothing is bought yet: the purchase is booked when Admin L2 approves the entry (processAdminL2Approval)
         stockNotifier.approvalRequired(saved, order, submitter);
         return stockMapper.toResponse(saved);
     }
@@ -105,17 +109,19 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional
     public StockDTOs.Response addStockQuantity(Long id, StockDTOs.QuantityAdjustmentRequest request) {
-        Long currentUserId = currentUserProvider.getCurrentUserId();
+        User submitter = currentUserProvider.getCurrentUser();
         // Order lock first, then the entry: the same order as stock creation and updates
         Order order = lockOrder(findStock(id));
         Stock stock = lockApprovedStock(id);
         ensureWithinOrderQuantity(order, stock.getId(),
                 stock.getUnitsPassedTest().add(stock.getDefectedUnits()).add(request.getQuantity()), "quantity");
 
+        // The units are recorded but held back from use, and not bought, until Admin L2 approves the change
         stock.setUnitsPassedTest(stock.getUnitsPassedTest().add(request.getQuantity()));
-        stock.setAvailableUnits(stock.getAvailableUnits().add(request.getQuantity()));
-        stock.setUpdatedBy(currentUserId);
-        return stockMapper.toResponse(stockRepository.save(stock));
+        stock.setUpdatedBy(submitter.getId());
+        Stock saved = stockRepository.save(stock);
+        stockNotifier.changeApprovalRequired(saved, order, submitter);
+        return stockMapper.toResponse(saved);
     }
 
     @Override
@@ -141,8 +147,13 @@ public class StockServiceImpl implements StockService {
             throw ApiErrors.fieldError("decision", "Decision must be APPROVED or REJECTED");
         }
 
-        // Row lock: of two reviewers deciding at once, the second sees the first one's decision
+        // Order lock first (the decision books the purchase), then the entry: of two reviewers deciding at once,
+        // the second sees the first one's decision
+        Order order = lockOrder(findStock(id));
         Stock stock = stockRepository.findByIdForUpdate(id).orElseThrow(() -> stockNotFound(id));
+        if (stock.hasChangeAwaitingApproval()) {
+            return stockMapper.toResponse(decideChange(order, stock, approver, decision, request.getRejectionReason()));
+        }
         if (stock.getApprovalStatus() != ApprovalStatus.PENDING) {
             throw new BadRequestException("Stock request processed already with status: " + stock.getApprovalStatus());
         }
@@ -154,14 +165,46 @@ public class StockServiceImpl implements StockService {
         if (decision == ApprovalStatus.REJECTED) {
             stock.setRejectionReason(request.getRejectionReason());
             stock.setAvailableUnits(BigDecimal.ZERO);
+        } else {
+            stock.setApprovedUnitsPassed(stock.getUnitsPassedTest());
+            stock.setApprovedDefectedUnits(stock.getDefectedUnits());
         }
-        return stockMapper.toResponse(stockRepository.save(stock));
+        Stock saved = stockRepository.save(stock);
+        // Only now does finance move: the approved passed units are bought (a rejected entry buys nothing)
+        purchasePostings.rebook(order, saved, decision == ApprovalStatus.REJECTED
+                ? PurchasePostingReason.STOCK_REJECTED : PurchasePostingReason.STOCK_APPROVED);
+        return stockMapper.toResponse(saved);
+    }
+
+    /**
+     * Admin L2's decision on a change to an approved entry. Approved: the held units become usable and the difference
+     * is booked. Rejected: the counts go back to what L2 approved (units taken off come back into use) and nothing is
+     * booked; the entry stays approved.
+     */
+    private Stock decideChange(Order order, Stock stock, User approver, ApprovalStatus decision, String reason) {
+        stockNotifier.changeDecided(stock, approver, decision, reason);
+        if (decision == ApprovalStatus.APPROVED) {
+            stock.setAvailableUnits(stock.getAvailableUnits().add(stock.heldUnits()));
+            stock.setApprovedUnitsPassed(stock.getUnitsPassedTest());
+            stock.setApprovedDefectedUnits(stock.getDefectedUnits());
+            stock.setApprovedBy(approver.getId());
+            stock.setApprovedAt(LocalDateTime.now(clock));
+            Stock saved = stockRepository.save(stock);
+            purchasePostings.rebook(order, saved, PurchasePostingReason.STOCK_CHANGE_APPROVED);
+            return saved;
+        }
+        BigDecimal takenOff = stock.getApprovedUnitsPassed().subtract(stock.getUnitsPassedTest()).max(BigDecimal.ZERO);
+        stock.setAvailableUnits(stock.getAvailableUnits().add(takenOff));
+        stock.setUnitsPassedTest(stock.getApprovedUnitsPassed());
+        stock.setDefectedUnits(stock.getApprovedDefectedUnits());
+        return stockRepository.save(stock);
     }
 
     @Override
     @Transactional
     public StockDTOs.Response updateStock(Long id, StockDTOs.UpdateRequest request) {
-        Long currentUserId = currentUserProvider.getCurrentUserId();
+        User submitter = currentUserProvider.getCurrentUser();
+        Long currentUserId = submitter.getId();
         Stock stock = findStock(id);
 
         // Every stock entry comes from one order: it must keep that order's dealer and item
@@ -175,13 +218,16 @@ public class StockServiceImpl implements StockService {
         ensureArrivalNotBeforeOrder(order, request.getDateOfArrival());
         ensureWithinOrderQuantity(order, stock.getId(), request.getUnitsPassedTest().add(request.getDefectedUnits()), "unitsPassedTest");
 
-        // Units already used (by products / other services) stay used when the counts are corrected
-        BigDecimal alreadyUsed = stock.getUnitsPassedTest().subtract(stock.getAvailableUnits()).max(BigDecimal.ZERO);
-        BigDecimal available = request.getUnitsPassedTest().subtract(alreadyUsed);
-        if (available.signum() < 0) {
+        // Units already used (by products / other services) stay used when the counts are corrected. On an approved
+        // entry only the approved units are usable: passed units above them are held until L2 approves the change.
+        BigDecimal alreadyUsed = usableUnits(stock, stock.getUnitsPassedTest()).subtract(stock.getAvailableUnits()).max(BigDecimal.ZERO);
+        if (request.getUnitsPassedTest().compareTo(alreadyUsed) < 0) {
             throw ApiErrors.fieldError("unitsPassedTest", "Units passed test cannot be lower than the "
                     + Quantities.plain(alreadyUsed) + " units already used from this stock entry");
         }
+        BigDecimal available = usableUnits(stock, request.getUnitsPassedTest()).subtract(alreadyUsed);
+        boolean countsChanged = stock.getUnitsPassedTest().compareTo(request.getUnitsPassedTest()) != 0
+                || stock.getDefectedUnits().compareTo(request.getDefectedUnits()) != 0;
 
         stock.setBatchNumber(request.getBatchNumber());
         stock.setUnitsPassedTest(request.getUnitsPassedTest());
@@ -196,7 +242,12 @@ public class StockServiceImpl implements StockService {
             stock.setIsActive(request.getIsActive());
         }
         stock.setUpdatedBy(currentUserId);
-        return stockMapper.toResponse(stockRepository.save(stock));
+        Stock saved = stockRepository.save(stock);
+        // Finance is untouched: a new entry is booked when L2 approves it, a corrected approved one when L2 approves the change
+        if (countsChanged && saved.hasChangeAwaitingApproval()) {
+            stockNotifier.changeApprovalRequired(saved, order, submitter);
+        }
+        return stockMapper.toResponse(saved);
     }
 
     @Override
@@ -214,7 +265,11 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional(readOnly = true)
     public List<StockDTOs.Response> getAllStocksByStatus(ApprovalStatus status) {
-        return stockRepository.findByApprovalStatus(status).stream().map(stockMapper::toResponse).toList();
+        // PENDING is Admin L2's queue: new entries and changes to approved entries
+        List<Stock> stocks = status == ApprovalStatus.PENDING
+                ? stockRepository.findAwaitingApproval(ApprovalStatus.PENDING, ApprovalStatus.APPROVED)
+                : stockRepository.findByApprovalStatus(status);
+        return stocks.stream().map(stockMapper::toResponse).toList();
     }
 
     @Override
@@ -331,6 +386,14 @@ public class StockServiceImpl implements StockService {
             setUpdatedBy(stock, currentUserId);
         }
         stockRepository.saveAll(stocks);
+    }
+
+    // The passed units that can be used for a count of passed units: on an approved entry never more than L2 approved
+    private static BigDecimal usableUnits(Stock stock, BigDecimal unitsPassed) {
+        if (stock.getApprovalStatus() == ApprovalStatus.APPROVED && stock.getApprovedUnitsPassed() != null) {
+            return unitsPassed.min(stock.getApprovedUnitsPassed());
+        }
+        return unitsPassed;
     }
 
     private Stock findStock(Long id) {

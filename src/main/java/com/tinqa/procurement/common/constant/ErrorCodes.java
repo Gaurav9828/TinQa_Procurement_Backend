@@ -42,11 +42,25 @@ public final class ErrorCodes {
     public static final String DUPLICATE_VALUE = "DUPLICATE_VALUE";
     public static final String EMPLOYEE_NOT_PENDING_APPROVAL = "EMPLOYEE_NOT_PENDING_APPROVAL";
     public static final String EMPLOYEE_APPROVAL_SELF_DECISION = "EMPLOYEE_APPROVAL_SELF_DECISION";
+    public static final String EMPLOYEE_DELETED = "EMPLOYEE_DELETED";
 
     // Orders
     public static final String INVALID_STATUS_TRANSITION = "INVALID_STATUS_TRANSITION";
     public static final String ORDER_NOT_EDITABLE = "ORDER_NOT_EDITABLE";
     public static final String ORDER_STOCKED = "ORDER_STOCKED";
+    public static final String ORDER_CHANGE_PENDING = "ORDER_CHANGE_PENDING";
+    public static final String ORDER_CHANGE_NOT_PENDING = "ORDER_CHANGE_NOT_PENDING";
+    public static final String ORDER_CHANGE_EMPTY = "ORDER_CHANGE_EMPTY";
+    public static final String ORDER_INVOICE_REQUIRED = "ORDER_INVOICE_REQUIRED";
+    public static final String ORDER_INVOICE_MISMATCH = "ORDER_INVOICE_MISMATCH";
+    public static final String ORDER_INVOICE_NOT_ALLOWED = "ORDER_INVOICE_NOT_ALLOWED";
+
+    // Dealer logins
+    public static final String DEALER_INACTIVE = "DEALER_INACTIVE";
+    public static final String DEALER_LOGIN_EXISTS = "DEALER_LOGIN_EXISTS";
+    public static final String DEALER_LOGIN_NOT_PENDING = "DEALER_LOGIN_NOT_PENDING";
+    public static final String DEALER_LOGIN_NOT_APPROVED = "DEALER_LOGIN_NOT_APPROVED";
+    public static final String DEALER_LOGIN_SELF_DECISION = "DEALER_LOGIN_SELF_DECISION";
 
     // Stock
     public static final String ORDER_NOT_DELIVERED = "ORDER_NOT_DELIVERED";

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface DealerRepository extends JpaRepository<Dealer, Long>, JpaSpecificationExecutor<Dealer> {
@@ -16,4 +17,7 @@ public interface DealerRepository extends JpaRepository<Dealer, Long>, JpaSpecif
     Optional<Dealer> findByIdWithCategories(@Param("id") Long id);
 
     boolean existsByGstin(String gstin);
+
+    @Query("SELECT DISTINCT d.city FROM Dealer d WHERE d.city IS NOT NULL ORDER BY d.city")
+    List<String> findDistinctCities();
 }

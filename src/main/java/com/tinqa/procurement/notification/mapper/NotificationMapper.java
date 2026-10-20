@@ -14,6 +14,7 @@ public class NotificationMapper {
                 .id(recipient.getId())
                 .title(recipient.getNotification().getTitle())
                 .message(recipient.getNotification().getMessage())
+                .link(recipient.getNotification().getLink())
                 .read(recipient.isRead())
                 .broadcast(
                         recipient.getNotification().isBroadcast()

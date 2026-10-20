@@ -25,6 +25,10 @@ public class Notification {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
 
+    /** UI route the recipient opens from the notification (e.g. /approvals); null when there is nowhere to go */
+    @Column(length = 255)
+    private String link;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean broadcast = false;

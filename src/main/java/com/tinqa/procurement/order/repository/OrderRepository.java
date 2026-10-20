@@ -24,4 +24,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
     List<Order> findByOrderStatus(OrderStatus orderStatus);
     List<Order> findByDealerId(Long dealerId);
+
+    // Orders in this status with no stock entry yet (any approval status counts, as stock creation allows one per order)
+    @Query("SELECT o FROM Order o WHERE o.orderStatus = :status"
+            + " AND NOT EXISTS (SELECT 1 FROM Stock s WHERE s.order = o) ORDER BY o.createdAt DESC")
+    List<Order> findByOrderStatusWithoutStock(@Param("status") OrderStatus status);
+
+    // Every dealer record with this email counts as the same dealer (e.g. a dealer re-onboarded under a new record)
+    @Query("SELECT o FROM Order o WHERE LOWER(o.dealer.email) = LOWER(:email)")
+    List<Order> findByDealerEmail(@Param("email") String email);
 }

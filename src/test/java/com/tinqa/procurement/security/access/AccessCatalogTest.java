@@ -99,8 +99,71 @@ class AccessCatalogTest {
             assertThat(UserAccess.of(level, Designation.DELIVERY_RIDER).permissions())
                     .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE);
         }
+    }
+
+    // The riders' senior records the same delivery outcomes, plus the rest of the delivery leg
+    @Test
+    void fleetCoordinatorsRecordDeliveryOutcomesToo() {
         assertThat(UserAccess.of(Role.ADMIN_L1, Designation.FLEET_COORDINATOR).permissions())
-                .contains(Permission.CUSTOMER_ORDER_TRACKING_UPDATE);
+                .contains(Permission.DELIVERY_STATUS_UPDATE, Permission.CUSTOMER_ORDER_TRACKING_UPDATE);
+    }
+
+    // Expenses are raised by the teams that spend (maker) and approved only at Level 2 (checker)
+    @Test
+    void expensesAreRaisedByOperationsAndApprovedByLevelTwoFinance() {
+        for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.DEALER_MANAGER,
+                Designation.FULFILLMENT_SPECIALIST, Designation.FLEET_COORDINATOR)) {
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
+                    .contains(Permission.EXPENSE_VIEW, Permission.EXPENSE_SUBMIT)
+                    .doesNotContain(Permission.EXPENSE_APPROVE);
+        }
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.FINANCE_MANAGER).permissions())
+                .contains(Permission.EXPENSE_APPROVE, Permission.FINANCE_REPORT_VIEW, Permission.FINANCE_REPORT_EXPORT);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.FINANCE_MANAGER).permissions())
+                .contains(Permission.EXPENSE_SUBMIT)
+                .doesNotContain(Permission.EXPENSE_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.FINANCIAL_AUDITOR).permissions())
+                .contains(Permission.EXPENSE_VIEW)
+                .doesNotContain(Permission.EXPENSE_SUBMIT, Permission.EXPENSE_APPROVE);
+        assertThat(PermissionGroup.EXPENSE_APPROVAL.approvalLevel()).isTrue();
+    }
+
+    // Dealer logins hold the dealer portal and nothing else, whatever designation is passed in
+    @Test
+    void dealersOnlyHoldTheDealerPortal() {
+        assertThat(UserAccess.of(Role.DEALER, null).permissions()).containsExactlyInAnyOrder(
+                Permission.DEALER_PORTAL_VIEW, Permission.DEALER_QUOTATION_SUBMIT,
+                Permission.DEALER_QUOTATION_CHANGE_REQUEST, Permission.DEALER_ORDER_RESPOND,
+                Permission.DEALER_ORDER_SHIP);
+        assertThat(UserAccess.of(Role.DEALER, Designation.SUPER_ADMIN).permissions())
+                .isEqualTo(UserAccess.of(Role.DEALER, null).permissions());
+        assertThat(AccessDTOs.MyAccess.of(UserAccess.of(Role.DEALER, null)).designationLabel()).isEqualTo("Dealer");
+    }
+
+    // A Dealer Manager creates dealer logins and only Level 2 approves them; either level decides dealers' quotation changes
+    @Test
+    void dealerLoginsNeedALevelTwoDealerManagerButQuotationChangesAnyDealerManager() {
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.DEALER_MANAGER).permissions())
+                .contains(Permission.DEALER_LOGIN_MANAGE, Permission.DEALER_QUOTATION_CHANGE_APPROVE)
+                .doesNotContain(Permission.DEALER_LOGIN_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DEALER_MANAGER).permissions())
+                .contains(Permission.DEALER_LOGIN_MANAGE, Permission.DEALER_LOGIN_APPROVE, Permission.DEALER_QUOTATION_CHANGE_APPROVE)
+                .noneMatch(permission -> permission.group() == PermissionGroup.DEALER_PORTAL);
+        assertThat(Permission.DEALER_LOGIN_APPROVE.group().approvalLevel()).isTrue();
+        assertThat(Permission.DEALER_QUOTATION_CHANGE_APPROVE.group().approvalLevel()).isFalse();
+    }
+
+    // Super Admin and Store Manager (either level) open the user guide and share role PDFs; nobody else does
+    @Test
+    void onlySuperAdminsAndStoreManagersOpenTheUserGuide() {
+        for (Designation designation : Designation.values()) {
+            boolean expected = designation == Designation.SUPER_ADMIN || designation == Designation.STORE_MANAGER;
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                assertThat(UserAccess.of(level, designation).permissions().contains(Permission.USER_GUIDE_VIEW))
+                        .as(designation + " " + level).isEqualTo(expected);
+            }
+        }
+        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.USER_GUIDE_VIEW);
     }
 
     @Test

@@ -15,15 +15,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ItemDTOs {
 
     @Getter
     @Setter
     public static class CreateRequest {
-        @NotNull(message = "Category ID is required")
-        @Positive(message = "Category ID must be a valid ID")
-        private Long categoryId;
+        @NotEmpty(message = "At least one category must be assigned")
+        @Size(max = 20, message = "An item cannot have more than 20 categories")
+        private Set<@NotNull @Positive(message = "Category ID must be a valid ID") Long> categoryIds;
 
         @NotBlank(message = "Item name is required")
         @Size(max = 255, message = "Item name cannot exceed 255 characters")
@@ -73,9 +74,9 @@ public class ItemDTOs {
     @Getter
     @Setter
     public static class UpdateRequest {
-        @NotNull(message = "Category ID is required")
-        @Positive(message = "Category ID must be a valid ID")
-        private Long categoryId;
+        @NotEmpty(message = "At least one category must be assigned")
+        @Size(max = 20, message = "An item cannot have more than 20 categories")
+        private Set<@NotNull @Positive(message = "Category ID must be a valid ID") Long> categoryIds;
 
         @NotBlank(message = "Item name is required")
         @Size(max = 255, message = "Item name cannot exceed 255 characters")
@@ -128,8 +129,7 @@ public class ItemDTOs {
     @Setter
     public static class Response {
         private Long id;
-        private Long categoryId;
-        private String categoryName;
+        private List<CategorySummary> categories;
         private String name;
         private String brand;
         private String sku;
@@ -205,5 +205,13 @@ public class ItemDTOs {
         private LocalDateTime updatedAt;
         private Long createdBy;
         private Long updatedBy;
+    }
+
+    @Getter
+    @Setter
+    public static class CategorySummary {
+        private Long id;
+        private String name;
+        private String code;
     }
 }

@@ -24,6 +24,8 @@ public interface EmployeeProfileChangeRequestRepository
             String status
     );
 
+    List<EmployeeProfileChangeRequest> findByEmployeeIdAndStatus(Long employeeId, String status);
+
     List<EmployeeProfileChangeRequest>
     findByStatusOrderByRequestedAtDesc(
             String status

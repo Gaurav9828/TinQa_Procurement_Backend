@@ -36,6 +36,16 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
                                         @Param("excludeStockId") Long excludeStockId,
                                         @Param("rejected") ApprovalStatus rejected);
     List<Stock> findByApprovalStatus(ApprovalStatus approvalStatus);
+
+    /** What waits for Admin L2: new entries, and approved entries whose counts were changed since. */
+    @Query("""
+            SELECT s FROM Stock s
+            WHERE s.approvalStatus = :pending
+               OR (s.approvalStatus = :approved AND s.approvedUnitsPassed IS NOT NULL
+                   AND (s.unitsPassedTest <> s.approvedUnitsPassed OR s.defectedUnits <> s.approvedDefectedUnits))
+            ORDER BY s.id
+            """)
+    List<Stock> findAwaitingApproval(@Param("pending") ApprovalStatus pending, @Param("approved") ApprovalStatus approved);
     Optional<Stock> findFirstByOrderOrderNumber(String orderNumber);
 
     /**

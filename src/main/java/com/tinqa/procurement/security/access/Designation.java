@@ -40,7 +40,10 @@ public enum Designation {
             "Help desk: searches order history, resolves complaints, updates delivery details, initiates returns."),
     FINANCIAL_AUDITOR("Financial Auditor",
             "Finance & Accounts",
-            "Bookkeeping and tax review: sales, tax and revenue reports, COD collections and dealer payouts.");
+            "Bookkeeping and tax review: sales, tax and revenue reports, COD collections and dealer payouts."),
+    FINANCE_MANAGER("Finance & Accounts Manager",
+            "Finance & Accounts",
+            "Keeps the company account: approves expenses, shipping and raw material costs, and reviews profit and cash flow.");
 
     private final String label;
     private final String department;
