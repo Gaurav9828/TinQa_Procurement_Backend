@@ -84,9 +84,16 @@ public class CreateEmployeeRequest {
     @Pattern(regexp = ValidationPatterns.PHONE, message = "Alternate phone number " + ValidationPatterns.PHONE_MESSAGE)
     private String alternatePhone;
 
+    // Where the employee's account emails go (set-password and reset links); verified with a code first
+    @NotBlank(message = "Personal email is required")
     @Size(max = 150, message = "Personal email cannot exceed 150 characters")
     @Pattern(regexp = ValidationPatterns.EMAIL, message = "Personal email " + ValidationPatterns.EMAIL_MESSAGE)
     private String personalEmail;
+
+    // From POST /v1/admin/employees/email-verification/confirm for personalEmail
+    @NotBlank(message = "Verify the personal email with the code sent to it")
+    @Size(max = 200, message = "The email verification is invalid")
+    private String personalEmailVerificationToken;
 
     @NotBlank(message = "PAN is required")
     @Pattern(regexp = ValidationPatterns.PERSONAL_PAN, message = "PAN " + ValidationPatterns.PERSONAL_PAN_MESSAGE)

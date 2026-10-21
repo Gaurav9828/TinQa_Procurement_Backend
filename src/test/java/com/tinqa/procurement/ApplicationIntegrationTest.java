@@ -5,6 +5,7 @@ import com.tinqa.procurement.support.IntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -35,7 +36,10 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         void appliesTheBaselineMigrationAndReportsHealthy() throws Exception {
             Integer applied = jdbc.queryForObject(
                     "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL", Integer.class);
-            assertThat(applied).isEqualTo(10);
+            // Every versioned migration on the classpath, so adding one doesn't need this test changed
+            int migrations = new PathMatchingResourcePatternResolver().getResources("classpath:db/migration/V*__*.sql").length;
+            assertThat(migrations).isPositive();
+            assertThat(applied).isEqualTo(migrations);
 
             JsonNode health = get("/actuator/health", null, 200);
             assertThat(health.get("status").asText()).isEqualTo("UP");
@@ -266,8 +270,12 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(created.get("salaryAmount").decimalValue()).isEqualByComparingTo("0");
             assertThat(created.get("createdByUsername").asText()).isEqualTo(l2a.username());
 
-            JsonNode login = post("/auth/admin/login", null, body("username", request.get("username"), "password", DEFAULT_EMPLOYEE_PASSWORD), 200);
-            assertThat(login.get("firstLogin").asBoolean()).isTrue();
+            // No shared default password: the employee is emailed a link to choose theirs, at their personal email
+            post("/auth/admin/login", null, body("username", request.get("username"), "password", DEFAULT_EMPLOYEE_PASSWORD), 400);
+            String token = lastPasswordLink((String) request.get("personalEmail"), true);
+            setPasswordWithLink(token, (String) request.get("username"), "Employee!Passw0rd#1");
+            assertThat(data(get("/v1/admin/employees/" + created.get("id").asLong(), l2a.token(), 200)).get("status").asText())
+                    .isEqualTo("ACTIVE");
         }
 
         @Test
@@ -300,10 +308,10 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(created.get("status").asText()).isEqualTo("APPROVAL_PENDING");
             assertThat(notificationTitles(l2a)).contains("Employee awaiting approval");
 
-            JsonNode blockedLogin = post("/auth/admin/login", null,
-                    body("username", request.get("username"), "password", DEFAULT_EMPLOYEE_PASSWORD), 400);
-            assertThat(blockedLogin.get("message").asText())
-                    .isEqualTo("Your account is waiting for Admin L2 approval. You can sign in once it is approved.");
+            // Nothing is emailed until the account is approved
+            org.mockito.Mockito.verify(staffMailer, org.mockito.Mockito.never()).sendPasswordLink(
+                    org.mockito.ArgumentMatchers.eq((String) request.get("personalEmail")), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyLong());
 
             JsonNode pending = data(get("/v1/admin/employees/pending-approvals", l2a.token(), 200));
             assertThat(pending.findValues("id").stream().map(JsonNode::asLong)).contains(id);
@@ -319,7 +327,8 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             JsonNode twice = patch("/v1/admin/employees/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 409);
             assertThat(twice.get("errorCode").asText()).isEqualTo("EMPLOYEE_NOT_PENDING_APPROVAL");
-            post("/auth/admin/login", null, body("username", request.get("username"), "password", DEFAULT_EMPLOYEE_PASSWORD), 200);
+            setPasswordWithLink(lastPasswordLink((String) request.get("personalEmail"), true), (String) request.get("username"),
+                    "Employee!Passw0rd#2");
         }
 
         @Test

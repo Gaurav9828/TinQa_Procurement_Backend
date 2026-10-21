@@ -10,7 +10,7 @@ import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.validation.OptionalText;
 import com.tinqa.procurement.common.validation.PhoneNumbers;
-import com.tinqa.procurement.employee.config.EmployeeProperties;
+import com.tinqa.procurement.common.util.SecureTokens;
 import com.tinqa.procurement.employee.dto.CreateEmployeeRequest;
 import com.tinqa.procurement.employee.dto.EmployeeApprovalDecisionRequest;
 import com.tinqa.procurement.employee.dto.EmployeeResponse;
@@ -30,8 +30,10 @@ import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.AuthClient;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.password.PasswordLinkService;
 import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
+import com.tinqa.procurement.security.verification.EmailVerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -67,7 +69,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeContactValidator contactValidator;
     private final NotificationService notificationService;
     private final EmployeeMapper employeeMapper;
-    private final EmployeeProperties employeeProperties;
+    private final EmailVerificationService emailVerificationService;
+    private final PasswordLinkService passwordLinkService;
     private final EmployeeProfileChangeRequestRepository changeRequestRepository;
     private final Clock clock;
 
@@ -90,6 +93,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         contactValidator.checkPan(null, request.getPanNumber(), duplicates);
         contactValidator.throwIfAny(duplicates);
 
+        // The personal email was proved with a code; if the creation fails later this is rolled back with it
+        emailVerificationService.consume(request.getPersonalEmail(), request.getPersonalEmailVerificationToken(),
+                "personalEmailVerificationToken");
+
         Role requestedRole = OptionalText.blankToNull(request.getRole()) == null
                 ? Role.ADMIN_L1
                 : Role.valueOf(request.getRole().trim().toUpperCase(Locale.ROOT));
@@ -111,7 +118,8 @@ public class EmployeeServiceImpl implements EmployeeService {
         User account = User.builder()
                 .username(request.getUsername().trim())
                 .email(request.getEmail().trim().toLowerCase(Locale.ROOT))
-                .password(passwordEncoder.encode(employeeProperties.defaultPassword()))
+                // Nobody knows this password: the employee chooses theirs through the emailed set-password link
+                .password(passwordEncoder.encode(SecureTokens.urlToken()))
                 .role(role)
                 .authClient(AuthClient.WEB)
                 // A pending employee cannot sign in until an employee approver approves them
@@ -163,7 +171,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                     "These details were just used for another employee. Review the form and try again.");
         }
 
-        if (needsApproval) {
+        if (!needsApproval) {
+            passwordLinkService.sendSetupLinkAfterCommit(savedAccount, savedEmployee);
+        } else {
             notificationService.createForPermission(Permission.EMPLOYEE_APPROVE, creator.getId(), "Employee awaiting approval",
                     savedEmployee.getDisplayName() + " (" + savedEmployee.getEmployeeCode() + ", username " + savedAccount.getUsername()
                             + ", role " + role + ", " + designation.label() + ") was created by " + creator.getUsername()
@@ -329,6 +339,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         account.setEnabled(approve);
         account.setUpdatedAt(now);
         userRepository.save(account);
+        // The account can sign in from now on: the employee chooses their first password through an emailed link
+        if (approve && account.isFirstLogin()) {
+            passwordLinkService.sendSetupLinkAfterCommit(account, employee);
+        }
 
         employee.setStatus(approve
                 ? (account.isFirstLogin() ? EmployeeStatus.FIRST_LOGIN : EmployeeStatus.ACTIVE)
@@ -343,7 +357,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             String who = saved.getDisplayName() + " (" + saved.getEmployeeCode() + ")";
             notificationService.createForUser(saved.getCreatedBy(), approve ? "Employee approved" : "Employee rejected",
                     approve
-                            ? who + " was approved by " + reviewer.getUsername() + " and can now sign in."
+                            ? who + " was approved by " + reviewer.getUsername() + " and has been emailed a link to set their password."
                             : who + " was rejected by " + reviewer.getUsername() + ". Reason: " + reason
                             + ". Their account has been deactivated.", NotificationLinks.EMPLOYEES);
         }

@@ -43,7 +43,10 @@ public enum Designation {
             "Bookkeeping and tax review: sales, tax and revenue reports, COD collections and dealer payouts."),
     FINANCE_MANAGER("Finance & Accounts Manager",
             "Finance & Accounts",
-            "Keeps the company account: approves expenses, shipping and raw material costs, and reviews profit and cash flow.");
+            "Keeps the company account: approves expenses, shipping and raw material costs, and reviews profit and cash flow."),
+    SALES_AGENT("Store Sales Agent",
+            "Sales",
+            "Sells devices at a store or in the market: registers walk-in customers and books their orders, paid in cash or online.");
 
     private final String label;
     private final String department;

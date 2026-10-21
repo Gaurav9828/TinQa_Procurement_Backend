@@ -42,6 +42,10 @@ public enum PermissionGroup {
     DELIVERY_OPERATIONS("Delivery - update tracking and delivery status", false),
     LAST_MILE_DELIVERY("Delivery - record delivery attempts and outcomes", false),
 
+    // Store / field sales: agents book orders for walk-in customers, paid in cash to the agent or online
+    STORE_SALES_READ("Store sales - view every agent's sales", false),
+    STORE_SALES("Store sales - register walk-in customers and book their orders", false),
+
     // Refunds
     REFUND_READ("Refunds - view", false),
     REFUND_MANAGEMENT("Refunds - request and sync", false),

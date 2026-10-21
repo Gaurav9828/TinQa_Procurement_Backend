@@ -121,6 +121,30 @@ public class ProductApprovalDTOs {
         @Min(value = 0, message = "Snapshot specification count cannot be negative")
         @Max(value = 1000, message = "Snapshot specification count cannot exceed 1000")
         private Integer specificationCount;
+
+        // Accessory (Ecommerce): the products it is offered with and their extra bundle discounts. Empty / absent: not
+        // an accessory
+        @Size(max = 50, message = "Snapshot cannot have more than 50 accessory parents")
+        private List<@Valid @NotNull(message = "Snapshot accessory parents cannot contain empty entries") AccessoryParent> accessoryParents;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AccessoryParent {
+        @NotNull(message = "Accessory parent product ID is required")
+        @Positive(message = "Accessory parent product ID must be a valid ID")
+        private Long productId;
+
+        @Size(max = 200, message = "Accessory parent title cannot exceed 200 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Accessory parent title " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String title;
+
+        @NotNull(message = "Bundle discount is required")
+        @DecimalMin(value = "0", message = "Bundle discount cannot be negative")
+        @DecimalMax(value = "90", message = "Bundle discount cannot exceed 90")
+        private BigDecimal bundleDiscountPercentage;
     }
 
     @Data

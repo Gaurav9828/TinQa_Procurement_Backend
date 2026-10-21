@@ -8,8 +8,10 @@ public interface JwtService {
     /**
      * Signs a token for the account. The access (designation and permissions) is embedded for other TinQa services
      * that trust this token without a database of their own; this service re-reads access on every request.
+     * {@code displayName} is the person's name as other services show it (e.g. the agent a store sale is credited to);
+     * null leaves it out.
      */
-    String generateToken(User user, UserAccess access);
+    String generateToken(User user, UserAccess access, String displayName);
 
     /** Token lifetime in milliseconds. */
     long getExpirationTime();

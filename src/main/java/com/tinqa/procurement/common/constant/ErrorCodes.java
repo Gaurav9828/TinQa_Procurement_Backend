@@ -37,6 +37,15 @@ public final class ErrorCodes {
     public static final String PASSWORD_REUSED = "PASSWORD_REUSED";
     public static final String FIRST_LOGIN_NOT_REQUIRED = "FIRST_LOGIN_NOT_REQUIRED";
     public static final String TOO_MANY_PASSWORD_ATTEMPTS = "TOO_MANY_PASSWORD_ATTEMPTS";
+    public static final String PASSWORD_LINK_INVALID = "PASSWORD_LINK_INVALID";
+    public static final String PASSWORD_LINK_EXPIRED = "PASSWORD_LINK_EXPIRED";
+    public static final String VERIFICATION_CODE_INVALID = "VERIFICATION_CODE_INVALID";
+    public static final String VERIFICATION_CODE_EXPIRED = "VERIFICATION_CODE_EXPIRED";
+    public static final String VERIFICATION_CODE_LOCKED = "VERIFICATION_CODE_LOCKED";
+    public static final String VERIFICATION_TOO_SOON = "VERIFICATION_TOO_SOON";
+    public static final String EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
+    public static final String EMAIL_NOT_CONFIGURED = "EMAIL_NOT_CONFIGURED";
+    public static final String EMAIL_SEND_FAILED = "EMAIL_SEND_FAILED";
 
     // Employees
     public static final String DUPLICATE_VALUE = "DUPLICATE_VALUE";

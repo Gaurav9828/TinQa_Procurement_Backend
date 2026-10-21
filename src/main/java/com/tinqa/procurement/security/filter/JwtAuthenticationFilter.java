@@ -102,7 +102,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         errorWriter.write(request, response, HttpServletResponse.SC_UNAUTHORIZED, ErrorCodes.UNAUTHORIZED, INVALID_TOKEN_MESSAGE);
     }
 
-    // Logged out, or issued before the last password change. Issued-at has second precision, so compare seconds.
+    // Logged out, or issued before the last password change. Compared in milliseconds (the precision tokens carry):
+    // a session opened earlier in the same second as the change is signed out, one opened right after it is not.
     private boolean isRevoked(TokenClaims claims, User user) {
         if (tokenRevocationService.isRevoked(claims.jti())) {
             return true;
@@ -111,6 +112,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (passwordChangedAt == null) {
             return false;
         }
-        return claims.issuedAt() == null || claims.issuedAt().getEpochSecond() < passwordChangedAt.getEpochSecond();
+        return claims.issuedAt() == null || claims.issuedAt().toEpochMilli() < passwordChangedAt.toEpochMilli();
     }
 }

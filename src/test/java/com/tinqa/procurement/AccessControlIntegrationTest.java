@@ -151,9 +151,10 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
         long id = created.get("id").asLong();
 
         // A department that doesn't match the designation is refused
-        Map<String, Object> mismatched = new java.util.LinkedHashMap<>(rider);
+        // (its own PAN and verified personal email, so only the department is wrong)
+        Map<String, Object> mismatched = withPanAndAddress(new java.util.LinkedHashMap<>(rider));
         mismatched.putAll(body("username", uniq("dr"), "email", uniq("dr") + "@tinqa.test", "phone", nextLocalMobile(),
-                "panNumber", nextPersonalPan(), "department", "Finance & Accounts"));
+                "department", "Finance & Accounts"));
         JsonNode refused = post("/v1/admin/employees", l2a.token(), mismatched, 400);
         assertThat(refused.get("errors").get(0).get("field").asText()).isEqualTo("department");
 

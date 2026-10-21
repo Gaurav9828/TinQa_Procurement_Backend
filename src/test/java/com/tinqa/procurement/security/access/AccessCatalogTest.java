@@ -128,6 +128,25 @@ class AccessCatalogTest {
         assertThat(PermissionGroup.EXPENSE_APPROVAL.approvalLevel()).isTrue();
     }
 
+    // Agents book store sales and see only their own; store and finance staff read every agent's sales
+    @Test
+    void salesAgentsSellAndSeeOnlyTheirOwnSales() {
+        for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+            assertThat(UserAccess.of(level, Designation.SALES_AGENT).permissions()).as(level.name())
+                    .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
+                            Permission.STORE_ORDER_VIEW);
+        }
+        assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
+        for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,
+                Designation.FINANCIAL_AUDITOR, Designation.SUPER_ADMIN)) {
+            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
+                    .contains(Permission.STORE_SALES_VIEW_ALL);
+        }
+        // Mail server settings belong to a Level 2 Super Admin
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).contains(Permission.SYSTEM_SETTINGS_MANAGE);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions()).doesNotContain(Permission.SYSTEM_SETTINGS_MANAGE);
+    }
+
     // Dealer logins hold the dealer portal and nothing else, whatever designation is passed in
     @Test
     void dealersOnlyHoldTheDealerPortal() {

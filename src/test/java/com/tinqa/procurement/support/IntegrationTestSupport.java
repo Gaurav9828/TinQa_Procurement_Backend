@@ -2,6 +2,8 @@ package com.tinqa.procurement.support;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinqa.procurement.common.util.SecureTokens;
+import com.tinqa.procurement.mail.StaffMailer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -78,6 +81,10 @@ public abstract class IntegrationTestSupport {
 
     @Autowired
     protected MockMvc mockMvc;
+
+    // Staff emails would go through the e-commerce service; tests read what would have been sent
+    @MockitoBean
+    protected StaffMailer staffMailer;
 
     @Autowired
     protected ObjectMapper objectMapper;
@@ -156,6 +163,21 @@ public abstract class IntegrationTestSupport {
     protected String login(String username, String password) throws Exception {
         return post("/auth/admin/login", null, Map.of("username", username, "password", password), 200)
                 .get("accessToken").asText();
+    }
+
+    /** The token of the last password link emailed to {@code to} (setup: a new account; otherwise "forgot password"). */
+    protected String lastPasswordLink(String to, boolean setup) {
+        org.mockito.ArgumentCaptor<String> token = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(staffMailer, org.mockito.Mockito.atLeastOnce()).sendPasswordLink(
+                org.mockito.ArgumentMatchers.eq(to), org.mockito.ArgumentMatchers.any(), token.capture(),
+                org.mockito.ArgumentMatchers.eq(setup), org.mockito.ArgumentMatchers.anyLong());
+        return token.getValue();
+    }
+
+    /** Chooses a password through an emailed link, then signs in with it. */
+    protected String setPasswordWithLink(String token, String username, String password) throws Exception {
+        post("/auth/password/link", null, body("token", token, "newPassword", password, "confirmNewPassword", password), 200);
+        return login(username, password);
     }
 
     // ------------------------------------------------------------------ HTTP
@@ -243,11 +265,24 @@ public abstract class IntegrationTestSupport {
         return "ABCP" + (char) ('A' + (n / 10000) % 26) + String.format("%04d", n % 10000) + "Z";
     }
 
-    // Adds the PAN and residential address every new employee needs
-    protected static Map<String, Object> withPanAndAddress(Map<String, Object> employee) {
+    // Adds the PAN, residential address and verified personal email every new employee needs
+    protected Map<String, Object> withPanAndAddress(Map<String, Object> employee) {
+        String personalEmail = uniq("personal") + "@example.test";
         employee.putAll(body("panNumber", nextPersonalPan(), "houseNumber", "Flat 4B", "street", "12 MG Road",
-                "district", "Bengaluru Urban", "state", "Karnataka", "pincode", "560001"));
+                "district", "Bengaluru Urban", "state", "Karnataka", "pincode", "560001",
+                "personalEmail", personalEmail, "personalEmailVerificationToken", verifiedEmailToken(personalEmail)));
         return employee;
+    }
+
+    // A verification token for this address, as confirming the emailed code returns it (for tests about something else)
+    protected String verifiedEmailToken(String email) {
+        String token = SecureTokens.urlToken();
+        jdbc.update("""
+                        INSERT INTO email_verification (email, code_hash, code_expires_at, verified_at, token_hash, token_expires_at,
+                                                        requested_by, created_at)
+                        VALUES (?, 'x', now() + interval '10 minutes', now(), ?, now() + interval '30 minutes', 0, now())
+                        """, email.toLowerCase(), SecureTokens.sha256Hex(token));
+        return token;
     }
 
     // ------------------------------------------------------------------ fixtures

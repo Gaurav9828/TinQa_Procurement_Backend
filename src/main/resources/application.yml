@@ -40,11 +40,25 @@ tinqa:
     last-name: ${TINQA_SUPER_ADMIN_LAST_NAME:Admin}
     phone: ${TINQA_SUPER_ADMIN_PHONE:9000000000}
   employee:
-    # Temporary password of every new employee account; it must be changed at first login
+    # Temporary password of new dealer logins (changed at first login). Employees get an emailed set-password link instead
     default-password: ${TINQA_EMPLOYEE_DEFAULT_PASSWORD:TinQa}
   internal-api:
     # Shared secret other TinQa services send in X-Internal-Api-Key. Empty = internal API disabled.
     key: ${TINQA_INTERNAL_API_KEY:}
+  ecommerce:
+    # Staff account emails (verification codes, password links) go out through the e-commerce service's mail
+    # server (Company Profile › Email), called with the internal API key above
+    base-url: ${TINQA_ECOMMERCE_BASE_URL:http://localhost:8080/api}
+  account:
+    verification:
+      code-validity: 10m
+      max-attempts: 5
+      resend-cooldown: 60s
+      max-codes-per-hour: 5
+      token-validity: 30m
+    password-link:
+      validity: 15m
+      resend-cooldown: 60s
   product-approval:
     # Maker-checker: false = the Admin L2 who submitted a product cannot also approve/reject/cancel it
     allow-self-decision: ${TINQA_PRODUCT_APPROVAL_ALLOW_SELF_DECISION:false}

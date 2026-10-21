@@ -28,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -117,11 +119,24 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .orElse(AppConstants.MESSAGE_ACCOUNT_DISABLED);
     }
 
+    // The employee's display name (else first and last name); other accounts have none
+    private String displayName(User user) {
+        return employeeRepository.findByUserId(user.getId())
+                .map(employee -> employee.getDisplayName() != null && !employee.getDisplayName().isBlank()
+                        ? employee.getDisplayName().trim()
+                        : Stream.of(employee.getFirstName(), employee.getLastName())
+                                .filter(part -> part != null && !part.isBlank())
+                                .map(String::trim)
+                                .collect(Collectors.joining(" ")))
+                .filter(name -> !name.isBlank())
+                .orElse(null);
+    }
+
     private LoginResponse buildLoginResponse(User user) {
         UserAccess access = accessResolver.resolve(user);
         AccessDTOs.MyAccess summary = AccessDTOs.MyAccess.of(access);
         return LoginResponse.builder()
-                .accessToken(jwtService.generateToken(user, access))
+                .accessToken(jwtService.generateToken(user, access, displayName(user)))
                 .tokenType(AppConstants.TOKEN_TYPE_BEARER)
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(user.getId())

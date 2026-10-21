@@ -79,6 +79,14 @@ public enum Permission {
     DELIVERY_STATUS_UPDATE(LAST_MILE_DELIVERY, "Record delivery outcomes (out for delivery, delivered, failed attempts)"),
     DELIVERY_ASSIGN(DELIVERY_OPERATIONS, "Assign deliveries to riders (not wired yet)"),
 
+    // Store sales (Ecommerce /api/admin/store-sales). An agent registers a walk-in customer and books their order, paid
+    // in cash at the counter (booked to the company account at once: the agent received it) or online by the customer.
+    // The customer is emailed their login details
+    STORE_SALES_VIEW_ALL(STORE_SALES_READ, "View every agent's store sales"),
+    STORE_CUSTOMER_REGISTER(STORE_SALES, "Register walk-in customers and add their delivery addresses"),
+    STORE_ORDER_CREATE(STORE_SALES, "Book orders for customers (cash received, or online)"),
+    STORE_ORDER_VIEW(STORE_SALES, "View your own store sales"),
+
     // Refunds (Ecommerce /api/admin/refunds)
     REFUND_VIEW(REFUND_READ, "View refunds"),
     REFUND_REQUEST(REFUND_MANAGEMENT, "Request a refund for an order"),
@@ -116,8 +124,9 @@ public enum Permission {
     EXPENSE_APPROVE(EXPENSE_APPROVAL, "Approve, reject or reverse expenses (posts them to the company account)"),
     ANALYTICS_VIEW(ANALYTICS, "View analytics dashboards"),
 
-    // Platform (not wired yet)
-    SYSTEM_SETTINGS_MANAGE(SYSTEM_ADMINISTRATION, "Manage global settings, payment gateways and shipping rates"),
+    // Platform
+    // Ecommerce /api/admin/settings/email: the mail server and the address customer emails are sent from
+    SYSTEM_SETTINGS_MANAGE(SYSTEM_ADMINISTRATION, "Manage global settings: email delivery, payment gateways and shipping rates"),
     AUDIT_LOG_VIEW(SYSTEM_ADMINISTRATION, "View audit logs"),
     // Ecommerce DELETE /api/admin/company/profile/drafts/{id}: anyone's draft, not only your own (COMPANY_PROFILE_EDIT)
     COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),

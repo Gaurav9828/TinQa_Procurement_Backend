@@ -10,6 +10,12 @@ import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import com.tinqa.procurement.employee.service.EmployeeService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
+import com.tinqa.procurement.security.service.CurrentUserProvider;
+import com.tinqa.procurement.security.verification.EmailVerificationService;
+import com.tinqa.procurement.security.verification.dto.EmailCodeConfirmRequest;
+import com.tinqa.procurement.security.verification.dto.EmailVerificationRequest;
+import com.tinqa.procurement.security.verification.dto.EmailVerificationSentResponse;
+import com.tinqa.procurement.security.verification.dto.EmailVerifiedResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,11 +41,32 @@ import java.util.List;
 public class EmployeeAdminController {
 
     private final EmployeeService employeeService;
+    private final EmailVerificationService emailVerificationService;
+    private final CurrentUserProvider currentUserProvider;
+
+    // Before creating an employee their personal email is proved: a 5-digit code is sent there and they tell it to us
+    @RequiresPermission(Permission.EMPLOYEE_CREATE)
+    @PostMapping("/email-verification")
+    public ResponseEntity<ApiResponse<EmailVerificationSentResponse>> sendVerificationCode(
+            @Valid @RequestBody EmailVerificationRequest request) {
+        EmailVerificationSentResponse sent = emailVerificationService.requestCode(request.getEmail(), request.getName(),
+                currentUserProvider.getCurrentUserId());
+        return ApiResponses.ok(sent, "A 5-digit code was emailed to " + sent.email() + ". Ask the employee for it.");
+    }
+
+    @RequiresPermission(Permission.EMPLOYEE_CREATE)
+    @PostMapping("/email-verification/confirm")
+    public ResponseEntity<ApiResponse<EmailVerifiedResponse>> confirmVerificationCode(@Valid @RequestBody EmailCodeConfirmRequest request) {
+        return ApiResponses.ok(emailVerificationService.confirm(request.getEmail(), request.getCode()), "Email address verified");
+    }
 
     @RequiresPermission(Permission.EMPLOYEE_CREATE)
     @PostMapping
     public ResponseEntity<ApiResponse<EmployeeResponse>> createEmployee(@Valid @RequestBody CreateEmployeeRequest request) {
-        return ApiResponses.created(employeeService.createEmployee(request), "Employee created successfully");
+        EmployeeResponse created = employeeService.createEmployee(request);
+        return ApiResponses.created(created, created.getStatus() == EmployeeStatus.APPROVAL_PENDING
+                ? "Employee created and sent for approval"
+                : "Employee created. A link to set their password was emailed to " + request.getPersonalEmail().trim().toLowerCase() + ".");
     }
 
     // Filter by status and/or a search term over name, code, department and phone; DELETED only when asked for

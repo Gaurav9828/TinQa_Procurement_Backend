@@ -6,66 +6,27 @@
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/repository/EmployeeProfileChangeRequestRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/repository/EmployeeProfileChangeRequestRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/approval/service/impl/EmployeeProfileApprovalServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/dto/CategoryDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/dto/CategoryDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/enums/CategoryType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/enums/CategoryType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/repository/CategoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/repository/CategoryRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/service/CategoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/service/CategoryService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/service/impl/CategoryServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/category/service/impl/CategoryServiceImpl.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/constant/ErrorCodes.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/constant/ErrorCodes.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/validation/ValidationPatterns.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/validation/ValidationPatterns.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/controller/DealerAdminController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/controller/DealerAdminController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/repository/DealerRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/repository/DealerRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/service/DealerService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/service/DealerService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/service/impl/DealerServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/dealer/service/impl/DealerServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/config/EmployeeProperties.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/config/EmployeeProperties.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/controller/EmployeeAdminController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/controller/EmployeeAdminController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/CreateEmployeeRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/CreateEmployeeRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/EmployeeResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/EmployeeResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/UpdateEmployeeRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/dto/UpdateEmployeeRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/enums/EmployeeStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/enums/EmployeeStatus.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/mapper/EmployeeMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/mapper/EmployeeMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/model/Employee.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/model/Employee.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/repository/EmployeeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/repository/EmployeeRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/EmployeeContactValidator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/EmployeeContactValidator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/EmployeeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/EmployeeService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/impl/EmployeeServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/employee/service/impl/EmployeeServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/controller/ItemAdminController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/controller/ItemAdminController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/dto/ItemDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/dto/ItemDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/entity/Item.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/entity/Item.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/mapper/ItemMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/mapper/ItemMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/repository/ItemRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/repository/ItemRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/service/ItemService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/service/ItemService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/service/impl/ItemServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/item/service/impl/ItemServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/dto/NotificationResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/dto/NotificationResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/entity/Notification.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/entity/Notification.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/mapper/NotificationMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/mapper/NotificationMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/NotificationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/NotificationService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/impl/NotificationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/service/impl/NotificationServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/dto/OrderDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/dto/OrderDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/notification/OrderStatusNotifier.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/notification/OrderStatusNotifier.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/repository/OrderRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/repository/OrderRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/OrderService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/OrderService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/order/service/impl/OrderServiceImpl.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/dto/ProductApprovalDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/dto/ProductApprovalDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/service/impl/ProductApprovalServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/service/impl/ProductApprovalServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/AccessDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/AccessDTOs.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Designation.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Designation.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/DesignationAccess.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/DesignationAccess.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Permission.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Permission.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/PermissionGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/PermissionGroup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/audit/AuthAuditEventType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/audit/AuthAuditEventType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/config/SecurityPaths.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/config/SecurityPaths.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/controller/AuthController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/filter/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/filter/JwtAuthenticationFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/repository/UserRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/password/PasswordPolicy.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/password/PasswordPolicy.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/AuthenticationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/AuthenticationServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/entity/Stock.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/entity/Stock.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/mapper/StockMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/mapper/StockMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/notification/StockNotifier.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/notification/StockNotifier.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/impl/StockServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/service/impl/StockServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/PasswordServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/impl/PasswordServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/jwt/JwtService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/jwt/JwtService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/jwt/JwtServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/service/jwt/JwtServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/AccessControlIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/AccessControlIntegrationTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/ApplicationIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/ApplicationIntegrationTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/security/access/AccessCatalogTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/security/access/AccessCatalogTest.java" afterDir="false" />
@@ -96,61 +57,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0034421250103989" />
-      <entry key="MS500" value="1.7171242753653733" />
-      <entry key="S2" value="5.724729647207936" />
-      <entry key="S5" value="13.01948504364509" />
-      <entry key="S10" value="22.420846986540543" />
-      <entry key="S30" value="35.95246180939012" />
-      <entry key="S60" value="41.00343645430913" />
-      <entry key="M2" value="43.87242582726535" />
-      <entry key="M5" value="45.754456765301455" />
-      <entry key="M10" value="46.904723316711774" />
-      <entry key="M15" value="47.92581713897492" />
-      <entry key="M30" value="50.92648000221703" />
-      <entry key="H1" value="59.66393523328557" />
-      <entry key="H2" value="80.7830511870994" />
-      <entry key="H4" value="128.0289200383773" />
-      <entry key="D1" value="509.4187094851102" />
-      <entry key="W1" value="843.0060999160568" />
+      <entry key="MS100" value="1.0018270893551344" />
+      <entry key="MS500" value="1.472972940734007" />
+      <entry key="S2" value="3.296457787082483" />
+      <entry key="S5" value="5.063090599888471" />
+      <entry key="S10" value="6.682363826443718" />
+      <entry key="S30" value="8.607059244233628" />
+      <entry key="S60" value="9.258838036279027" />
+      <entry key="M2" value="9.617450122782362" />
+      <entry key="M5" value="9.843998981386134" />
+      <entry key="M10" value="9.921493309627333" />
+      <entry key="M15" value="9.947549726444706" />
+      <entry key="M30" value="9.980066176260761" />
+      <entry key="H1" value="10.588564221061178" />
+      <entry key="H2" value="15.986001723622312" />
+      <entry key="H4" value="33.53787428428176" />
+      <entry key="D1" value="356.5059730771173" />
+      <entry key="W1" value="846.8275092867754" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="8.72208803950965E-140" />
-      <entry key="S10" value="4.1667853134603163E-70" />
-      <entry key="S30" value="1.1850184936806835E-23" />
-      <entry key="S60" value="4.867981975416562E-12" />
-      <entry key="M2" value="3.120199246712845E-6" />
-      <entry key="M5" value="0.009512380463780999" />
-      <entry key="M10" value="0.13793878877354684" />
-      <entry key="M15" value="0.33779173455630496" />
-      <entry key="M30" value="1.077887639881249" />
-      <entry key="H1" value="5.107010252546253" />
-      <entry key="H2" value="20.84488078204403" />
-      <entry key="H4" value="60.63759397882974" />
-      <entry key="D1" value="261.7089939519455" />
-      <entry key="W1" value="394.89920225692106" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="1.787376518470708E-172" />
+      <entry key="M5" value="3.03041914116538E-69" />
+      <entry key="M10" value="7.785619092547375E-35" />
+      <entry key="M15" value="2.3070314483241303E-23" />
+      <entry key="M30" value="8.907908346674321E-12" />
+      <entry key="H1" value="1.4681412927160603E-5" />
+      <entry key="H2" value="0.0353427206153638" />
+      <entry key="H4" value="2.496848787694667" />
+      <entry key="D1" value="153.78962152059367" />
+      <entry key="W1" value="366.01740640668027" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.01210724852729984" />
-      <entry key="MS500" value="0.9202281523592384" />
-      <entry key="S2" value="5.1333787993072875" />
-      <entry key="S5" value="12.607805748736483" />
-      <entry key="S10" value="22.148958215896872" />
-      <entry key="S30" value="35.83860620140863" />
-      <entry key="S60" value="40.94278439908442" />
-      <entry key="M2" value="43.84109456782514" />
-      <entry key="M5" value="45.75114536799308" />
-      <entry key="M10" value="47.035955209995144" />
-      <entry key="M15" value="48.25886467300051" />
-      <entry key="M30" value="52.00135634170956" />
-      <entry key="H1" value="64.76705811540342" />
-      <entry key="H2" value="101.62089919161575" />
-      <entry key="H4" value="188.65628284795469" />
-      <entry key="D1" value="771.1200816313459" />
-      <entry key="W1" value="1237.9036608373165" />
+      <entry key="MS100" value="0.007447352806259438" />
+      <entry key="MS500" value="0.7020207728202564" />
+      <entry key="S2" value="2.9568756668475573" />
+      <entry key="S5" value="4.906224016864752" />
+      <entry key="S10" value="6.599380632244944" />
+      <entry key="S30" value="8.578174004114963" />
+      <entry key="S60" value="9.244222444451045" />
+      <entry key="M2" value="9.610097225187321" />
+      <entry key="M5" value="9.84104674154656" />
+      <entry key="M10" value="9.920015320717908" />
+      <entry key="M15" value="9.946563983481278" />
+      <entry key="M30" value="9.97957301172825" />
+      <entry key="H1" value="10.588328318222683" />
+      <entry key="H2" value="16.02118985150424" />
+      <entry key="H4" value="36.03420994072013" />
+      <entry key="D1" value="510.291092491419" />
+      <entry key="W1" value="1212.8433907504277" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{

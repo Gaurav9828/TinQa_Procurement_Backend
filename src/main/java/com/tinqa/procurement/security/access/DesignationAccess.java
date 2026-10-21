@@ -34,6 +34,7 @@ public final class DesignationAccess {
                 CATALOG_READ, CATALOG_MANAGEMENT, CATALOG_APPROVAL,
                 INVENTORY_READ, INVENTORY_APPROVAL,
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
+                STORE_SALES_READ, STORE_SALES,
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
@@ -80,6 +81,7 @@ public final class DesignationAccess {
 
         grant(Designation.FINANCIAL_AUDITOR, EnumSet.of(
                 ANALYTICS, FINANCE_REPORTING,
+                STORE_SALES_READ,
                 PAYMENT_READ,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,
@@ -92,10 +94,16 @@ public final class DesignationAccess {
                 ANALYTICS, FINANCE_REPORTING,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
+                STORE_SALES_READ,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,
                 PROCUREMENT_ORDER_READ,
                 DOCUMENT_READ));
+
+        // Sells at a store or in the market: registers walk-in customers and books their orders. Cash they take is
+        // booked when they record it; they see only their own sales
+        grant(Designation.SALES_AGENT, EnumSet.of(
+                STORE_SALES));
 
         GROUPS_BY_EXTERNAL_ROLE.put(Role.DEALER, Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL)));
 

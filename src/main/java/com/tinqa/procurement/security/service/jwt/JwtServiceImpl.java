@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
@@ -23,6 +24,9 @@ public class JwtServiceImpl implements JwtService {
     private static final String CLAIM_DESIGNATION = "designation";
     // Not "permissions": the Ecommerce backend reads that claim name as roles
     private static final String CLAIM_PERMISSIONS = "perms";
+    private static final String CLAIM_NAME = "name";
+    // Standard "iat" is whole seconds; this keeps milliseconds so a password change revokes tokens issued earlier in the same second
+    private static final String CLAIM_ISSUED_AT_MS = "iat_ms";
 
     private final SecretKey signingKey;
     private final long expiration;
@@ -36,7 +40,7 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public String generateToken(User user, UserAccess access) {
+    public String generateToken(User user, UserAccess access, String displayName) {
         Date now = Date.from(clock.instant());
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
@@ -45,7 +49,9 @@ public class JwtServiceImpl implements JwtService {
                 .claim(CLAIM_AUTH_CLIENT, user.getAuthClient().name())
                 .claim(CLAIM_DESIGNATION, access.designation() == null ? null : access.designation().name())
                 .claim(CLAIM_PERMISSIONS, access.permissions().stream().map(Permission::name).sorted().toList())
+                .claim(CLAIM_NAME, displayName)
                 .issuedAt(now)
+                .claim(CLAIM_ISSUED_AT_MS, now.getTime())
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(signingKey)
                 .compact();
@@ -63,10 +69,10 @@ public class JwtServiceImpl implements JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return new TokenClaims(
-                claims.getSubject(),
-                claims.getId(),
-                claims.getIssuedAt() == null ? null : claims.getIssuedAt().toInstant(),
-                claims.getExpiration().toInstant());
+        // Tokens issued before the millisecond claim existed fall back to the whole-second "iat"
+        Long issuedAtMillis = claims.get(CLAIM_ISSUED_AT_MS, Long.class);
+        Instant issuedAt = issuedAtMillis != null ? Instant.ofEpochMilli(issuedAtMillis)
+                : claims.getIssuedAt() == null ? null : claims.getIssuedAt().toInstant();
+        return new TokenClaims(claims.getSubject(), claims.getId(), issuedAt, claims.getExpiration().toInstant());
     }
 }
