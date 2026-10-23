@@ -84,6 +84,10 @@ public class ProductApprovalDTOs {
         @Size(max = 250, message = "Snapshot tagline cannot exceed 250 characters")
         private String tagline;
 
+        // Ecommerce product category (existing or new); absent on snapshots taken before categories existed
+        @Size(max = 60, message = "Snapshot category cannot exceed 60 characters")
+        private String categoryName;
+
         @NotNull(message = "Snapshot price is required")
         @PositiveOrZero(message = "Snapshot price cannot be negative")
         @MaxAmount(message = "Snapshot price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
@@ -126,6 +130,44 @@ public class ProductApprovalDTOs {
         // an accessory
         @Size(max = 50, message = "Snapshot cannot have more than 50 accessory parents")
         private List<@Valid @NotNull(message = "Snapshot accessory parents cannot contain empty entries") AccessoryParent> accessoryParents;
+
+        // One unit's cost and profit at the submitted price (Ecommerce product costing), so the approver sees the
+        // margin. Absent when the submitter can't see costs
+        @Valid
+        private CostSummary costSummary;
+    }
+
+    /** Amounts in rupees, GST excluded. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CostSummary {
+        @NotNull(message = "Unit cost is required")
+        @PositiveOrZero(message = "Unit cost cannot be negative")
+        @MaxAmount(message = "Unit cost cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
+        private BigDecimal unitCost;
+
+        @NotNull(message = "Net revenue is required")
+        @PositiveOrZero(message = "Net revenue cannot be negative")
+        @MaxAmount(message = "Net revenue cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
+        private BigDecimal netRevenue;
+
+        // Negative on a loss
+        @NotNull(message = "Gross profit is required")
+        @Digits(integer = 12, fraction = 2, message = "Gross profit can have at most 12 digits and 2 decimal places")
+        private BigDecimal grossProfit;
+
+        @Digits(integer = 12, fraction = 2, message = "Margin can have at most 2 decimal places")
+        private BigDecimal marginPercent;
+
+        @NotNull(message = "Profit after tax is required")
+        @Digits(integer = 12, fraction = 2, message = "Profit after tax can have at most 12 digits and 2 decimal places")
+        private BigDecimal profitAfterTax;
+
+        @Min(value = 0, message = "Components without cost cannot be negative")
+        @Max(value = 50, message = "Components without cost cannot exceed 50")
+        private Integer componentsWithoutCost;
     }
 
     @Data

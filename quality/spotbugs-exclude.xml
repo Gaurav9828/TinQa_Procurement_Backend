@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SpotBugs patterns that are noise for a Spring Boot + Lombok + JPA code base -->
+<FindBugsFilter
+        xmlns="https://github.com/spotbugs/filter/3.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+    <!-- Lombok getters/setters and Spring-injected collaborators expose mutable fields by design -->
+    <Match><Bug pattern="EI_EXPOSE_REP"/></Match>
+    <Match><Bug pattern="EI_EXPOSE_REP2"/></Match>
+    <!-- Informational: lists every controller endpoint -->
+    <Match><Bug pattern="SPRING_ENDPOINT"/></Match>
+    <!-- Spring beans throwing from constructors cannot be finalizer-attacked -->
+    <Match><Bug pattern="CT_CONSTRUCTOR_THROW"/></Match>
+</FindBugsFilter>

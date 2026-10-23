@@ -97,6 +97,14 @@ public final class ErrorCodes {
     // Documents
     public static final String INVALID_FILE = "INVALID_FILE";
 
+    // Salary payments
+    public static final String SALARY_MONTH_NOT_OPEN = "SALARY_MONTH_NOT_OPEN";
+    public static final String SALARY_NOT_PAYABLE = "SALARY_NOT_PAYABLE";
+    public static final String SALARY_ALREADY_RECORDED = "SALARY_ALREADY_RECORDED";
+    public static final String SALARY_NOT_PENDING = "SALARY_NOT_PENDING";
+    public static final String SALARY_NOT_APPROVED = "SALARY_NOT_APPROVED";
+    public static final String SALARY_SELF_DECISION = "SALARY_SELF_DECISION";
+
     private ErrorCodes() {
     }
 }

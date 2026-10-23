@@ -27,6 +27,11 @@ tinqa:
   internal-api:
     key: test-internal-api-key
 
+  # Tests send due payslips themselves (PayslipEmailSender.sendDue)
+  payroll:
+    payslip-email:
+      enabled: false
+
   security:
     jwt:
       secret: TinQaTestJwtSecretKeyMustBeAtLeast32CharactersLong!

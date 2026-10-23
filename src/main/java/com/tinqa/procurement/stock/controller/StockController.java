@@ -8,6 +8,7 @@ import com.tinqa.procurement.order.service.OrderService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
 import com.tinqa.procurement.stock.dto.StockDTOs;
+import com.tinqa.procurement.stock.service.ItemCostService;
 import com.tinqa.procurement.stock.service.StockService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class StockController {
 
     private final StockService stockService;
     private final OrderService orderService;
+    private final ItemCostService itemCostService;
 
     @RequiresPermission(Permission.STOCK_CREATE)
     @PostMapping
@@ -96,6 +98,13 @@ public class StockController {
             @RequestParam(required = false) List<Long> itemIds,
             @RequestParam(defaultValue = "false") boolean inStockOnly) {
         return ApiResponses.ok(stockService.getItemsAvailability(itemIds, inStockOnly), AVAILABILITY_RETRIEVED);
+    }
+
+    // Landed purchase cost of one unit, for product cost sheets
+    @RequiresPermission(Permission.PRODUCT_COST_VIEW)
+    @GetMapping("/items/{itemId}/cost")
+    public ResponseEntity<ApiResponse<StockDTOs.ItemCostResponse>> getItemCost(@PathVariable Long itemId) {
+        return ApiResponses.ok(itemCostService.getItemCost(itemId), "Item cost retrieved successfully");
     }
 
     @RequiresPermission(Permission.STOCK_VIEW)

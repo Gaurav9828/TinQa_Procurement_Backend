@@ -59,6 +59,11 @@ tinqa:
     password-link:
       validity: 15m
       resend-cooldown: 60s
+  payroll:
+    payslip-email:
+      # Emails the payslip of each confirmed salary (retried a few times when the mail server fails)
+      enabled: ${TINQA_PAYSLIP_EMAIL_ENABLED:true}
+      interval-ms: 60000
   product-approval:
     # Maker-checker: false = the Admin L2 who submitted a product cannot also approve/reject/cancel it
     allow-self-decision: ${TINQA_PRODUCT_APPROVAL_ALLOW_SELF_DECISION:false}

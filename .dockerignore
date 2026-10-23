@@ -1,0 +1,10 @@
+.git
+.idea
+.ai
+.readme
+.DS_Store
+target
+uploads
+scripts
+*.iml
+*.env

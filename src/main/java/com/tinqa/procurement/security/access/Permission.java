@@ -60,6 +60,12 @@ public enum Permission {
     PRODUCT_PUBLISH(CATALOG_MANAGEMENT, "Publish approved products to the storefront"),
     PRODUCT_APPROVAL_DECIDE(CATALOG_APPROVAL, "Review the approval queue and approve or reject products"),
 
+    // Product costing (Ecommerce /api/admin/costing, the cost fields of /api/products, /v1/stocks/items/{id}/cost):
+    // a product's cost sheet (component purchase costs + extra costs with their reasons), its profit before and after
+    // tax, and the profit of each customer order
+    PRODUCT_COST_VIEW(COSTING_READ, "View product cost sheets, item purchase costs and product / order profit"),
+    PRODUCT_COST_EDIT(COSTING_MANAGEMENT, "Enter component costs and extra costs (manpower, software...) on products"),
+
     // Inventory (/v1/stocks, Ecommerce PATCH /api/products/{id}/stock)
     STOCK_VIEW(INVENTORY_READ, "View stock and availability"),
     STOCK_CREATE(INVENTORY_MANAGEMENT, "Record received stock"),
@@ -100,6 +106,12 @@ public enum Permission {
     REVIEW_VIEW(REVIEW_MODERATION, "View product reviews"),
     REVIEW_MODERATE(REVIEW_MODERATION, "Publish or hide product reviews"),
 
+    // Storefront customers (Ecommerce /api/admin/customers, /v1/admin/customer-change-requests). Customer care asks
+    // for a correction to a customer's details; the holders of CUSTOMER_UPDATE (Super Admin) are notified and make it
+    CUSTOMER_VIEW(CUSTOMER_READ, "View customers, their orders, carts and support tickets"),
+    CUSTOMER_CHANGE_REQUEST(CUSTOMER_MANAGEMENT, "Ask for a change to a customer's details"),
+    CUSTOMER_UPDATE(CUSTOMER_APPROVAL, "Edit a customer's details"),
+
     // Company profile (Ecommerce /api/admin/company)
     COMPANY_PROFILE_VIEW(COMPANY_PROFILE_READ, "View the company profile and its versions"),
     COMPANY_PROFILE_EDIT(COMPANY_PROFILE_MANAGEMENT, "Draft, submit, withdraw and delete your own company profile changes"),
@@ -111,10 +123,12 @@ public enum Permission {
     DOCUMENT_DELETE(DOCUMENT_MANAGEMENT, "Delete documents"),
     DOCUMENT_APPROVE(DOCUMENT_APPROVAL, "Approve or reject documents"),
 
-    // Money. Payments are not wired yet; finance reports and expenses are served by Ecommerce /api/admin/finance
-    PAYMENT_VIEW(PAYMENT_READ, "View payments and chalans (not wired yet)"),
-    PAYMENT_RECORD(PAYMENT_MANAGEMENT, "Record payments and chalans (not wired yet)"),
-    PAYMENT_APPROVE(PAYMENT_APPROVAL, "Approve payments and dealer payouts (not wired yet)"),
+    // Money. Salary payments (/v1/admin/payroll): recorded as transferred, confirmed by someone else, and only then
+    // booked to the company account and emailed as payslips. Finance reports and expenses are served by Ecommerce
+    // /api/admin/finance
+    PAYMENT_VIEW(PAYMENT_READ, "View salary payments and download any employee's payslip"),
+    PAYMENT_RECORD(PAYMENT_MANAGEMENT, "Record salaries as transferred, withdraw them and resend payslips"),
+    PAYMENT_APPROVE(PAYMENT_APPROVAL, "Confirm or reject recorded salary payments (books them and emails the payslips)"),
     FINANCE_REPORT_VIEW(FINANCE_REPORTING, "View the company account, ledger and profit & loss / cash flow analytics"),
     FINANCE_REPORT_EXPORT(FINANCE_REPORTING, "Export finance reports (PDF, Excel, Word)"),
     // Expenses and other vouchers (Ecommerce /api/admin/finance/vouchers): raised, approved by someone else, then
@@ -132,6 +146,9 @@ public enum Permission {
     COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),
     // Web UI only (static content, no endpoint): the user guide page and its per-role PDF downloads
     USER_GUIDE_VIEW(USER_GUIDE, "View the user guide and download role guides as PDF"),
+
+    // Every employee (/v1/payroll/my-payslips): their own payslips of the months whose salary was confirmed
+    PAYSLIP_VIEW_OWN(SELF_SERVICE, "View and download your own payslips"),
 
     // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
     DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),

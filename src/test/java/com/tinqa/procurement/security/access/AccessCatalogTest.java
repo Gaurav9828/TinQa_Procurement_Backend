@@ -97,7 +97,8 @@ class AccessCatalogTest {
     void deliveryRidersOnlyRecordDeliveryOutcomes() {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.DELIVERY_RIDER).permissions())
-                    .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE);
+                    .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE,
+                            Permission.PAYSLIP_VIEW_OWN);
         }
     }
 
@@ -134,7 +135,7 @@ class AccessCatalogTest {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.SALES_AGENT).permissions()).as(level.name())
                     .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
-                            Permission.STORE_ORDER_VIEW);
+                            Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN);
         }
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
         for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,
@@ -183,6 +184,40 @@ class AccessCatalogTest {
             }
         }
         assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.USER_GUIDE_VIEW);
+    }
+
+    // Customer care and store managers look customers up and ask for corrections; only the Super Admin edits them
+    @Test
+    void customerCareAsksForCustomerChangesAndOnlyTheSuperAdminMakesThem() {
+        for (Designation designation : List.of(Designation.CUSTOMER_SUPPORT, Designation.STORE_MANAGER)) {
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
+                    .contains(Permission.CUSTOMER_VIEW, Permission.CUSTOMER_CHANGE_REQUEST)
+                    .doesNotContain(Permission.CUSTOMER_UPDATE);
+        }
+        for (Designation designation : Designation.values()) {
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions().contains(Permission.CUSTOMER_UPDATE))
+                    .as(designation.name()).isEqualTo(designation == Designation.SUPER_ADMIN);
+        }
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions())
+                .contains(Permission.CUSTOMER_VIEW).doesNotContain(Permission.CUSTOMER_UPDATE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SALES_AGENT).permissions()).doesNotContain(Permission.CUSTOMER_VIEW);
+    }
+
+    // Every employee reads their own payslips; salaries are recorded by finance and confirmed only at Level 2
+    @Test
+    void everyEmployeeReadsTheirPayslipsAndOnlyLevelTwoFinanceConfirmsSalaries() {
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                assertThat(UserAccess.of(level, designation).permissions()).as(designation + " " + level)
+                        .contains(Permission.PAYSLIP_VIEW_OWN);
+            }
+        }
+        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.PAYSLIP_VIEW_OWN);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.FINANCE_MANAGER).permissions())
+                .contains(Permission.PAYMENT_VIEW, Permission.PAYMENT_RECORD)
+                .doesNotContain(Permission.PAYMENT_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.FINANCE_MANAGER).permissions()).contains(Permission.PAYMENT_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DELIVERY_RIDER).permissions()).doesNotContain(Permission.PAYMENT_VIEW);
     }
 
     @Test

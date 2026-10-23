@@ -11,13 +11,15 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * Sends staff emails through the e-commerce service (POST /internal/staff-emails with the shared internal API key),
  * so both portals mail through the one server a Super Admin sets up in Company Profile › Email. That service builds
- * the email and the staff-portal link from the token; nothing here is queued or stored.
+ * the email and the staff-portal link from the token; nothing here is queued or stored (payslips are retried by
+ * PayslipEmailJob).
  */
 @Slf4j
 @Component
@@ -48,6 +50,19 @@ public class EcommerceStaffMailer implements StaffMailer {
     public void sendPasswordLink(String to, String name, String token, boolean setup, long validMinutes) {
         Map<String, Object> body = body(setup ? "PASSWORD_SETUP" : "PASSWORD_RESET", to, name, validMinutes);
         body.put("token", token);
+        send(body);
+    }
+
+    @Override
+    public void sendPayslip(String to, String name, String period, String netPay, String filename, byte[] pdf) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", "PAYSLIP");
+        body.put("to", to);
+        body.put("name", name);
+        body.put("period", period);
+        body.put("amount", netPay);
+        body.put("attachmentName", filename);
+        body.put("attachmentBase64", Base64.getEncoder().encodeToString(pdf));
         send(body);
     }
 

@@ -6,6 +6,7 @@ import com.tinqa.procurement.stock.entity.Stock;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -115,4 +116,13 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     List<ItemUnitsTotal> sumConsumableUnitsByItem(@Param("itemIds") Collection<Long> itemIds,
                                                   @Param("approvalStatus") ApprovalStatus approvalStatus,
                                                   @Param("orderStatus") OrderStatus orderStatus);
+
+    // The item's most recently received approved stock (its latest purchase price)
+    @Query("""
+            SELECT s FROM Stock s JOIN FETCH s.order o
+            WHERE s.item.id = :itemId AND s.approvalStatus = :approvalStatus
+            ORDER BY s.dateOfArrival DESC, s.id DESC
+            """)
+    List<Stock> findLatestByItem(@Param("itemId") Long itemId, @Param("approvalStatus") ApprovalStatus approvalStatus,
+                                 Pageable pageable);
 }

@@ -193,4 +193,28 @@ public class StockDTOs {
         private String unitOfMeasure;
         private BigDecimal totalAvailableUnits;
     }
+
+    /**
+     * What one unit of an item costs, from the purchase orders its stock came from. A unit's landed cost is the order's
+     * unit price plus its shipment spread over the ordered quantity; GST is left out (it is recovered as input tax
+     * credit). Null amounts: no stock of that kind.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ItemCostResponse {
+        private Long itemId;
+        private String itemName;
+        private String unitOfMeasure;
+        // Stock is consumed oldest arrival first, so this is what the next unit used costs
+        private BigDecimal nextUnitCost;
+        // Average over the units in stock now, weighted by units left in each entry
+        private BigDecimal averageUnitCost;
+        private BigDecimal unitsInStock;
+        // The most recently received approved stock, whether or not any of it is left
+        private BigDecimal lastUnitCost;
+        private LocalDate lastReceivedOn;
+        private String lastOrderNumber;
+    }
 }

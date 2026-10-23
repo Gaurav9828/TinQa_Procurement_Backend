@@ -32,11 +32,13 @@ public final class DesignationAccess {
         grant(Designation.STORE_MANAGER, EnumSet.of(
                 ANALYTICS,
                 CATALOG_READ, CATALOG_MANAGEMENT, CATALOG_APPROVAL,
+                COSTING_READ, COSTING_MANAGEMENT,
                 INVENTORY_READ, INVENTORY_APPROVAL,
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
                 STORE_SALES_READ, STORE_SALES,
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
+                CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT,
                 PAYMENT_READ,
@@ -54,6 +56,7 @@ public final class DesignationAccess {
 
         grant(Designation.CATALOG_SPECIALIST, EnumSet.of(
                 CATALOG_READ, CATALOG_MANAGEMENT,
+                COSTING_READ, COSTING_MANAGEMENT,
                 INVENTORY_READ,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT));
 
@@ -75,12 +78,13 @@ public final class DesignationAccess {
 
         grant(Designation.CUSTOMER_SUPPORT, EnumSet.of(
                 CUSTOMER_SUPPORT,
+                CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 CUSTOMER_ORDER_READ,
                 REFUND_READ, REFUND_MANAGEMENT,
                 CATALOG_READ));
 
         grant(Designation.FINANCIAL_AUDITOR, EnumSet.of(
-                ANALYTICS, FINANCE_REPORTING,
+                ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 STORE_SALES_READ,
                 PAYMENT_READ,
                 REFUND_READ,
@@ -91,7 +95,7 @@ public final class DesignationAccess {
 
         // Keeps the books: approves expenses (posting them to the company account), reads every money flow
         grant(Designation.FINANCE_MANAGER, EnumSet.of(
-                ANALYTICS, FINANCE_REPORTING,
+                ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
                 STORE_SALES_READ,
@@ -117,8 +121,11 @@ public final class DesignationAccess {
     private DesignationAccess() {
     }
 
+    // Every employee also gets their own records (SELF_SERVICE), whatever their designation
     private static void grant(Designation designation, Set<PermissionGroup> groups) {
-        GROUPS_BY_DESIGNATION.put(designation, Collections.unmodifiableSet(EnumSet.copyOf(groups)));
+        Set<PermissionGroup> withSelfService = EnumSet.copyOf(groups);
+        withSelfService.add(SELF_SERVICE);
+        GROUPS_BY_DESIGNATION.put(designation, Collections.unmodifiableSet(withSelfService));
     }
 
     /** Groups a designation carries at ADMIN_L2 (the most it can ever hold). */

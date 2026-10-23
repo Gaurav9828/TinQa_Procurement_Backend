@@ -31,6 +31,10 @@ public enum PermissionGroup {
     CATALOG_MANAGEMENT("Catalog - create and edit listings", false),
     CATALOG_APPROVAL("Catalog - approve listings and pricing", true),
 
+    // Product costing: what a unit costs (components, manpower, software...) and the profit made on products and orders
+    COSTING_READ("Costing - view product costs, margins and profit", false),
+    COSTING_MANAGEMENT("Costing - enter product cost sheets", false),
+
     // Inventory
     INVENTORY_READ("Inventory - view stock", false),
     INVENTORY_MANAGEMENT("Inventory - receive and adjust stock", false),
@@ -54,6 +58,10 @@ public enum PermissionGroup {
     // Customer care
     CUSTOMER_SUPPORT("Support tickets - view and respond", false),
     REVIEW_MODERATION("Product reviews - moderate", false),
+    // Storefront customers: profile, purchase history and cart, so customer care can follow up with them
+    CUSTOMER_READ("Customers - view profiles, order history and carts", false),
+    CUSTOMER_MANAGEMENT("Customers - request changes to a customer's details", false),
+    CUSTOMER_APPROVAL("Customers - edit customer details", true),
 
     // Company profile (storefront branding and legal details)
     COMPANY_PROFILE_READ("Company profile - view", false),
@@ -66,9 +74,9 @@ public enum PermissionGroup {
     DOCUMENT_APPROVAL("Documents - approve or reject", true),
 
     // Money
-    PAYMENT_READ("Payments - view", false),
-    PAYMENT_MANAGEMENT("Payments - record", false),
-    PAYMENT_APPROVAL("Payments - approve", true),
+    PAYMENT_READ("Payments - view salary payments and payslips", false),
+    PAYMENT_MANAGEMENT("Payments - record salary transfers", false),
+    PAYMENT_APPROVAL("Payments - confirm salary transfers", true),
     FINANCE_REPORTING("Finance - company account, reports and exports", false),
     EXPENSE_READ("Expenses - view", false),
     EXPENSE_MANAGEMENT("Expenses - raise for approval", false),
@@ -79,6 +87,9 @@ public enum PermissionGroup {
     SYSTEM_ADMINISTRATION("System - settings, integrations and audit logs", true),
     // The in-app user guide: every role's flows, downloadable as a PDF to hand to a colleague
     USER_GUIDE("User guide - view and share role guides", false),
+
+    // Every employee, whatever their designation: their own records (payslips)
+    SELF_SERVICE("Self service - own payslips", false),
 
     // External: dealers signed in to this web app with a dealer login. Everything in it is limited to the dealer's own
     // records on the server, whatever is asked for
