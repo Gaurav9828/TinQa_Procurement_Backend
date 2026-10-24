@@ -44,7 +44,8 @@ public class CustomerChangeRequest {
         MIDDLE_NAME("middle name"),
         LAST_NAME("last name"),
         PHONE_NUMBER("phone number"),
-        DOB("date of birth");
+        DOB("date of birth"),
+        GENDER("gender");
 
         private final String label;
 

@@ -6,21 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="3de9521f-9deb-495a-a89c-4c123c0eb103" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/constant/ErrorCodes.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/common/constant/ErrorCodes.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/mail/EcommerceStaffMailer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/mail/EcommerceStaffMailer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/mail/StaffMailer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/mail/StaffMailer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/NotificationLinks.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/notification/NotificationLinks.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/dto/ProductApprovalDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/productapproval/dto/ProductApprovalDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/DesignationAccess.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/DesignationAccess.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Permission.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/Permission.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/PermissionGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/security/access/PermissionGroup.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/controller/StockController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/dto/StockDTOs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/stock/repository/StockRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/security/access/AccessCatalogTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/tinqa/procurement/security/access/AccessCatalogTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/resources/application-test.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/resources/application-test.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/customer/CustomerChangeRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinqa/procurement/customer/CustomerChangeRequest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0021467819684788" />
-      <entry key="MS500" value="1.5576438468730531" />
-      <entry key="S2" value="3.362430053806993" />
-      <entry key="S5" value="4.231948056670831" />
-      <entry key="S10" value="4.594017749753591" />
-      <entry key="S30" value="4.8594612263239085" />
-      <entry key="S60" value="4.929057232163002" />
-      <entry key="M2" value="4.964358576516736" />
-      <entry key="M5" value="4.985702402212297" />
-      <entry key="M10" value="4.992844344713726" />
-      <entry key="M15" value="4.995228038139314" />
-      <entry key="M30" value="4.997615307202681" />
-      <entry key="H1" value="5.00645758009802" />
-      <entry key="H2" value="5.544587694720215" />
-      <entry key="H4" value="11.367313732080078" />
-      <entry key="D1" value="266.52171828483563" />
-      <entry key="W1" value="827.7538759952363" />
+      <entry key="MS100" value="1.0000000989879445" />
+      <entry key="MS500" value="1.158020605017855" />
+      <entry key="S2" value="6.5767297139149665" />
+      <entry key="S5" value="17.1644415842121" />
+      <entry key="S10" value="28.812014763759528" />
+      <entry key="S30" value="46.73624131520784" />
+      <entry key="S60" value="53.98499257730583" />
+      <entry key="M2" value="58.24287729119001" />
+      <entry key="M5" value="61.03308686334215" />
+      <entry key="M10" value="62.00549834193099" />
+      <entry key="M15" value="62.33451638403561" />
+      <entry key="M30" value="62.66601187640442" />
+      <entry key="H1" value="62.84030477852681" />
+      <entry key="H2" value="63.46010109295315" />
+      <entry key="H4" value="69.31783357053257" />
+      <entry key="D1" value="324.4607310529615" />
+      <entry key="W1" value="885.7285899484672" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -73,35 +59,35 @@
       <entry key="S10" value="0.0" />
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
-      <entry key="M2" value="6.740082054105708E-287" />
-      <entry key="M5" value="5.153263559997742E-115" />
-      <entry key="M10" value="1.015273333353462E-57" />
-      <entry key="M15" value="1.2781448252423E-38" />
-      <entry key="M30" value="2.0967131338973473E-19" />
-      <entry key="H1" value="2.252420605018952E-9" />
-      <entry key="H2" value="4.377647585387981E-4" />
-      <entry key="H4" value="0.2778834302083175" />
-      <entry key="D1" value="106.66094562815402" />
-      <entry key="W1" value="347.3750752011874" />
+      <entry key="M2" value="5.808032347212006E-287" />
+      <entry key="M5" value="4.85543217420032E-115" />
+      <entry key="M10" value="9.854980015563045E-58" />
+      <entry key="M15" value="1.2530312775143958E-38" />
+      <entry key="M30" value="2.0760123773943476E-19" />
+      <entry key="H1" value="2.2412739995312265E-9" />
+      <entry key="H2" value="4.366802268645338E-4" />
+      <entry key="H4" value="0.27753899833549867" />
+      <entry key="D1" value="106.63890016307556" />
+      <entry key="W1" value="347.36481743200386" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.012395262713140431" />
-      <entry key="MS500" value="0.8414782777633404" />
-      <entry key="S2" value="3.062762007576373" />
-      <entry key="S5" value="4.0962379391027905" />
-      <entry key="S10" value="4.523174323316009" />
-      <entry key="S30" value="4.8351466154623814" />
-      <entry key="S60" value="4.916810052731771" />
-      <entry key="M2" value="4.958212337479128" />
-      <entry key="M5" value="4.983238447442185" />
-      <entry key="M10" value="4.991611455519106" />
-      <entry key="M15" value="4.994405909240487" />
-      <entry key="M30" value="4.997204141279694" />
-      <entry key="H1" value="5.006251867442849" />
-      <entry key="H2" value="5.5449187739914025" />
-      <entry key="H4" value="11.645081214589132" />
-      <entry key="D1" value="373.17952620237344" />
-      <entry key="W1" value="1175.127501420317" />
+      <entry key="MS100" value="0.09539129100471258" />
+      <entry key="MS500" value="0.7752240552067831" />
+      <entry key="S2" value="6.427435428472667" />
+      <entry key="S5" value="17.0852894182021" />
+      <entry key="S10" value="28.75776621555959" />
+      <entry key="S30" value="46.707049660869835" />
+      <entry key="S60" value="53.96772348146132" />
+      <entry key="M2" value="58.23341475904735" />
+      <entry key="M5" value="61.029078725418344" />
+      <entry key="M10" value="62.0034548608617" />
+      <entry key="M15" value="62.33314513300438" />
+      <entry key="M30" value="62.6653217419335" />
+      <entry key="H1" value="62.83995847197909" />
+      <entry key="H2" value="63.460360521515426" />
+      <entry key="H4" value="69.59522134350405" />
+      <entry key="D1" value="431.0964882495288" />
+      <entry key="W1" value="1233.0919568036654" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -127,7 +113,7 @@
     &quot;Spring Boot.ProcurementApplication.executor&quot;: &quot;Debug&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Feature/Order__Tracking__Feature&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Feature/AI__Agent__Optimization__In__Action&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
