@@ -98,7 +98,7 @@ class AccessCatalogTest {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.DELIVERY_RIDER).permissions())
                     .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE,
-                            Permission.PAYSLIP_VIEW_OWN);
+                            Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN);
         }
     }
 
@@ -129,13 +129,31 @@ class AccessCatalogTest {
         assertThat(PermissionGroup.EXPENSE_APPROVAL.approvalLevel()).isTrue();
     }
 
+    // Finance managers run client demos; only Level 2 approves them, and only a Super Admin corrects a completed one
+    @Test
+    void clientDemosAreRunByFinanceAndCorrectedOnlyBySuperAdmins() {
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.FINANCE_MANAGER).permissions())
+                .contains(Permission.DEMO_VIEW, Permission.DEMO_MANAGE)
+                .doesNotContain(Permission.DEMO_APPROVE, Permission.DEMO_COMPLETED_EDIT);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.FINANCE_MANAGER).permissions())
+                .contains(Permission.DEMO_APPROVE)
+                .doesNotContain(Permission.DEMO_COMPLETED_EDIT);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).contains(Permission.DEMO_COMPLETED_EDIT);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions()).doesNotContain(Permission.DEMO_COMPLETED_EDIT);
+        for (Designation designation : Designation.values()) {
+            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
+                    .contains(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN);
+        }
+    }
+
     // Agents book store sales and see only their own; store and finance staff read every agent's sales
     @Test
     void salesAgentsSellAndSeeOnlyTheirOwnSales() {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.SALES_AGENT).permissions()).as(level.name())
                     .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
-                            Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN);
+                            Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN,
+                            Permission.DEMO_EXPENSE_RECORD_OWN);
         }
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
         for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,
@@ -184,6 +202,31 @@ class AccessCatalogTest {
             }
         }
         assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.USER_GUIDE_VIEW);
+    }
+
+    // Barcodes: store, warehouse and Super Admin staff ask for corrections, others who handle stock only trace units;
+    // only a Level 2 Super Admin changes a locked barcode or decides those requests
+    @Test
+    void onlyALevelTwoSuperAdminChangesLockedBarcodes() {
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                assertThat(UserAccess.of(level, designation).permissions().contains(Permission.BARCODE_APPROVE))
+                        .as(designation + " " + level)
+                        .isEqualTo(designation == Designation.SUPER_ADMIN && level == Role.ADMIN_L2);
+            }
+        }
+        for (Designation designation : List.of(Designation.STORE_MANAGER,
+                Designation.FULFILLMENT_SPECIALIST, Designation.SUPER_ADMIN)) {
+            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
+                    .contains(Permission.BARCODE_VIEW, Permission.BARCODE_REQUEST);
+        }
+        for (Designation designation : List.of(Designation.DEALER_MANAGER, Designation.CATALOG_SPECIALIST,
+                Designation.CUSTOMER_SUPPORT, Designation.FINANCIAL_AUDITOR)) {
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
+                    .contains(Permission.BARCODE_VIEW).doesNotContain(Permission.BARCODE_REQUEST);
+        }
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DELIVERY_RIDER).permissions()).doesNotContain(Permission.BARCODE_VIEW);
+        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.BARCODE_VIEW);
     }
 
     // Customer care and store managers look customers up and ask for corrections; only the Super Admin edits them

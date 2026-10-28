@@ -24,6 +24,7 @@ import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -109,6 +110,14 @@ public class GlobalExceptionHandler {
                                                                        HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Required path variable '" + exception.getVariableName() + "' is missing.",
                 ErrorCodes.MISSING_PATH_VARIABLE, List.of(ApiErrors.error(exception.getVariableName(), "Required")), request);
+    }
+
+    // A path variable or parameter of the wrong type, e.g. an unknown status in /v1/orders/status/{status}
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException exception,
+                                                                HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Invalid value for '" + exception.getName() + "'.",
+                ErrorCodes.MALFORMED_REQUEST, List.of(ApiErrors.error(exception.getName(), "Invalid value")), request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

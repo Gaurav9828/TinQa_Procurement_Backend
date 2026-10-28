@@ -6,6 +6,7 @@ import com.tinqa.procurement.common.validation.UrlInput;
 import com.tinqa.procurement.common.validation.ValidationPatterns;
 import com.tinqa.procurement.productapproval.enums.ProductApprovalRequestType;
 import com.tinqa.procurement.productapproval.enums.ProductApprovalStatus;
+import com.tinqa.procurement.stock.dto.ItemStockMovementDTOs;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -48,6 +49,11 @@ public class ProductApprovalDTOs {
         // UPDATE only: 1-100 entries
         @Size(max = 100, message = "Change summary cannot have more than 100 entries")
         private List<@Valid @NotNull(message = "Change summary cannot contain empty entries") ChangeSummaryEntry> changeSummary;
+
+        // Resubmission only: one per unit in stock (snapshot.stockQuantity), each with its barcode and the barcodes of
+        // the pieces fitted into it (a rejection gave the earlier ones back)
+        @Size(max = 1000, message = "At most 1000 product units can be resubmitted")
+        private List<ItemStockMovementDTOs.@Valid @NotNull(message = "Units cannot contain null entries") NewUnit> units;
     }
 
     @Data

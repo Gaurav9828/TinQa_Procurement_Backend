@@ -37,12 +37,22 @@ public interface StockService {
     List<StockDTOs.ItemAvailabilitySummary> getItemsAvailability(List<Long> itemIds, boolean inStockOnly);
 
     /**
-     * Takes the quantity out of the item's consumable stock, oldest arrival first.
+     * Takes the quantity out of the item's consumable stock that has no barcode (received before barcodes were
+     * recorded), oldest arrival first. Pieces with a barcode are only used by naming it: see {@link #consumeUnits}.
      * Throws INSUFFICIENT_STOCK (409) without changing anything when there is not enough.
      *
      * @return units taken from each stock entry, in consumption order
      */
     Map<Stock, BigDecimal> consumeItemStock(Item item, BigDecimal quantity, Long currentUserId);
+
+    /**
+     * Takes identified pieces (by their barcodes' stock entries, keyed by stock id) out of stock. Every entry must be
+     * consumable and hold them; throws INSUFFICIENT_ITEM_STOCK (409) without changing anything otherwise.
+     */
+    Map<Stock, BigDecimal> consumeUnits(Map<Long, BigDecimal> unitsByStockId, Long currentUserId);
+
+    /** Row-locks the item's consumable stock and returns its available units that have no barcode. */
+    BigDecimal lockUntrackedConsumableUnits(Long itemId);
 
     /** Puts previously consumed units back on their stock entries (keyed by stock id). */
     void restoreStock(Map<Long, BigDecimal> unitsByStockId, Long currentUserId);

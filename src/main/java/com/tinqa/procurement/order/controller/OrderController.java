@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 // Which admin level may make each status move is decided by the order workflow in the service
 @RestController
@@ -65,9 +67,14 @@ public class OrderController {
     }
 
     @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
+    // ?status=QUOTATION&status=PENDING lists only those statuses, oldest first (one call for the Approvals hub's queues)
     @GetMapping
-    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getAllOrders() {
-        return ApiResponses.ok(orderService.getAllOrders(), "Orders retrieved successfully");
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getAllOrders(
+            @RequestParam(name = "status", required = false) Set<OrderStatus> statuses) {
+        List<OrderDTOs.Response> orders = statuses == null || statuses.isEmpty()
+                ? orderService.getAllOrders()
+                : orderService.getOrdersByStatuses(statuses);
+        return ApiResponses.ok(orders, "Orders retrieved successfully");
     }
 
     @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)

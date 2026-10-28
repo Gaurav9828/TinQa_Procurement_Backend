@@ -13,8 +13,12 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
 
 COPY src ./src
 COPY quality ./quality
-# `package` also runs the quality gate (quality/QualityGate.java); add -Dquality.strict=true to fail on hard-coded secrets
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests \
+# `package` also runs the quality gate (quality/QualityGate.java), strict for release images: every warning fails.
+# Testcontainers cannot start inside `docker build`, so the tests, API budgets and coverage run in the
+# `mvn package` that must pass before the image is built (-Dquality.tests=external says so).
+# QUALITY_STRICT=false is for emergencies only, and shows in the build log.
+ARG QUALITY_STRICT=true
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests -Dquality.strict=${QUALITY_STRICT} -Dquality.tests=external \
  && cp target/*.jar /build/app.jar \
  && java -Djarmode=tools -jar /build/app.jar extract --layers --launcher --destination /build/extracted
 

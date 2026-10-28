@@ -4,6 +4,7 @@ import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.enums.OrderStatus;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -39,6 +40,9 @@ public interface OrderService {
     List<OrderDTOs.Response> getOrdersByDealerId(Long dealerId);
 
     List<OrderDTOs.Response> getOrdersByStatus(OrderStatus status);
+
+    /** Orders in any of the statuses, oldest first. */
+    List<OrderDTOs.Response> getOrdersByStatuses(Collection<OrderStatus> statuses);
 
     /** Delivered orders that have no stock entry yet: what the warehouse can still receive into stock. */
     List<OrderDTOs.Response> getOrdersAwaitingStock();

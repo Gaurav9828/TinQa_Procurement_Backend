@@ -34,6 +34,7 @@ public final class DesignationAccess {
                 CATALOG_READ, CATALOG_MANAGEMENT, CATALOG_APPROVAL,
                 COSTING_READ, COSTING_MANAGEMENT,
                 INVENTORY_READ, INVENTORY_APPROVAL,
+                BARCODE_READ, BARCODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
                 STORE_SALES_READ, STORE_SALES,
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
@@ -50,6 +51,7 @@ public final class DesignationAccess {
                 PROCUREMENT_ORDER_READ, PROCUREMENT_ORDER_MANAGEMENT, PROCUREMENT_ORDER_APPROVAL,
                 CATALOG_READ,
                 INVENTORY_READ,
+                BARCODE_READ,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT,
                 PAYMENT_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT));
@@ -58,11 +60,14 @@ public final class DesignationAccess {
                 CATALOG_READ, CATALOG_MANAGEMENT,
                 COSTING_READ, COSTING_MANAGEMENT,
                 INVENTORY_READ,
+                // Traces barcodes only: corrections are asked for by store and warehouse staff
+                BARCODE_READ,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT));
 
         grant(Designation.FULFILLMENT_SPECIALIST, EnumSet.of(
                 CATALOG_READ,
                 INVENTORY_READ, INVENTORY_MANAGEMENT,
+                BARCODE_READ, BARCODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
                 EXPENSE_READ, EXPENSE_MANAGEMENT));
 
@@ -81,10 +86,12 @@ public final class DesignationAccess {
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 CUSTOMER_ORDER_READ,
                 REFUND_READ, REFUND_MANAGEMENT,
-                CATALOG_READ));
+                CATALOG_READ,
+                BARCODE_READ));
 
         grant(Designation.FINANCIAL_AUDITOR, EnumSet.of(
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
+                BARCODE_READ,
                 STORE_SALES_READ,
                 PAYMENT_READ,
                 REFUND_READ,
@@ -93,11 +100,14 @@ public final class DesignationAccess {
                 DOCUMENT_READ,
                 EXPENSE_READ));
 
-        // Keeps the books: approves expenses (posting them to the company account), reads every money flow
+        // Keeps the books: approves expenses (posting them to the company account), reads every money flow, and runs
+        // client demos
         grant(Designation.FINANCE_MANAGER, EnumSet.of(
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
+                // Schedules client demos and keeps their costs; at Level 2 approves their quotations and completions
+                CLIENT_DEMO_READ, CLIENT_DEMO_MANAGEMENT, CLIENT_DEMO_APPROVAL,
                 STORE_SALES_READ,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,

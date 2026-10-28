@@ -40,6 +40,11 @@ public enum PermissionGroup {
     INVENTORY_MANAGEMENT("Inventory - receive and adjust stock", false),
     INVENTORY_APPROVAL("Inventory - approve stock entries", true),
 
+    // Barcodes: every piece of stock and every product unit, traceable to its batch, purchase order, dealer and product
+    BARCODE_READ("Barcodes - view and trace units", false),
+    BARCODE_MANAGEMENT("Barcodes - request corrections", false),
+    BARCODE_APPROVAL("Barcodes - correct barcodes and decide requests", true),
+
     // Storefront customer orders and delivery
     CUSTOMER_ORDER_READ("Customer orders - view", false),
     CUSTOMER_ORDER_MANAGEMENT("Customer orders - progress and override", false),
@@ -83,13 +88,18 @@ public enum PermissionGroup {
     EXPENSE_APPROVAL("Expenses - approve, reject and reverse", true),
     ANALYTICS("Analytics - dashboards", false),
 
+    // Client demos & meetings: visits to clients for demos and promotions, with their stay, food and travel costs
+    CLIENT_DEMO_READ("Client demos - view", false),
+    CLIENT_DEMO_MANAGEMENT("Client demos - schedule, record bills and submit", false),
+    CLIENT_DEMO_APPROVAL("Client demos - approve quotations, completions and corrections", true),
+
     // Platform
     SYSTEM_ADMINISTRATION("System - settings, integrations and audit logs", true),
     // The in-app user guide: every role's flows, downloadable as a PDF to hand to a colleague
     USER_GUIDE("User guide - view and share role guides", false),
 
-    // Every employee, whatever their designation: their own records (payslips)
-    SELF_SERVICE("Self service - own payslips", false),
+    // Every employee, whatever their designation: their own records (payslips, the client demos they attend)
+    SELF_SERVICE("Self service - own payslips and client demos", false),
 
     // External: dealers signed in to this web app with a dealer login. Everything in it is limited to the dealer's own
     // records on the server, whatever is asked for

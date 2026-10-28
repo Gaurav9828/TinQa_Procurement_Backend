@@ -20,6 +20,11 @@ logging:
     root: WARN
     com.tinqa.procurement: INFO
 
+# Per-endpoint SQL statistics for the quality gate's API budget check
+monitoring:
+  api:
+    report-file: target/quality/api-calls.tsv
+
 file:
   upload-dir: target/test-uploads
 

@@ -10,5 +10,7 @@ public enum DocumentReferenceType {
     AUCTION,
     ORDER,
     DELIVERY,
-    CLAIM
+    CLAIM,
+    // A client demo's hotel, food or travel invoice (client_demo_expense.document_id)
+    CLIENT_DEMO
 }

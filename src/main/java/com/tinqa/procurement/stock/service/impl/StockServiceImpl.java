@@ -1,11 +1,14 @@
 package com.tinqa.procurement.stock.service.impl;
 
+import com.tinqa.procurement.barcode.service.BarcodeCodes;
+import com.tinqa.procurement.barcode.service.BarcodeRegistry;
 import com.tinqa.procurement.common.constant.ErrorCodes;
 import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.common.exception.BadRequestException;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
+import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
 import com.tinqa.procurement.finance.enums.PurchasePostingReason;
@@ -33,6 +36,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +59,7 @@ public class StockServiceImpl implements StockService {
     private final StockMapper stockMapper;
     private final ReferenceNumberGenerator referenceNumbers;
     private final PurchasePostingRecorder purchasePostings;
+    private final BarcodeRegistry barcodeRegistry;
     private final Clock clock;
 
     @Override
@@ -81,6 +86,9 @@ public class StockServiceImpl implements StockService {
 
         ensureArrivalNotBeforeOrder(order, request.getDateOfArrival());
         ensureWithinOrderQuantity(order, null, request.getUnitsPassedTest().add(request.getDefectedUnits()), "unitsPassedTest");
+        // Every passed piece is labelled: one barcode each (defected units go back to the dealer and get none)
+        List<String> barcodes = barcodeRegistry.requireCodes(request.getBarcodes(),
+                wholeUnits(request.getUnitsPassedTest(), "unitsPassedTest"), "barcodes", "passed unit");
 
         Stock stock = Stock.builder()
                 .stockIdentityNumber(referenceNumbers.stockIdentityNumber())
@@ -101,9 +109,11 @@ public class StockServiceImpl implements StockService {
                 .build();
 
         Stock saved = stockRepository.save(stock);
+        // Locked once Admin L2 approves the entry
+        barcodeRegistry.registerStockUnits(saved, barcodes, "barcodes", BarcodeRegistry.Actor.of(submitter), null);
         // Nothing is bought yet: the purchase is booked when Admin L2 approves the entry (processAdminL2Approval)
         stockNotifier.approvalRequired(saved, order, submitter);
-        return stockMapper.toResponse(saved);
+        return toResponse(saved);
     }
 
     @Override
@@ -115,27 +125,36 @@ public class StockServiceImpl implements StockService {
         Stock stock = lockApprovedStock(id);
         ensureWithinOrderQuantity(order, stock.getId(),
                 stock.getUnitsPassedTest().add(stock.getDefectedUnits()).add(request.getQuantity()), "quantity");
+        List<String> barcodes = barcodeRegistry.requireCodes(request.getBarcodes(),
+                wholeUnits(request.getQuantity(), "quantity"), "barcodes", "added unit");
 
         // The units are recorded but held back from use, and not bought, until Admin L2 approves the change
         stock.setUnitsPassedTest(stock.getUnitsPassedTest().add(request.getQuantity()));
         stock.setUpdatedBy(submitter.getId());
         Stock saved = stockRepository.save(stock);
+        barcodeRegistry.registerStockUnits(saved, barcodes, "barcodes", BarcodeRegistry.Actor.of(submitter), request.getReason());
         stockNotifier.changeApprovalRequired(saved, order, submitter);
-        return stockMapper.toResponse(saved);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional
     public StockDTOs.Response reduceStockQuantity(Long id, StockDTOs.QuantityAdjustmentRequest request) {
-        Long currentUserId = currentUserProvider.getCurrentUserId();
+        User actor = currentUserProvider.getCurrentUser();
         Stock stock = lockApprovedStock(id);
         if (stock.getAvailableUnits().compareTo(request.getQuantity()) < 0) {
             throw new BadRequestException("Insufficient stock available. Current available: " + stock.getAvailableUnits());
         }
+        // The pieces taken out are named by barcode; only units received before barcodes existed can go unnamed
+        int quantity = wholeUnits(request.getQuantity(), "quantity");
+        int unnamed = Math.min(quantity, barcodeRegistry.untrackedUnits(stock));
+        List<String> barcodes = requireBetween(request.getBarcodes(), quantity - unnamed, quantity, "barcodes", "unit taken out");
 
         stock.setAvailableUnits(stock.getAvailableUnits().subtract(request.getQuantity()));
-        stock.setUpdatedBy(currentUserId);
-        return stockMapper.toResponse(stockRepository.save(stock));
+        stock.setUpdatedBy(actor.getId());
+        Stock saved = stockRepository.save(stock);
+        barcodeRegistry.removeStockUnits(saved, barcodes, "barcodes", BarcodeRegistry.Actor.of(actor), request.getReason());
+        return toResponse(saved);
     }
 
     @Override
@@ -152,7 +171,7 @@ public class StockServiceImpl implements StockService {
         Order order = lockOrder(findStock(id));
         Stock stock = stockRepository.findByIdForUpdate(id).orElseThrow(() -> stockNotFound(id));
         if (stock.hasChangeAwaitingApproval()) {
-            return stockMapper.toResponse(decideChange(order, stock, approver, decision, request.getRejectionReason()));
+            return toResponse(decideChange(order, stock, approver, decision, request.getRejectionReason()));
         }
         if (stock.getApprovalStatus() != ApprovalStatus.PENDING) {
             throw new BadRequestException("Stock request processed already with status: " + stock.getApprovalStatus());
@@ -165,15 +184,18 @@ public class StockServiceImpl implements StockService {
         if (decision == ApprovalStatus.REJECTED) {
             stock.setRejectionReason(request.getRejectionReason());
             stock.setAvailableUnits(BigDecimal.ZERO);
+            barcodeRegistry.rejectStockUnits(stock, BarcodeRegistry.Actor.of(approver), request.getRejectionReason());
         } else {
             stock.setApprovedUnitsPassed(stock.getUnitsPassedTest());
             stock.setApprovedDefectedUnits(stock.getDefectedUnits());
+            // The barcodes are locked from now on
+            barcodeRegistry.approveStockUnits(stock, BarcodeRegistry.Actor.of(approver));
         }
         Stock saved = stockRepository.save(stock);
         // Only now does finance move: the approved passed units are bought (a rejected entry buys nothing)
         purchasePostings.rebook(order, saved, decision == ApprovalStatus.REJECTED
                 ? PurchasePostingReason.STOCK_REJECTED : PurchasePostingReason.STOCK_APPROVED);
-        return stockMapper.toResponse(saved);
+        return toResponse(saved);
     }
 
     /**
@@ -189,6 +211,7 @@ public class StockServiceImpl implements StockService {
             stock.setApprovedDefectedUnits(stock.getDefectedUnits());
             stock.setApprovedBy(approver.getId());
             stock.setApprovedAt(LocalDateTime.now(clock));
+            barcodeRegistry.approveStockUnits(stock, BarcodeRegistry.Actor.of(approver));
             Stock saved = stockRepository.save(stock);
             purchasePostings.rebook(order, saved, PurchasePostingReason.STOCK_CHANGE_APPROVED);
             return saved;
@@ -197,6 +220,8 @@ public class StockServiceImpl implements StockService {
         stock.setAvailableUnits(stock.getAvailableUnits().add(takenOff));
         stock.setUnitsPassedTest(stock.getApprovedUnitsPassed());
         stock.setDefectedUnits(stock.getApprovedDefectedUnits());
+        // Added units' barcodes are voided, withdrawn ones come back into stock
+        barcodeRegistry.rejectStockUnits(stock, BarcodeRegistry.Actor.of(approver), reason);
         return stockRepository.save(stock);
     }
 
@@ -228,6 +253,7 @@ public class StockServiceImpl implements StockService {
         BigDecimal available = usableUnits(stock, request.getUnitsPassedTest()).subtract(alreadyUsed);
         boolean countsChanged = stock.getUnitsPassedTest().compareTo(request.getUnitsPassedTest()) != 0
                 || stock.getDefectedUnits().compareTo(request.getDefectedUnits()) != 0;
+        PassedUnitBarcodes barcodes = passedUnitBarcodes(stock, request);
 
         stock.setBatchNumber(request.getBatchNumber());
         stock.setUnitsPassedTest(request.getUnitsPassedTest());
@@ -243,23 +269,68 @@ public class StockServiceImpl implements StockService {
         }
         stock.setUpdatedBy(currentUserId);
         Stock saved = stockRepository.save(stock);
+        BarcodeRegistry.Actor actor = BarcodeRegistry.Actor.of(submitter);
+        barcodeRegistry.withdrawStockUnits(saved, barcodes.removed(), "removedBarcodes", actor, "Passed units corrected");
+        barcodeRegistry.registerStockUnits(saved, barcodes.added(), "addedBarcodes", actor, "Passed units corrected");
+        // Barcodes added or taken off an approved entry wait for L2 with its changed counts. Without one, swapping the
+        // barcodes of approved units is a correction of locked barcodes, which a Super Admin decides
+        if (saved.getApprovalStatus() == ApprovalStatus.APPROVED && !saved.hasChangeAwaitingApproval()
+                && barcodeRegistry.hasUnitsAwaitingDecision(saved)) {
+            throw ApiErrors.fieldError("addedBarcodes", "Approved barcodes can't be swapped here: ask for a barcode correction instead");
+        }
         // Finance is untouched: a new entry is booked when L2 approves it, a corrected approved one when L2 approves the change
         if (countsChanged && saved.hasChangeAwaitingApproval()) {
             stockNotifier.changeApprovalRequired(saved, order, submitter);
         }
-        return stockMapper.toResponse(saved);
+        return toResponse(saved);
+    }
+
+    /** Barcodes of the passed units an update adds and takes off, checked against the change in passed units. */
+    private record PassedUnitBarcodes(List<String> added, List<String> removed) {
+    }
+
+    private PassedUnitBarcodes passedUnitBarcodes(Stock stock, StockDTOs.UpdateRequest request) {
+        List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
+        List<String> added = BarcodeCodes.normalizeAll(request.getAddedBarcodes(), "addedBarcodes", errors);
+        List<String> removed = BarcodeCodes.normalizeAll(request.getRemovedBarcodes(), "removedBarcodes", errors);
+        ApiErrors.throwIfAny(errors);
+        if (stock.getApprovalStatus() == ApprovalStatus.REJECTED) {
+            // A rejected entry holds nothing usable; its barcodes were voided with it
+            if (!added.isEmpty() || !removed.isEmpty()) {
+                throw ApiErrors.fieldError("addedBarcodes", "A rejected stock entry has no barcodes to change");
+            }
+            return new PassedUnitBarcodes(List.of(), List.of());
+        }
+        int change = wholeUnits(request.getUnitsPassedTest(), "unitsPassedTest") - wholeUnits(stock.getUnitsPassedTest(), "unitsPassedTest");
+        if (change == 0 && added.isEmpty() && removed.isEmpty()) {
+            return new PassedUnitBarcodes(List.of(), List.of());
+        }
+        // Units taken off without naming a barcode: only possible for units that never had one
+        int unnamed = added.size() - removed.size() - change;
+        if (unnamed < 0) {
+            throw barcodesRequired("addedBarcodes", "Enter a barcode for each added passed unit: " + (-unnamed) + " more needed");
+        }
+        int untracked = barcodeRegistry.untrackedPassedUnits(stock);
+        if (stock.getApprovalStatus() == ApprovalStatus.APPROVED) {
+            untracked = Math.min(untracked, barcodeRegistry.untrackedUnits(stock));
+        }
+        if (unnamed > untracked) {
+            throw barcodesRequired("removedBarcodes", "Enter the barcodes of the passed units taken off: "
+                    + (unnamed - untracked) + " more needed");
+        }
+        return new PassedUnitBarcodes(added, removed);
     }
 
     @Override
     @Transactional(readOnly = true)
     public StockDTOs.Response getStockById(Long id) {
-        return stockMapper.toResponse(findStock(id));
+        return toResponse(findStock(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<StockDTOs.Response> getAllStocks() {
-        return stockRepository.findAll().stream().map(stockMapper::toResponse).toList();
+        return toResponses(stockRepository.findAll());
     }
 
     @Override
@@ -269,7 +340,7 @@ public class StockServiceImpl implements StockService {
         List<Stock> stocks = status == ApprovalStatus.PENDING
                 ? stockRepository.findAwaitingApproval(ApprovalStatus.PENDING, ApprovalStatus.APPROVED)
                 : stockRepository.findByApprovalStatus(status);
-        return stocks.stream().map(stockMapper::toResponse).toList();
+        return toResponses(stocks);
     }
 
     @Override
@@ -319,11 +390,15 @@ public class StockServiceImpl implements StockService {
     @Transactional
     public Map<Stock, BigDecimal> consumeItemStock(Item item, BigDecimal quantity, Long currentUserId) {
         List<Stock> stocks = stockRepository.findConsumableStockForUpdate(item.getId(), CONSUMABLE_APPROVAL, CONSUMABLE_ORDER_STATUS);
+        // Pieces with a barcode are only ever used by naming it (consumeUnits); this takes the ones without
+        Map<Long, BigDecimal> untracked = barcodeRegistry.untrackedUnits(stocks);
 
-        BigDecimal totalAvailable = sumAvailableUnits(stocks);
+        BigDecimal totalAvailable = stocks.stream().map(stock -> untracked.get(stock.getId())).reduce(BigDecimal.ZERO, BigDecimal::add);
         if (totalAvailable.compareTo(quantity) < 0) {
+            String barcoded = totalAvailable.compareTo(sumAvailableUnits(stocks)) < 0
+                    ? " without a barcode (pieces with one are used by scanning their barcode)" : "";
             throw new InsufficientStockException("Insufficient stock for item '" + item.getName() + "': requested "
-                    + Quantities.plain(quantity) + ", available " + Quantities.plain(totalAvailable),
+                    + Quantities.plain(quantity) + ", available " + Quantities.plain(totalAvailable) + barcoded,
                     item.getId(), quantity, totalAvailable);
         }
 
@@ -334,7 +409,10 @@ public class StockServiceImpl implements StockService {
             if (remaining.signum() == 0) {
                 break;
             }
-            BigDecimal taken = stock.getAvailableUnits().min(remaining);
+            BigDecimal taken = untracked.get(stock.getId()).min(remaining);
+            if (taken.signum() == 0) {
+                continue;
+            }
             stock.setAvailableUnits(stock.getAvailableUnits().subtract(taken));
             setUpdatedBy(stock, currentUserId);
             consumed.put(stock, taken);
@@ -342,6 +420,34 @@ public class StockServiceImpl implements StockService {
         }
 
         stockRepository.saveAll(consumed.keySet());
+        return consumed;
+    }
+
+    @Override
+    @Transactional
+    public Map<Stock, BigDecimal> consumeUnits(Map<Long, BigDecimal> unitsByStockId, Long currentUserId) {
+        Map<Stock, BigDecimal> consumed = new LinkedHashMap<>();
+        if (unitsByStockId.isEmpty()) {
+            return consumed;
+        }
+        List<Stock> stocks = stockRepository.findAllByIdForUpdate(unitsByStockId.keySet());
+        for (Stock stock : stocks) {
+            BigDecimal units = unitsByStockId.get(stock.getId());
+            boolean consumable = Boolean.TRUE.equals(stock.getIsActive()) && stock.getApprovalStatus() == CONSUMABLE_APPROVAL
+                    && stock.getOrder().getOrderStatus() == CONSUMABLE_ORDER_STATUS;
+            if (!consumable || stock.getAvailableUnits().compareTo(units) < 0) {
+                throw ApiErrors.conflict(ErrorCodes.INSUFFICIENT_ITEM_STOCK, "Stock " + stock.getStockIdentityNumber()
+                        + " can't supply the " + Quantities.plain(units) + " pieces scanned from it"
+                        + (consumable ? " (available " + Quantities.plain(stock.getAvailableUnits()) + ")" : ": it is not usable"));
+            }
+        }
+        for (Stock stock : stocks) {
+            BigDecimal units = unitsByStockId.get(stock.getId());
+            stock.setAvailableUnits(stock.getAvailableUnits().subtract(units));
+            setUpdatedBy(stock, currentUserId);
+            consumed.put(stock, units);
+        }
+        stockRepository.saveAll(stocks);
         return consumed;
     }
 
@@ -363,6 +469,13 @@ public class StockServiceImpl implements StockService {
     @Transactional
     public BigDecimal lockConsumableUnits(Long itemId) {
         return sumAvailableUnits(stockRepository.findConsumableStockForUpdate(itemId, CONSUMABLE_APPROVAL, CONSUMABLE_ORDER_STATUS));
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal lockUntrackedConsumableUnits(Long itemId) {
+        List<Stock> stocks = stockRepository.findConsumableStockForUpdate(itemId, CONSUMABLE_APPROVAL, CONSUMABLE_ORDER_STATUS);
+        return barcodeRegistry.untrackedUnits(stocks).values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override
@@ -440,6 +553,48 @@ public class StockServiceImpl implements StockService {
 
     private static ApiException orderNumberConflict(String errorCode, String message, String fieldMessage) {
         return new ApiException(message, errorCode, HttpStatus.CONFLICT, List.of(ApiErrors.error("orderNumber", fieldMessage)));
+    }
+
+    private StockDTOs.Response toResponse(Stock stock) {
+        return toResponses(List.of(stock)).getFirst();
+    }
+
+    // With each entry's available units that have no barcode yet (one query for the whole list)
+    private List<StockDTOs.Response> toResponses(List<Stock> stocks) {
+        Map<Long, BigDecimal> untracked = barcodeRegistry.untrackedUnits(stocks);
+        return stocks.stream().map(stock -> {
+            StockDTOs.Response response = stockMapper.toResponse(stock);
+            response.setUnitsWithoutBarcode(stock.getApprovalStatus() == ApprovalStatus.APPROVED
+                    ? untracked.getOrDefault(stock.getId(), BigDecimal.ZERO) : BigDecimal.ZERO);
+            return response;
+        }).toList();
+    }
+
+    // Pieces are labelled one by one, so a count that carries barcodes must be whole
+    private static int wholeUnits(BigDecimal units, String field) {
+        List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
+        int whole = BarcodeCodes.wholeUnits(units, field, errors);
+        ApiErrors.throwIfAny(errors);
+        return whole;
+    }
+
+    // Between min and max valid, distinct codes
+    private List<String> requireBetween(List<String> raw, int min, int max, String field, String what) {
+        if (min == max) {
+            return barcodeRegistry.requireCodes(raw, max, field, what);
+        }
+        List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
+        List<String> codes = BarcodeCodes.normalizeAll(raw, field, errors);
+        ApiErrors.throwIfAny(errors);
+        if (codes.size() < min || codes.size() > max) {
+            throw barcodesRequired(field, "Enter the barcodes of " + min + " to " + max + " " + what + "s ("
+                    + codes.size() + " entered); only pieces received before barcodes were recorded can go unnamed");
+        }
+        return codes;
+    }
+
+    private static ApiException barcodesRequired(String field, String message) {
+        return new ApiException(message, ErrorCodes.BARCODES_REQUIRED, HttpStatus.BAD_REQUEST, List.of(ApiErrors.error(field, message)));
     }
 
     // Service-to-service movements have no procurement user; keep the last user who touched the entry

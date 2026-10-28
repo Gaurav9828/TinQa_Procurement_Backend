@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
     List<Order> findByOrderStatus(OrderStatus orderStatus);
+
+    List<Order> findByOrderStatusInOrderByIdAsc(Collection<OrderStatus> orderStatuses);
     List<Order> findByDealerId(Long dealerId);
 
     // Orders in this status with no stock entry yet (any approval status counts, as stock creation allows one per order)

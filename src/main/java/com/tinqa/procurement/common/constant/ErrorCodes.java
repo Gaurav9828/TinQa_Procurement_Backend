@@ -94,6 +94,15 @@ public final class ErrorCodes {
     public static final String PRODUCT_NOT_APPROVED = "PRODUCT_NOT_APPROVED";
     public static final String PRODUCT_UPDATE_NOT_APPLIED = "PRODUCT_UPDATE_NOT_APPLIED";
 
+    // Barcodes
+    public static final String BARCODE_TAKEN = "BARCODE_TAKEN";
+    public static final String BARCODES_REQUIRED = "BARCODES_REQUIRED";
+    public static final String BARCODE_NOT_FOUND = "BARCODE_NOT_FOUND";
+    public static final String BARCODE_NOT_AVAILABLE = "BARCODE_NOT_AVAILABLE";
+    public static final String BARCODE_CORRECTION_PENDING = "BARCODE_CORRECTION_PENDING";
+    public static final String BARCODE_REQUEST_NOT_FOUND = "BARCODE_REQUEST_NOT_FOUND";
+    public static final String BARCODE_REQUEST_NOT_PENDING = "BARCODE_REQUEST_NOT_PENDING";
+
     // Documents
     public static final String INVALID_FILE = "INVALID_FILE";
 
@@ -104,6 +113,12 @@ public final class ErrorCodes {
     public static final String SALARY_NOT_PENDING = "SALARY_NOT_PENDING";
     public static final String SALARY_NOT_APPROVED = "SALARY_NOT_APPROVED";
     public static final String SALARY_SELF_DECISION = "SALARY_SELF_DECISION";
+
+    // Client demos
+    public static final String DEMO_NOT_EDITABLE = "DEMO_NOT_EDITABLE";
+    public static final String DEMO_WRONG_STATUS = "DEMO_WRONG_STATUS";
+    public static final String DEMO_SELF_DECISION = "DEMO_SELF_DECISION";
+    public static final String DEMO_NOT_ATTENDING = "DEMO_NOT_ATTENDING";
 
     private ErrorCodes() {
     }

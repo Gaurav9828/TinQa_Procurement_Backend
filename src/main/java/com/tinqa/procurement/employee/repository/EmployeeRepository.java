@@ -41,6 +41,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByUserId(Long userId);
 
+    List<Employee> findByUserIdIn(Collection<Long> userIds);
+
     // Another employee using any of these numbers as phone or alternate phone (excludeEmployeeId = -1 for none)
     @Query("""
             SELECT e FROM Employee e

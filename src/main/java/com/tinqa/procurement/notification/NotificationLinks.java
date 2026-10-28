@@ -10,6 +10,8 @@ public final class NotificationLinks {
     public static final String ORDERS = "/orders";
     public static final String PRODUCTS = "/products";
     public static final String STOCKS = "/item/stocks";
+    /** Barcode tracking: trace a unit, ask for corrections */
+    public static final String BARCODES = "/barcodes";
     public static final String EMPLOYEES = "/employees";
     public static final String DEALERS = "/dealers";
     /** Customer Management; a customer's own page is CUSTOMERS + "/" + their Ecommerce customer id */
@@ -22,6 +24,9 @@ public final class NotificationLinks {
     /** Salary payments by month (Payments & Chalans), and an employee's own payslips */
     public static final String PAYROLL = "/payments";
     public static final String MY_PAYSLIPS = "/my-payslips";
+    /** Client demos & meetings; one demo is CLIENT_DEMOS + "/" + its id. Attending staff open MY_DEMOS */
+    public static final String CLIENT_DEMOS = "/client-demos";
+    public static final String MY_DEMOS = "/my-demos";
 
     private NotificationLinks() {
     }

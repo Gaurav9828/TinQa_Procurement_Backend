@@ -19,7 +19,13 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
     @Query("SELECT i FROM Item i WHERE i.id = :id")
     Optional<Item> findByIdWithDetails(@Param("id") Long id);
 
-    boolean existsBySku(String sku);
+    // Highest running number among the SKUs that start with the prefix, e.g. 12 for TQ-20261028-0012
+    @Query(value = "SELECT COALESCE(MAX(CAST(substring(sku FROM char_length(:prefix) + 1) AS INTEGER)), 0) FROM items "
+            + "WHERE sku ~ ('^' || :prefix || '[0-9]+$')", nativeQuery = true)
+    int findHighestSkuNumber(@Param("prefix") String prefix);
+
+    @Query(value = "SELECT CAST(pg_advisory_xact_lock(hashtextextended('item-sku', 0)) AS text)", nativeQuery = true)
+    String lockSkuSequence();
 
     Page<Item> findByIsActiveTrue(Pageable pageable);
 

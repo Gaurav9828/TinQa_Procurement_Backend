@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.StreamSupport;
@@ -640,16 +641,24 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(item.get("categories").findValues("id").stream().map(JsonNode::asLong)).containsExactly(category);
             assertThat(item.get("warranties").get(0).get("title").asText()).isEqualTo("One Year");
 
-            JsonNode duplicate = post("/v1/admin/items", l1.token(), request, 400);
-            assertThat(duplicate.get("message").asText()).isEqualTo("SKU already exists: " + request.get("sku"));
+            // The SKU is always generated (TQ-yyyyMMdd-NNNN, numbered per day); a client-sent one is ignored
+            String sku = item.get("sku").asText();
+            String todayPrefix = "TQ-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-";
+            assertThat(sku).startsWith(todayPrefix).matches("TQ-\\d{8}-\\d{4,}");
+            request.put("sku", "MY-OWN-SKU");
+            String nextSku = data(post("/v1/admin/items", l1.token(), request, 201)).get("sku").asText();
+            assertThat(Integer.parseInt(nextSku.substring(todayPrefix.length())))
+                    .isEqualTo(Integer.parseInt(sku.substring(todayPrefix.length())) + 1);
 
             Map<String, Object> update = itemBody(category);
             update.put("name", "Updated Item");
+            update.put("sku", "CHANGED-SKU");
             update.put("warranties", List.of(
                     body("id", warrantyId, "warrantyType", "MANUFACTURER", "title", "Two Years", "durationValue", 2, "durationUnit", "YEARS"),
                     body("warrantyType", "SELLER", "title", "Seller Cover", "durationValue", 30, "durationUnit", "DAYS")));
             JsonNode updated = data(put("/v1/admin/items/" + id, l2a.token(), update, 200));
             assertThat(updated.get("name").asText()).isEqualTo("Updated Item");
+            assertThat(updated.get("sku").asText()).isEqualTo(sku);
             assertThat(updated.get("warranties").findValuesAsText("title")).containsExactlyInAnyOrder("Two Years", "Seller Cover");
 
             update.put("warranties", List.of(body("id", 999999, "warrantyType", "SELLER", "title", "Foreign",
@@ -768,6 +777,14 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(data(get("/v1/orders/status/DELIVERED", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
             assertThat(data(get("/v1/orders/dealer/" + dealer, l1.token(), 200))).hasSize(1);
             assertThat(data(get("/v1/orders", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
+            // Several statuses in one call (the Approvals hub's queues), with nothing from other statuses
+            long quotation = createOrder(dealer, item, "1").get("id").asLong();
+            JsonNode waiting = data(get("/v1/orders?status=QUOTATION&status=DELIVERED", l1.token(), 200));
+            assertThat(waiting.findValues("id").stream().map(JsonNode::asLong)).contains(id, quotation);
+            assertThat(waiting.findValuesAsText("orderStatus")).containsOnly("QUOTATION", "DELIVERED");
+            assertThat(data(get("/v1/orders?status=PENDING", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong))
+                    .doesNotContain(id, quotation);
+            get("/v1/orders?status=NOT_A_STATUS", l1.token(), 400);
             get("/v1/orders/dealer/999999", l1.token(), 404);
             get("/v1/orders/999999", l1.token(), 404);
         }
@@ -858,14 +875,15 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
 
             // Added units are recorded but held back from use until Admin L2 approves the change
-            JsonNode added = data(post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Recount"), 200));
+            JsonNode added = data(post("/v1/stocks/" + id + "/add-quantity", l1.token(),
+                    body("quantity", 1, "reason", "Recount", "barcodes", barcodes(1)), 200));
             assertThat(added.get("unitsPassedTest").decimalValue()).isEqualByComparingTo("9");
             assertThat(added.get("availableUnits").decimalValue()).isEqualByComparingTo("8");
             assertThat(added.get("heldUnits").decimalValue()).isEqualByComparingTo("1");
             assertThat(added.get("changeAwaitingApproval").asBoolean()).isTrue();
             assertThat(notificationTitles(l2a)).contains("Stock Change Approval Required");
             assertThat(data(get("/v1/stocks?status=PENDING", l2a.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
-            post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Recount"), 400);
+            post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Recount", "barcodes", barcodes(1)), 400);
             JsonNode approvedChange = data(post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200));
             assertThat(approvedChange.get("availableUnits").decimalValue()).isEqualByComparingTo("9");
             assertThat(approvedChange.get("changeAwaitingApproval").asBoolean()).isFalse();
@@ -873,7 +891,8 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             JsonNode insufficient = post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 100, "reason", "Loss"), 400);
             assertThat(insufficient.get("message").asText()).startsWith("Insufficient stock available");
-            JsonNode reduced = data(post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 2, "reason", "Loss"), 200));
+            JsonNode reduced = data(post("/v1/stocks/" + id + "/reduce-quantity", l1.token(),
+                    body("quantity", 2, "reason", "Loss", "barcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200));
             assertThat(reduced.get("availableUnits").decimalValue()).isEqualByComparingTo("7");
             assertThat(availableUnits(item)).isEqualByComparingTo("7");
         }
@@ -885,7 +904,8 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             JsonNode order = deliveredOrder(dealer, item, "10");
             long id = createStock(order.get("orderNumber").asText(), "9", "1").get("id").asLong();
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
-            post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 2, "reason", "Used"), 200);
+            post("/v1/stocks/" + id + "/reduce-quantity", l1.token(),
+                    body("quantity", 2, "reason", "Used", "barcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
 
             Map<String, Object> update = body("batchNumber", "BATCH-X1", "dealerId", dealer, "itemId", item,
                     "unitsPassedTest", 9, "defectedUnits", 1, "hasTested", true, "dateOfArrival", LocalDate.now().toString());
@@ -897,6 +917,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             update.put("dealerId", dealer);
             update.put("unitsPassedTest", 8);
+            update.put("removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 1));
             JsonNode response = put("/v1/stocks/" + id, l1.token(), update, 200);
             assertThat(response.get("message").asText()).isEqualTo("Stock updated successfully");
             assertThat(data(response).get("batchNumber").asText()).isEqualTo("BATCH-X1");
@@ -957,16 +978,17 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(approved.get("approvedUnitsPassed").decimalValue()).isEqualByComparingTo("8");
 
             // A change waits for L2: nothing moves until it is approved
-            post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Re-tested"), 200);
+            post("/v1/stocks/" + id + "/add-quantity", l1.token(), body("quantity", 1, "reason", "Re-tested", "barcodes", barcodes(1)), 200);
             assertThat(bookedAmounts(orderNumber)).containsExactly(new BigDecimal("850.00"));
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
             assertThat(bookedAmounts(orderNumber)).containsExactly(new BigDecimal("850.00"), new BigDecimal("100.00"));
 
             // Consuming stock is not a purchase change
-            post("/v1/stocks/" + id + "/reduce-quantity", l1.token(), body("quantity", 2, "reason", "Used"), 200);
+            post("/v1/stocks/" + id + "/reduce-quantity", l1.token(),
+                    body("quantity", 2, "reason", "Used", "barcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
             Map<String, Object> correction = body("batchNumber", "BATCH-F1", "dealerId", order.get("dealerId").asLong(),
                     "itemId", order.get("itemId").asLong(), "unitsPassedTest", 7, "defectedUnits", 3, "hasTested", true,
-                    "dateOfArrival", LocalDate.now().toString());
+                    "dateOfArrival", LocalDate.now().toString(), "removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2));
             JsonNode corrected = data(put("/v1/stocks/" + id, l1.token(), correction, 200));
             assertThat(corrected.get("availableUnits").decimalValue()).isEqualByComparingTo("5");
             assertThat(bookedAmounts(orderNumber)).hasSize(2);
@@ -976,6 +998,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             // A rejected change puts the approved counts back (units taken off come back into use) and books nothing
             correction.put("unitsPassedTest", 6);
+            correction.put("removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 1));
             assertThat(data(put("/v1/stocks/" + id, l1.token(), correction, 200)).get("availableUnits").decimalValue())
                     .isEqualByComparingTo("4");
             JsonNode restored = data(post("/v1/stocks/" + id + "/approval", l2a.token(),
@@ -1032,8 +1055,8 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             // Two units taken off and approved: 850.00 taxable, 76.50 each, so 18.00 each comes back
             put("/v1/stocks/" + id, l1.token(), body("batchNumber", "BATCH-G1", "dealerId", dealer,
-                    "itemId", item,
-                    "unitsPassedTest", 8, "defectedUnits", 2, "hasTested", true, "dateOfArrival", LocalDate.now().toString()), 200);
+                    "itemId", item, "unitsPassedTest", 8, "defectedUnits", 2, "hasTested", true,
+                    "dateOfArrival", LocalDate.now().toString(), "removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
             JsonNode less = purchaseEvents(orderNumber).getLast();
             assertThat(less.get("amount").decimalValue()).isEqualByComparingTo("-200.00");
@@ -1060,7 +1083,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void productsConsumeStockAndReturnItWhenDeleted() throws Exception {
-            long item = itemWithApprovedStock("10");
+            long item = itemWithStockWithoutBarcodes("10");
 
             JsonNode product = data(post("/v1/admin/products", l1.token(), body("itemId", item, "quantity", 3), 201));
             long id = product.get("id").asLong();
@@ -1120,7 +1143,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void movementsAreIdempotentReversibleAndCappedByWhatAReferenceHolds() throws Exception {
-            long item = itemWithApprovedStock("10");
+            long item = itemWithStockWithoutBarcodes("10");
             String reference = "product:" + next();
             String consume = randomUuid();
 
@@ -1179,7 +1202,9 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void submitRejectResubmitAndApprove() throws Exception {
-            long item = itemWithApprovedStock("10");
+            JsonNode stock = approvedStock("10");
+            long item = stock.get("itemId").asLong();
+            List<String> pieces = stockBarcodes(stock.get("id").asLong(), "IN_STOCK");
             long productId = next();
 
             JsonNode created = data(post("/v1/product-approvals", l1.token(), submission(productId, 0, List.of()), 201));
@@ -1199,14 +1224,27 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(notificationTitles(l1)).contains("Product rejected");
 
             List<Map<String, Object>> components = List.of(body("itemId", item, "itemName", "Board", "quantity", 1));
-            JsonNode resubmitted = data(post("/v1/product-approvals", l1.token(), submission(productId, 2, components), 201));
+            // A resubmission rebuilds the units in stock: each needs its barcode and its pieces' barcodes
+            JsonNode unscanned = post("/v1/product-approvals", l1.token(), submission(productId, 2, components), 400);
+            assertThat(unscanned.get("errors").findValuesAsText("field")).contains("units");
+            List<String> units = barcodes(2);
+            Map<String, Object> resubmission = submission(productId, 2, components);
+            resubmission.put("units", List.of(
+                    body("barcode", units.get(0), "parts", List.of(body("itemId", item, "barcodes", List.of(pieces.get(0))))),
+                    body("barcode", units.get(1), "parts", List.of(body("itemId", item, "barcodes", List.of(pieces.get(1)))))));
+            JsonNode resubmitted = data(post("/v1/product-approvals", l1.token(), resubmission, 201));
             assertThat(resubmitted.get("requestType").asText()).isEqualTo("RESUBMISSION");
             assertThat(availableUnits(item)).isEqualByComparingTo("8");
+            assertThat(barcodeStatus(units.get(0))).isEqualTo("PENDING");
+            assertThat(barcodeStatus(pieces.get(0))).isEqualTo("FITTED");
 
             JsonNode cancelled = data(patch("/v1/product-approvals/" + resubmitted.get("id").asLong() + "/decision", l2a.token(),
                     body("decision", "CANCELLED", "reason", "Discontinued"), 200));
             assertThat(cancelled.get("status").asText()).isEqualTo("CANCELLED");
             assertThat(availableUnits(item)).isEqualByComparingTo("10");
+            // The units' registrations are withdrawn and their pieces are back in stock
+            assertThat(barcodeStatus(units.get(0))).isEqualTo("VOID");
+            assertThat(barcodeStatus(pieces.get(0))).isEqualTo("IN_STOCK");
             JsonNode afterCancel = post("/v1/product-approvals", l1.token(), submission(productId, 0, List.of()), 409);
             assertThat(afterCancel.get("errorCode").asText()).isEqualTo("PRODUCT_APPROVAL_CANCELLED");
 

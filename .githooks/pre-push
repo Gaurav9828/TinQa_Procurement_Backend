@@ -1,0 +1,7 @@
+#!/bin/sh
+# Opt-in (once per clone): git config core.hooksPath .githooks
+# Every push is then built and tested first: all tests, API budgets and the quality gate (local mode).
+# UAT/production builds run every check again, strictly, whether or not this hook is used.
+set -e
+echo "pre-push: mvn package (tests, API budgets, quality gate)..."
+if [ -x ./mvnw ]; then ./mvnw -B -q package; else mvn -B -q package; fi

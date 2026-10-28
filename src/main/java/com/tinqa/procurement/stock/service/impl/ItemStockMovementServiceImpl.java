@@ -1,5 +1,7 @@
 package com.tinqa.procurement.stock.service.impl;
 
+import com.tinqa.procurement.barcode.service.BarcodeRegistry;
+import com.tinqa.procurement.barcode.service.ProductUnitMovements;
 import com.tinqa.procurement.common.constant.ErrorCodes;
 import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
@@ -43,6 +45,8 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
     private final StockRepository stockRepository;
     private final ItemRepository itemRepository;
     private final StockService stockService;
+    private final ProductUnitMovements productUnits;
+    private final BarcodeRegistry barcodeRegistry;
     private final Clock clock;
 
     @Override
@@ -53,8 +57,8 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             return replay(existing.get(), request);
         }
 
-        List<ItemStockMovementDTOs.Line> lines = request.getLines();
-        validateLines(lines);
+        List<ItemStockMovementDTOs.Line> lines = Optional.ofNullable(request.getLines()).orElse(List.of());
+        validateLines(lines, request.getProductUnits() != null);
         Map<Long, Item> items = loadItems(lines);
         movementRepository.lockReference(request.getSource(), request.getReference());
 
@@ -65,9 +69,13 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                 .status(ItemStockMovementStatus.APPLIED)
                 .performedBy(request.getPerformedBy())
                 .build());
+        // Product units built or taken out, with the pieces inside them: checked and locked before anything moves
+        ProductUnitMovements.Plan units = request.getProductUnits() == null ? null
+                : productUnits.prepare(request.getProductUnits(), request.getReference(), lines);
 
         // Check every line (locking the rows involved) before moving anything, so failures report all problems
         List<ApiResponse.ApiErrorItem> shortages = new ArrayList<>();
+        List<ApiResponse.ApiErrorItem> unnamed = new ArrayList<>();
         Map<Integer, List<ItemStockMovementAllocationRepository.StockNetUnits>> returnPlans = new HashMap<>();
         for (int i = 0; i < lines.size(); i++) {
             ItemStockMovementDTOs.Line line = lines.get(i);
@@ -75,31 +83,49 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             String field = "lines[" + i + "].quantity";
             if (line.getQuantity().signum() > 0) {
                 BigDecimal available = stockService.lockConsumableUnits(item.getId());
+                // Pieces with a barcode are taken by naming them; the rest must come from pieces that have none
+                BigDecimal rest = line.getQuantity().subtract(named(units == null ? Map.of() : units.fittedByStock(item.getId())));
                 if (available.compareTo(line.getQuantity()) < 0) {
                     shortages.add(ApiErrors.error(field, "Not enough stock for " + item.getName() + ": need "
                             + Quantities.plain(line.getQuantity()) + ", available " + Quantities.plain(available)));
+                } else if (rest.signum() > 0 && stockService.lockUntrackedConsumableUnits(item.getId()).compareTo(rest) < 0) {
+                    unnamed.add(ApiErrors.error(field, "Scan the barcode of every " + item.getName() + " piece used: "
+                            + Quantities.plain(rest) + " more needed"));
                 }
             } else {
                 // Returns are capped at what the reference still holds (e.g. after a rejected product released
                 // its stock), so they can never create stock out of nothing
-                returnPlans.put(i, allocationRepository.findHeldUnitsByStock(
-                        request.getSource(), request.getReference(), item.getId(), ItemStockMovementStatus.APPLIED));
+                returnPlans.put(i, new ArrayList<>(allocationRepository.findHeldUnitsByStock(
+                        request.getSource(), request.getReference(), item.getId(), ItemStockMovementStatus.APPLIED)));
             }
         }
         if (!shortages.isEmpty()) {
             throw new ApiException(ApiErrors.joinMessages(shortages), ErrorCodes.INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT, shortages);
+        }
+        if (!unnamed.isEmpty()) {
+            throw new ApiException(ApiErrors.joinMessages(unnamed), ErrorCodes.BARCODES_REQUIRED, HttpStatus.BAD_REQUEST, unnamed);
         }
 
         for (int i = 0; i < lines.size(); i++) {
             ItemStockMovementDTOs.Line line = lines.get(i);
             Item item = items.get(line.getItemId());
             if (line.getQuantity().signum() > 0) {
-                Map<Stock, BigDecimal> consumed = stockService.consumeItemStock(item, line.getQuantity(), null);
+                Map<Long, BigDecimal> scanned = units == null ? Map.of() : units.fittedByStock(item.getId());
+                Map<Stock, BigDecimal> consumed = new LinkedHashMap<>(stockService.consumeUnits(scanned, null));
+                BigDecimal rest = line.getQuantity().subtract(named(scanned));
+                if (rest.signum() > 0) {
+                    stockService.consumeItemStock(item, rest, null).forEach((stock, taken) -> consumed.merge(stock, taken, BigDecimal::add));
+                }
                 for (Map.Entry<Stock, BigDecimal> entry : consumed.entrySet()) {
                     addAllocation(movement, i, item.getId(), entry.getKey(), entry.getValue());
                 }
             } else {
-                Map<Long, BigDecimal> returned = planReturn(returnPlans.get(i), line.getQuantity().negate());
+                Map<Long, BigDecimal> returned = new LinkedHashMap<>(returnNamed(returnPlans.get(i),
+                        units == null ? Map.of() : units.returnedByStock(item.getId()), request.getReference()));
+                BigDecimal rest = line.getQuantity().negate().subtract(named(returned));
+                if (rest.signum() > 0) {
+                    planReturn(returnPlans.get(i), rest).forEach((stockId, back) -> returned.merge(stockId, back, BigDecimal::add));
+                }
                 stockService.restoreStock(returned, null);
                 for (Map.Entry<Long, BigDecimal> entry : returned.entrySet()) {
                     addAllocation(movement, i, item.getId(), stockRepository.getReferenceById(entry.getKey()), entry.getValue().negate());
@@ -107,7 +133,57 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             }
         }
 
+        if (units != null) {
+            productUnits.apply(units, request.getMovementId(), request.getPerformedBy());
+        }
         return toResponse(movementRepository.save(movement));
+    }
+
+    private static BigDecimal named(Map<Long, BigDecimal> unitsByStock) {
+        return unitsByStock.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Named pieces go back to the stock entries they came from. Takes them off {@code held} (what the reference holds
+     * per entry), so pieces returned without a name are planned from the rest.
+     */
+    private static Map<Long, BigDecimal> returnNamed(List<ItemStockMovementAllocationRepository.StockNetUnits> held,
+                                                     Map<Long, BigDecimal> named, String reference) {
+        if (named.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, BigDecimal> heldByStock = new HashMap<>();
+        held.forEach(stock -> heldByStock.put(stock.getStockId(), stock.getNetUnits()));
+        named.forEach((stockId, units) -> {
+            if (heldByStock.getOrDefault(stockId, BigDecimal.ZERO).compareTo(units) < 0) {
+                throw new ApiException("Pieces returned from " + reference + " were not taken from stock entry " + stockId
+                        + " by it", ErrorCodes.INVALID_MOVEMENT_LINES, HttpStatus.BAD_REQUEST);
+            }
+        });
+        held.replaceAll(stock -> {
+            BigDecimal left = stock.getNetUnits().subtract(named.getOrDefault(stock.getStockId(), BigDecimal.ZERO));
+            return new HeldUnits(stock.getStockId(), left, stock.getLastAllocationId());
+        });
+        held.removeIf(stock -> stock.getNetUnits().signum() <= 0);
+        return named;
+    }
+
+    private record HeldUnits(Long stockId, BigDecimal netUnits, Long lastAllocationId)
+            implements ItemStockMovementAllocationRepository.StockNetUnits {
+        @Override
+        public Long getStockId() {
+            return stockId;
+        }
+
+        @Override
+        public BigDecimal getNetUnits() {
+            return netUnits;
+        }
+
+        @Override
+        public Long getLastAllocationId() {
+            return lastAllocationId;
+        }
     }
 
     @Override
@@ -164,8 +240,11 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
             }
         }
 
+        // Barcodes it changed must be as it left them; it undoes them too
+        barcodeRegistry.requireReversible(movementId);
         stockService.takeBackStock(returnedByStock, null);
         stockService.restoreStock(consumedByStock, null);
+        barcodeRegistry.reverse(movementId, BarcodeRegistry.Actor.service(details.getPerformedBy()));
 
         movement.setStatus(ItemStockMovementStatus.REVERSED);
         movement.setReversedAt(LocalDateTime.now(clock));
@@ -188,9 +267,64 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ItemStockMovementDTOs.ProductHoldings productHoldings(String source, Long productId) {
+        Map<Long, BigDecimal> pieces = new LinkedHashMap<>();
+        allocationRepository.findHeldUnitsByItem(source, productReference(productId), ItemStockMovementStatus.APPLIED)
+                .forEach(held -> pieces.put(held.getItemId(), held.getNetUnits()));
+        return ItemStockMovementDTOs.ProductHoldings.builder()
+                .heldUnitCodes(productUnits.readHeldUnitCodes(productId))
+                .heldPiecesByItem(pieces)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ItemStockMovementDTOs.MovementResponse releaseProduct(String source, Long productId, String performedBy) {
+        String reference = productReference(productId);
+        movementRepository.lockReference(source, reference);
+        // Every unit still held is withdrawn, and the pieces inside go back to the stock entries they came from
+        List<String> held = productUnits.heldUnitCodes(productId);
+        ItemStockMovementDTOs.ProductUnitChange units = ItemStockMovementDTOs.ProductUnitChange.builder()
+                .productId(productId)
+                .stockBefore(held.size())
+                .stockAfter(0)
+                .removed(held)
+                .returnParts(true)
+                .withdrawRegistration(true)
+                .build();
+        return reconcileReference(source, reference, Map.of(), performedBy, held.isEmpty() ? null : units);
+    }
+
+    @Override
+    @Transactional
+    public ItemStockMovementDTOs.MovementResponse reserveProduct(String source, Long productId, String productTitle,
+                                                                 Map<Long, BigDecimal> targetUnitsByItem,
+                                                                 List<ItemStockMovementDTOs.NewUnit> newUnits, String performedBy) {
+        String reference = productReference(productId);
+        movementRepository.lockReference(source, reference);
+        int held = productUnits.heldUnitCodes(productId).size();
+        ItemStockMovementDTOs.ProductUnitChange units = ItemStockMovementDTOs.ProductUnitChange.builder()
+                .productId(productId)
+                .productTitle(productTitle)
+                .stockBefore(held)
+                .stockAfter(held + newUnits.size())
+                .awaitingApproval(true)
+                .added(newUnits)
+                .build();
+        return reconcileReference(source, reference, targetUnitsByItem, performedBy, newUnits.isEmpty() ? null : units);
+    }
+
+    @Override
     @Transactional
     public ItemStockMovementDTOs.MovementResponse reconcileReference(String source, String reference,
                                                                      Map<Long, BigDecimal> targetUnitsByItem, String performedBy) {
+        return reconcileReference(source, reference, targetUnitsByItem, performedBy, null);
+    }
+
+    private ItemStockMovementDTOs.MovementResponse reconcileReference(String source, String reference,
+                                                                      Map<Long, BigDecimal> targetUnitsByItem, String performedBy,
+                                                                      ItemStockMovementDTOs.ProductUnitChange units) {
         movementRepository.lockReference(source, reference);
         Map<Long, BigDecimal> held = allocationRepository.findHeldUnitsByItem(source, reference, ItemStockMovementStatus.APPLIED)
                 .stream()
@@ -207,7 +341,7 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                 lines.add(ItemStockMovementDTOs.Line.builder().itemId(itemId).quantity(delta).build());
             }
         }
-        if (lines.isEmpty()) {
+        if (lines.isEmpty() && units == null) {
             return null;
         }
         return applyMovement(ItemStockMovementDTOs.MovementRequest.builder()
@@ -216,7 +350,12 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
                 .reference(reference)
                 .lines(lines)
                 .performedBy(performedBy)
+                .productUnits(units)
                 .build());
+    }
+
+    private static String productReference(Long productId) {
+        return "product:" + productId;
     }
 
     private ItemStockMovementDTOs.MovementResponse replay(ItemStockMovement existing, ItemStockMovementDTOs.MovementRequest request) {
@@ -239,8 +378,11 @@ public class ItemStockMovementServiceImpl implements ItemStockMovementService {
         }
     }
 
-    private void validateLines(List<ItemStockMovementDTOs.Line> lines) {
+    private void validateLines(List<ItemStockMovementDTOs.Line> lines, boolean movesProductUnits) {
         List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
+        if (lines.isEmpty() && !movesProductUnits) {
+            errors.add(ApiErrors.error("lines", "At least one line is required"));
+        }
         Set<Long> itemIds = new HashSet<>();
         for (int i = 0; i < lines.size(); i++) {
             ItemStockMovementDTOs.Line line = lines.get(i);

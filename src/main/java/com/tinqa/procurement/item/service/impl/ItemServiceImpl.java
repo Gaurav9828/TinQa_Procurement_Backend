@@ -13,6 +13,7 @@ import com.tinqa.procurement.item.entity.ItemWarranty;
 import com.tinqa.procurement.item.mapper.ItemMapper;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.item.service.ItemService;
+import com.tinqa.procurement.item.service.ItemSkuGenerator;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -42,13 +43,11 @@ public class ItemServiceImpl implements ItemService {
     private final CategoryService categoryService;
     private final CurrentUserProvider currentUserProvider;
     private final ItemMapper itemMapper;
+    private final ItemSkuGenerator itemSkuGenerator;
 
     @Override
     @Transactional
     public ItemDTOs.Response createItem(ItemDTOs.CreateRequest request) {
-        if (itemRepository.existsBySku(request.getSku())) {
-            throw new BadRequestException("SKU already exists: " + request.getSku());
-        }
         List<Category> categories = categoryService.getCategories(request.getCategoryIds(), CategoryType.ITEM);
         Long currentUserId = currentUserProvider.getCurrentUserId();
 
@@ -56,7 +55,7 @@ public class ItemServiceImpl implements ItemService {
                 .categories(new HashSet<>(categories))
                 .name(request.getName())
                 .brand(request.getBrand())
-                .sku(request.getSku())
+                .sku(itemSkuGenerator.next())
                 .unitOfMeasure(request.getUnitOfMeasure())
                 .mrp(request.getMrp())
                 .countryOfOrigin(request.getCountryOfOrigin())

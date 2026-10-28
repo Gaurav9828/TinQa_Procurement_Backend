@@ -15,6 +15,9 @@ public final class AppConstants {
     public static final String BATCH_NUMBER_PREFIX = "BAT";
     public static final String PRODUCT_ID_PREFIX = "PRD";
     public static final String EMPLOYEE_CODE_FORMAT = "EMP-%04d";
+    // Item SKUs: TQ-<yyyyMMdd>-<running number of the day>, e.g. TQ-20261028-0001
+    public static final String SKU_PREFIX = "TQ";
+    public static final String SKU_DAILY_NUMBER_FORMAT = "%04d";
 
     // Employees cannot join before this age
     public static final int MINIMUM_EMPLOYEE_AGE = 18;

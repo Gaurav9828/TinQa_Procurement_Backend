@@ -40,6 +40,11 @@ public class ReferenceNumberGenerator {
         return String.format("%s-%s-%d-%s", AppConstants.BATCH_NUMBER_PREFIX, date, orderId, randomSuffix(5));
     }
 
+    // TQ-20261028- : today's SKU prefix; the item's running number for the day follows it
+    public String skuPrefix() {
+        return AppConstants.SKU_PREFIX + "-" + LocalDate.now(clock).format(DateTimeFormatter.BASIC_ISO_DATE) + "-";
+    }
+
     private String timestamped(String prefix, int suffixLength) {
         return prefix + "-" + clock.millis() + "-" + randomSuffix(suffixLength);
     }

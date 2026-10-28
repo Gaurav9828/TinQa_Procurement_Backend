@@ -74,6 +74,13 @@ public enum Permission {
     STOREFRONT_STOCK_UPDATE(INVENTORY_MANAGEMENT, "Set storefront product stock"),
     STOCK_APPROVE(INVENTORY_APPROVAL, "Approve or reject stock entries"),
 
+    // Barcodes (/v1/barcodes): one on every piece of item stock and every product unit, entered when stock is received
+    // (STOCK_CREATE / STOCK_ADJUST) or a product unit is built (PRODUCT_CREATE / PRODUCT_UPDATE), and locked once that
+    // is approved. Afterwards only a Super Admin changes them; anyone else asks
+    BARCODE_VIEW(BARCODE_READ, "View barcodes and trace a unit to its batch, purchase order, dealer and product"),
+    BARCODE_REQUEST(BARCODE_MANAGEMENT, "Ask for a barcode correction, or for barcodes on stock received without them"),
+    BARCODE_APPROVE(BARCODE_APPROVAL, "Correct locked barcodes and decide barcode requests"),
+
     // Storefront customer orders (Ecommerce /api/admin/orders, /api/orders/{n}/status|tracking)
     CUSTOMER_ORDER_VIEW(CUSTOMER_ORDER_READ, "View customer orders and their tracking"),
     CUSTOMER_ORDER_UPDATE_STATUS(CUSTOMER_ORDER_MANAGEMENT, "Change a customer order's status"),
@@ -138,17 +145,30 @@ public enum Permission {
     EXPENSE_APPROVE(EXPENSE_APPROVAL, "Approve, reject or reverse expenses (posts them to the company account)"),
     ANALYTICS_VIEW(ANALYTICS, "View analytics dashboards"),
 
+    // Client demos & meetings (/v1/admin/client-demos): a visit to a client is planned as a cost estimate (the
+    // quotation), approved by someone else, its bills recorded while it runs, and its completion approved too; only
+    // then is the total booked to the company account. A completed demo changes only through a Super Admin
+    // (DEMO_COMPLETED_EDIT), and the correction is approved again
+    DEMO_VIEW(CLIENT_DEMO_READ, "View every client demo and meeting, its bills and invoices"),
+    DEMO_MANAGE(CLIENT_DEMO_MANAGEMENT, "Schedule client demos, record their bills and send quotations and completions for approval"),
+    DEMO_APPROVE(CLIENT_DEMO_APPROVAL, "Approve or reject demo quotations, completions and corrections (books the costs)"),
+
     // Platform
     // Ecommerce /api/admin/settings/email: the mail server and the address customer emails are sent from
     SYSTEM_SETTINGS_MANAGE(SYSTEM_ADMINISTRATION, "Manage global settings: email delivery, payment gateways and shipping rates"),
     AUDIT_LOG_VIEW(SYSTEM_ADMINISTRATION, "View audit logs"),
     // Ecommerce DELETE /api/admin/company/profile/drafts/{id}: anyone's draft, not only your own (COMPANY_PROFILE_EDIT)
     COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),
+    // /v1/admin/client-demos/{id}/reopen and the edits of a reopened demo: correcting a completed (booked) demo
+    DEMO_COMPLETED_EDIT(SYSTEM_ADMINISTRATION, "Reopen and correct completed client demos (the correction is approved again)"),
     // Web UI only (static content, no endpoint): the user guide page and its per-role PDF downloads
     USER_GUIDE_VIEW(USER_GUIDE, "View the user guide and download role guides as PDF"),
 
     // Every employee (/v1/payroll/my-payslips): their own payslips of the months whose salary was confirmed
     PAYSLIP_VIEW_OWN(SELF_SERVICE, "View and download your own payslips"),
+    // /v1/client-demos/mine: the demos the employee is tagged on as attending staff, and the bills they pay on them
+    DEMO_VIEW_OWN(SELF_SERVICE, "View the client demos you attend"),
+    DEMO_EXPENSE_RECORD_OWN(SELF_SERVICE, "Record your hotel, food, travel and other bills on demos you attend"),
 
     // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
     DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),

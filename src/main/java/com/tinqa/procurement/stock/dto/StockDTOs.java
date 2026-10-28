@@ -1,5 +1,6 @@
 package com.tinqa.procurement.stock.dto;
 
+import com.tinqa.procurement.barcode.service.BarcodeCodes;
 import com.tinqa.procurement.common.validation.*;
 import com.tinqa.procurement.common.enums.ApprovalStatus;
 import jakarta.validation.constraints.*;
@@ -46,6 +47,10 @@ public class StockDTOs {
 
         @SafeJsonMap
         private Map<String, Object> additionalInfo;
+
+        // One barcode for each passed unit, entered or scanned when the stock is received
+        @Size(max = BarcodeCodes.MAX_CODES, message = "At most " + BarcodeCodes.MAX_CODES + " barcodes can be sent at once")
+        private List<String> barcodes;
     }
 
     @Data
@@ -61,6 +66,10 @@ public class StockDTOs {
         @NotBlank(message = "Reason is required")
         @Size(max = 500, message = "Reason cannot exceed 500 characters")
         private String reason;
+
+        // Adding: a barcode for each added unit. Reducing: the barcodes of the units taken out
+        @Size(max = BarcodeCodes.MAX_CODES, message = "At most " + BarcodeCodes.MAX_CODES + " barcodes can be sent at once")
+        private List<String> barcodes;
     }
 
     @Data
@@ -113,6 +122,8 @@ public class StockDTOs {
         private BigDecimal heldUnits;
         // Value of the approved passed units booked as bought from the dealer (before GST)
         private BigDecimal bookedPurchaseValue;
+        // Available units without a barcode (received before barcodes were recorded): a Super Admin assigns them
+        private BigDecimal unitsWithoutBarcode;
     }
 
     @Data
@@ -154,6 +165,13 @@ public class StockDTOs {
         private Map<String, Object> additionalInfo;
 
         private Boolean isActive;
+
+        // When passed units change: barcodes of the units added, and of the units taken off
+        @Size(max = BarcodeCodes.MAX_CODES, message = "At most " + BarcodeCodes.MAX_CODES + " added barcodes can be sent at once")
+        private List<String> addedBarcodes;
+
+        @Size(max = BarcodeCodes.MAX_CODES, message = "At most " + BarcodeCodes.MAX_CODES + " removed barcodes can be sent at once")
+        private List<String> removedBarcodes;
     }
 
     @Data

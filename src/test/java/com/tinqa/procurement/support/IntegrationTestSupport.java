@@ -316,7 +316,7 @@ public abstract class IntegrationTestSupport {
     }
 
     protected Map<String, Object> itemBody(long... categoryIds) {
-        return body("categoryIds", Arrays.stream(categoryIds).boxed().toList(), "name", "Item " + next(), "sku", uniq("SKU-"), "unitOfMeasure", "PCS",
+        return body("categoryIds", Arrays.stream(categoryIds).boxed().toList(), "name", "Item " + next(), "unitOfMeasure", "PCS",
                 "mrp", new BigDecimal("1500.00"), "countryOfOrigin", "India",
                 "warranties", List.of(body("warrantyType", "MANUFACTURER", "title", "One Year",
                         "durationValue", 12, "durationUnit", "MONTHS")));
@@ -382,19 +382,59 @@ public abstract class IntegrationTestSupport {
     }
 
     protected JsonNode createStock(String orderNumber, String passed, String defected) throws Exception {
+        return createStock(orderNumber, passed, defected, barcodes(new BigDecimal(passed).intValueExact()));
+    }
+
+    // Every passed unit is received with its own barcode
+    protected JsonNode createStock(String orderNumber, String passed, String defected, List<String> barcodes) throws Exception {
         return data(post("/v1/stocks", l1.token(), body("orderNumber", orderNumber,
                 "unitsPassedTest", new BigDecimal(passed), "defectedUnits", new BigDecimal(defected),
-                "hasTested", true, "dateOfArrival", LocalDate.now().toString()), 201));
+                "hasTested", true, "dateOfArrival", LocalDate.now().toString(), "barcodes", barcodes), 201));
+    }
+
+    /** Barcodes no other test uses. */
+    protected static List<String> barcodes(int count) {
+        List<String> codes = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            codes.add(String.format("TQ%08d", next()));
+        }
+        return codes;
+    }
+
+    /** The barcodes of a stock entry's units with the status, oldest first. */
+    protected List<String> stockBarcodes(long stockId, String status) {
+        return jdbc.queryForList("SELECT code FROM barcodes WHERE stock_id = ? AND status = ? ORDER BY id", String.class,
+                stockId, status);
+    }
+
+    protected String barcodeStatus(String code) {
+        return jdbc.queryForObject("SELECT status FROM barcodes WHERE code = ? ORDER BY (status = 'VOID'), id DESC LIMIT 1",
+                String.class, code);
     }
 
     /** An item with one approved stock entry holding {@code units} consumable units. */
     protected long itemWithApprovedStock(String units) throws Exception {
+        return approvedStock(units).get("itemId").asLong();
+    }
+
+    /** One approved stock entry of a new item holding {@code units} consumable units, each with a barcode. */
+    protected JsonNode approvedStock(String units) throws Exception {
         long itemId = createItem();
         long dealerId = createDealer();
         String orderNumber = deliveredOrder(dealerId, itemId, units).get("orderNumber").asText();
         long stockId = createStock(orderNumber, units, "0").get("id").asLong();
-        post("/v1/stocks/" + stockId + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
-        return itemId;
+        return data(post("/v1/stocks/" + stockId + "/approval", l2a.token(), body("decision", "APPROVED"), 200));
+    }
+
+    /**
+     * An item whose approved stock was received before barcodes were recorded: its units carry none, so they are used
+     * without naming one.
+     */
+    protected long itemWithStockWithoutBarcodes(String units) throws Exception {
+        long stockId = approvedStock(units).get("id").asLong();
+        jdbc.update("DELETE FROM barcode_events WHERE barcode_id IN (SELECT id FROM barcodes WHERE stock_id = ?)", stockId);
+        jdbc.update("DELETE FROM barcodes WHERE stock_id = ?", stockId);
+        return jdbc.queryForObject("SELECT item_id FROM stock WHERE id = ?", Long.class, stockId);
     }
 
     protected BigDecimal availableUnits(long itemId) throws Exception {

@@ -7,12 +7,18 @@
  *   3. Secret scan              (passwords, keys, tokens in code and config)
  *   4. Dependency vulnerabilities from OSV.dev                           target/quality/dependencies.txt
  *   5. Tests + line coverage    (Surefire + JaCoCo)
+ *   6. API budgets              (per endpoint, from the test suite: SQL statements per call, N+1 queries, crashes)
+ *                                                                         target/quality/api-calls.tsv
+ *   7. New-code coverage        (the lines changed since the base branch that the tests run)
  *
- * Like Sonar's "new code" mode, existing SpotBugs/PMD findings live in quality/baseline.txt and only NEW
- * findings fail the build. Hard-coded secrets are never baselined: they are always reported, but only fail
- * the build in strict mode (-Dquality.strict=true), so local development keeps working.
+ * Like Sonar's "new code" mode, existing SpotBugs/PMD/API findings live in quality/baseline.txt and only NEW
+ * findings count. Local builds report new warnings, hard-coded secrets, low new-code coverage and skipped checks as
+ * warnings so development keeps moving; strict builds (-Dquality.strict=true: UAT and production) fail on every one.
  *
- * Flags: --strict=true|false   --update-baseline=true|false   --skip-tests=true|false   Report: target/quality/index.html
+ * Flags: --strict=true|false   --update-baseline=true|false   --skip-tests=true|false
+ *        --tests=run|external  (external: the tests ran in an earlier build, e.g. before a docker image build)
+ *        --build-start=<ISO instant>  (when the Maven build started; reports older than that are ignored)
+ * Report: target/quality/index.html
  */
 
 import java.io.IOException;
@@ -67,6 +73,8 @@ public class QualityGate {
         boolean strict = Boolean.parseBoolean(flags.getOrDefault("strict", "false"));
         boolean updateBaseline = Boolean.parseBoolean(flags.getOrDefault("update-baseline", "false"));
         boolean testsSkipped = Boolean.parseBoolean(flags.getOrDefault("skip-tests", "false"));
+        boolean testsExternal = "external".equals(flags.getOrDefault("tests", "run"));
+        if (flags.containsKey("build-start")) BUILD_START = Instant.parse(flags.get("build-start")).minusSeconds(5);
         try (var in = Files.newBufferedReader(ROOT.resolve("quality/quality-gate.properties"))) {
             CONFIG.load(in);
         }
@@ -81,6 +89,10 @@ public class QualityGate {
         List<Issue> secrets = secrets();
         issues.addAll(secrets);
         System.out.println(secrets.isEmpty() ? green("clean") : yellow(secrets.size() + " finding(s)"));
+        step("API budgets (SQL per call, N+1, crashes)");
+        List<Issue> apiIssues = testsSkipped ? List.of() : apiBudgets();
+        issues.addAll(apiIssues);
+        System.out.println(testsSkipped ? yellow("skipped") : apiIssues.isEmpty() ? green("within budget") : yellow(apiIssues.size() + " finding(s)"));
         issues.sort(Comparator.comparing(Issue::file).thenComparingInt(Issue::line));
 
         if (updateBaseline) {
@@ -105,6 +117,11 @@ public class QualityGate {
         Double coverage = testsSkipped ? null : jacocoLineCoverage();
         System.out.println(tests[0] == 0 ? yellow("no test results (tests skipped?)")
                 : (tests[0] - tests[1]) + "/" + tests[0] + " passed, coverage " + (coverage == null ? "n/a" : coverage + "%"));
+        step("New-code coverage");
+        NewCode newCode = testsSkipped ? null : newCodeCoverage();
+        System.out.println(newCode == null ? yellow("n/a (no git history or no test run)")
+                : newCode.percent() == null ? green("no changed executable lines")
+                : newCode.covered() + "/" + newCode.total() + " changed lines tested (" + newCode.percent() + "%) since " + newCode.base());
 
         // ---------------------------------------------------------------- verdict
         Map<String, Integer> remaining = new HashMap<>(readBaseline());
@@ -118,6 +135,7 @@ public class QualityGate {
         int fixed = remaining.values().stream().mapToInt(Integer::intValue).sum();
 
         Set<String> failOn = Set.of(CONFIG.getProperty("dependencies.failOn", "critical,high").split(","));
+        double minNewCode = Double.parseDouble(CONFIG.getProperty("coverage.minNewCodePercent", "0"));
         List<Vuln> blockingVulns = vulns.stream().filter(v -> failOn.contains(v.severity()) && v.acceptedBecause() == null).toList();
         double minCoverage = Double.parseDouble(CONFIG.getProperty("coverage.minLinePercent", "0"));
 
@@ -130,18 +148,29 @@ public class QualityGate {
         if (!blockingVulns.isEmpty()) reasons.add(blockingVulns.size() + " unaccepted " + String.join("/", failOn) + " dependency vulnerability(ies)");
         if (tests[1] > 0) reasons.add(tests[1] + " failing test(s)");
         if (coverage != null && coverage < minCoverage) reasons.add("line coverage " + coverage + "% is below " + minCoverage + "%");
-        if (!strict && !secretErrors.isEmpty())
-            warnings.add(secretErrors.size() + " hard-coded secret(s) in shared/production code or config — allowed for local builds, fails with -Dquality.strict=true");
-        long secretWarnings = secrets.size() - secretErrors.size();
-        if (secretWarnings > 0) warnings.add(secretWarnings + " hard-coded secret(s) in local/dev/test-only files — move them to environment variables when you can");
-        if (auditProblem != null) warnings.add(auditProblem);
+        // Local builds only warn about these; strict (UAT/production) builds fail on every one
+        List<String> strictOnly = new ArrayList<>();
+        // Fixtures under src/test never ship; dev/local config files do (they are packaged into the jar)
+        long secretWarnings = secrets.stream().filter(x -> !x.severity().equals("error") && !x.file().startsWith("src/test/")).count();
+        if (secretWarnings > 0) strictOnly.add(secretWarnings + " hard-coded secret(s) in dev/local config files — move them to environment variables");
+        if (!strict && !secretErrors.isEmpty()) strictOnly.add(secretErrors.size() + " hard-coded secret(s) in shared/production code or config");
+        if (auditProblem != null) strictOnly.add(auditProblem);
         long newNonBlocking = newIssues.size() - newBlocking;
-        if (newNonBlocking > 0) warnings.add(newNonBlocking + " new warning(s) — not blocking, but please fix");
+        long newApi = newIssues.stream().filter(i -> i.tool().equals("api")).count();
+        if (newNonBlocking > 0) strictOnly.add(newNonBlocking + " new warning(s)" + (newApi > 0 ? ", " + newApi + " of them API budget finding(s)" : ""));
+        if (tests[0] == 0 && !testsExternal) strictOnly.add("No test results: tests were skipped, so behaviour, API budgets and coverage were not checked");
+        if (newCode != null && newCode.percent() != null && newCode.percent() < minNewCode)
+            strictOnly.add("new-code coverage " + newCode.percent() + "% is below " + minNewCode + "% — add tests for: " + newCode.worstFiles());
+        List<Vuln> moderateVulns = vulns.stream().filter(v -> v.severity().equals("moderate") && !failOn.contains("moderate") && v.acceptedBecause() == null).toList();
+        if (!moderateVulns.isEmpty()) strictOnly.add(moderateVulns.size() + " unaccepted moderate dependency vulnerability(ies)");
+        if (strict) reasons.addAll(strictOnly);
+        else strictOnly.forEach(w -> warnings.add(w + " — allowed locally, fails the strict (UAT/production) build"));
         if (fixed > 0) warnings.add(fixed + " baseline finding(s) fixed — run `mvn package -Dquality.baseline=true` to lock that in");
-        if (tests[0] == 0) warnings.add("No test results: tests were skipped, so coverage was not checked");
+        if (tests[0] == 0 && testsExternal) warnings.add("Tests not run in this build (-Dquality.tests=external): they must have passed in an earlier `mvn package`");
 
         boolean passed = reasons.isEmpty();
-        writeHtml(passed, strict, reasons, warnings, issues, newIssues, fixed, vulns, blockingVulns.size(), tests, coverage, minCoverage);
+        writeHtml(passed, strict, reasons, warnings, issues, newIssues, fixed, vulns, blockingVulns.size(), tests, coverage, minCoverage,
+                newCode, minNewCode);
 
         System.out.println();
         for (Issue s : secrets)
@@ -427,7 +456,146 @@ public class QualityGate {
         return new int[]{total, failed, skipped};
     }
 
+    // ---------------------------------------------------------------- API budgets
+
+    /**
+     * Endpoints that went over their SQL budget, ran one statement per row (N+1) or crashed (500) during the test suite,
+     * as recorded by the application's API monitor (common/monitoring). Baselined like code findings.
+     */
+    static List<Issue> apiBudgets() throws IOException {
+        Path tsv = REPORT_DIR.resolve("api-calls.tsv");
+        if (!Files.exists(tsv) || Files.getLastModifiedTime(tsv).toInstant().isBefore(buildStart())) return List.of();
+        // Several application contexts may report the same endpoint: keep the worst of each
+        Map<String, String[]> worst = new TreeMap<>();
+        for (String line : Files.readAllLines(tsv, StandardCharsets.UTF_8)) {
+            if (line.isBlank() || line.startsWith("#")) continue;
+            String[] c = line.split("\t", -1);
+            if (c.length < 14) continue;
+            worst.merge(c[0] + " " + c[1], c, (a, b) -> {
+                String[] m = a.clone();
+                for (int i : new int[]{4, 5, 6, 7, 9}) m[i] = String.valueOf(Math.max(Long.parseLong(a[i]), Long.parseLong(b[i])));
+                if (Long.parseLong(b[5]) > Long.parseLong(a[5])) m[13] = b[13];
+                return m;
+            });
+        }
+        List<Issue> out = new ArrayList<>();
+        worst.forEach((endpoint, c) -> {
+            if (Long.parseLong(c[6]) > 0)
+                out.add(api("too-many-queries", "Performance", endpoint, "up to " + c[4] + " SQL statements in one call (budget " + c[11] + ")"));
+            if (Long.parseLong(c[7]) > 0)
+                out.add(api("n-plus-one", "Performance", endpoint, "the same statement ran " + c[5] + " times in one call (N+1, limit " + c[12] + "): " + c[13]));
+            if (Long.parseLong(c[9]) > 0)
+                out.add(api("crash", "Reliability", endpoint, "answered 500 in " + c[9] + " call(s): bad input must get a 4xx with a reason"));
+        });
+        return out;
+    }
+
+    static Issue api(String rule, String category, String endpoint, String message) {
+        return new Issue("api", "api/" + rule, category, "warning", endpoint, 0, message, "api/" + rule + "|" + endpoint, true);
+    }
+
+    // ---------------------------------------------------------------- new-code coverage
+
+    record NewCode(String base, int covered, int total, Double percent, String worstFiles) {}
+
+    static final Pattern HUNK = Pattern.compile("^@@ -\\d+(?:,\\d+)? \\+(\\d+)(?:,(\\d+))? @@");
+    static final Pattern JACOCO_TOKEN = Pattern.compile(
+            "<package name=\"([^\"]*)\"|<sourcefile name=\"([^\"]*)\"|<line nr=\"(\\d+)\" mi=\"(\\d+)\" ci=\"(\\d+)\"");
+
+    /**
+     * Of the source lines added or changed since the base branch (committed, uncommitted and untracked), how many the
+     * tests ran. Only executable lines count (JaCoCo's line data). Null without git history or a JaCoCo report.
+     */
+    static NewCode newCodeCoverage() throws IOException {
+        Path xml = TARGET.resolve("site/jacoco/jacoco.xml");
+        if (!Files.exists(xml) || Files.getLastModifiedTime(xml).toInstant().isBefore(buildStart())) return null;
+        String base = null;
+        String baseRef = null;
+        for (String ref : CONFIG.getProperty("newCode.baseRefs", "origin/UAT,UAT,origin/main,main").split(",")) {
+            String mergeBase = git("merge-base", "HEAD", ref.trim());
+            if (mergeBase != null && !mergeBase.isBlank()) {
+                base = mergeBase.trim();
+                baseRef = ref.trim();
+                break;
+            }
+        }
+        if (base == null) return null;
+
+        Map<String, Set<Integer>> changed = new TreeMap<>();
+        String diff = git("diff", "-U0", "--no-color", "--no-ext-diff", base, "--", "src/main");
+        String file = null;
+        for (String line : diff == null ? List.<String>of() : diff.lines().toList()) {
+            if (line.startsWith("+++ ")) {
+                file = line.startsWith("+++ b/") ? line.substring(6) : null;
+                continue;
+            }
+            Matcher hunk = HUNK.matcher(line);
+            if (file != null && hunk.find()) {
+                int start = Integer.parseInt(hunk.group(1));
+                int count = hunk.group(2) == null ? 1 : Integer.parseInt(hunk.group(2));
+                for (int n = start; n < start + count; n++) changed.computeIfAbsent(file, f -> new TreeSet<>()).add(n);
+            }
+        }
+        String untracked = git("ls-files", "-o", "--exclude-standard", "--", "src/main");
+        for (String f : untracked == null ? List.<String>of() : untracked.lines().filter(l -> !l.isBlank()).toList()) {
+            try (Stream<String> lines = Files.lines(ROOT.resolve(f), StandardCharsets.UTF_8)) {
+                int count = (int) lines.count();
+                for (int n = 1; n <= count; n++) changed.computeIfAbsent(f, k -> new TreeSet<>()).add(n);
+            } catch (IOException | java.io.UncheckedIOException notText) {
+                // a binary resource: no lines to cover
+            }
+        }
+
+        // sourcefile path (com/tinqa/…/Foo.java) -> line number -> run by a test
+        Map<String, Map<Integer, Boolean>> lines = new HashMap<>();
+        Matcher m = JACOCO_TOKEN.matcher(Files.readString(xml, StandardCharsets.UTF_8));
+        String pkg = "";
+        Map<Integer, Boolean> current = null;
+        while (m.find()) {
+            if (m.group(1) != null) pkg = m.group(1);
+            else if (m.group(2) != null) current = lines.computeIfAbsent(pkg + "/" + m.group(2), k -> new HashMap<>());
+            else if (current != null) current.put(Integer.parseInt(m.group(3)), Integer.parseInt(m.group(5)) > 0);
+        }
+
+        int covered = 0, total = 0;
+        Map<String, Integer> uncoveredByFile = new TreeMap<>();
+        for (var e : changed.entrySet()) {
+            Map<Integer, Boolean> fileLines = lines.get(e.getKey().replaceFirst("^src/main/(java|kotlin)/", ""));
+            if (fileLines == null) continue; // not compiled code (resources, migrations)
+            for (int n : e.getValue()) {
+                Boolean hit = fileLines.get(n);
+                if (hit == null) continue;
+                total++;
+                if (hit) covered++;
+                else uncoveredByFile.merge(e.getKey().substring(e.getKey().lastIndexOf('/') + 1), 1, Integer::sum);
+            }
+        }
+        String worst = uncoveredByFile.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(8)
+                .map(e -> e.getKey() + " (" + e.getValue() + " lines)").collect(Collectors.joining(", "));
+        return new NewCode(baseRef, covered, total, total == 0 ? null : Math.round(covered * 1000.0 / total) / 10.0, worst);
+    }
+
+    /** Output of a git command, or null when git is missing or the command fails. */
+    static String git(String... args) {
+        List<String> cmd = new ArrayList<>(List.of("git"));
+        cmd.addAll(List.of(args));
+        try {
+            Process p = new ProcessBuilder(cmd).directory(ROOT.toFile()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            return p.waitFor() == 0 ? out : null;
+        } catch (IOException e) {
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /** Set by Maven (--build-start); an IDE compiling in the background must not make this build's reports look stale. */
+    static Instant BUILD_START;
+
     static Instant buildStart() throws IOException {
+        if (BUILD_START != null) return BUILD_START;
         Path classes = TARGET.resolve("classes");
         return Files.exists(classes) ? Files.getLastModifiedTime(classes).toInstant().minusSeconds(5) : Instant.EPOCH;
     }
@@ -468,7 +636,8 @@ public class QualityGate {
     // ---------------------------------------------------------------- HTML report
 
     static void writeHtml(boolean passed, boolean strict, List<String> reasons, List<String> warnings, List<Issue> issues, Set<Issue> newIssues,
-                          int fixed, List<Vuln> vulns, int blockingVulns, int[] tests, Double coverage, double minCoverage) throws IOException {
+                          int fixed, List<Vuln> vulns, int blockingVulns, int[] tests, Double coverage, double minCoverage,
+                          NewCode newCode, double minNewCode) throws IOException {
         Map<String, Long> byCat = issues.stream().collect(Collectors.groupingBy(Issue::category, Collectors.counting()));
         long secretCount = issues.stream().filter(i -> i.tool().equals("secret")).count();
         StringBuilder h = new StringBuilder();
@@ -488,7 +657,7 @@ public class QualityGate {
                 tr.new{background:var(--newbg)}code{font-size:12px}a{color:inherit}.filters{margin:8px 0;display:flex;gap:8px;flex-wrap:wrap}
                 select,label{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
                 </style></head><body><main><h1>Quality Gate</h1>""");
-        h.append("<div class=\"muted\">").append(esc(Instant.now().toString())).append(strict ? " · strict mode" : " · local mode").append("</div>");
+        h.append("<div class=\"muted\">").append(esc(Instant.now().toString())).append(strict ? " · strict mode (UAT/production)" : " · local mode").append("</div>");
         h.append("<p class=\"status ").append(passed ? "pass\">PASSED" : "fail\">FAILED").append("</p>");
         if (!reasons.isEmpty()) h.append("<ul class=\"reasons\">").append(reasons.stream().map(r -> "<li>" + esc(r) + "</li>").collect(Collectors.joining())).append("</ul>");
         if (!warnings.isEmpty()) h.append("<ul class=\"reasons\">").append(warnings.stream().map(r -> "<li class=\"muted\">" + esc(r) + "</li>").collect(Collectors.joining())).append("</ul>");
@@ -502,6 +671,10 @@ public class QualityGate {
                 .append(card("Vulnerable deps (high+)", String.valueOf(blockingVulns), blockingVulns > 0 ? "bad" : "ok"))
                 .append(card("Failed tests", tests[0] == 0 ? "skipped" : String.valueOf(tests[1]), tests[1] > 0 ? "bad" : "ok"))
                 .append(card("Line coverage", coverage == null ? "n/a" : coverage + "%", coverage != null && coverage < minCoverage ? "bad" : "ok"))
+                .append(card("New-code coverage", newCode == null || newCode.percent() == null ? "n/a" : newCode.percent() + "%",
+                        newCode != null && newCode.percent() != null && newCode.percent() < minNewCode ? "warn" : "ok"))
+                .append(card("API budget findings", String.valueOf(issues.stream().filter(i -> i.tool().equals("api")).count()),
+                        issues.stream().anyMatch(i -> i.tool().equals("api")) ? "warn" : "ok"))
                 .append("</div>");
         if (!vulns.isEmpty()) {
             h.append("<h2>Dependency vulnerabilities</h2><div class=\"tbl\"><table><tr><th>Severity</th><th>Package</th><th>Advisory</th><th>Fix</th><th>Accepted because</th></tr>");
@@ -512,14 +685,14 @@ public class QualityGate {
             h.append("</table></div>");
         }
         h.append("<h2>Code issues (").append(issues.size()).append(")</h2>")
-                .append("<div class=\"filters\"><select id=\"cat\"><option value=\"\">All categories</option><option>Security</option><option>Reliability</option><option>Maintainability</option></select>")
+                .append("<div class=\"filters\"><select id=\"cat\"><option value=\"\">All categories</option><option>Security</option><option>Reliability</option><option>Performance</option><option>Maintainability</option></select>")
                 .append("<label><input type=\"checkbox\" id=\"onlyNew\"> Only new</label></div>")
                 .append("<div class=\"tbl\"><table id=\"issues\"><tr><th></th><th>Category</th><th>Severity</th><th>Rule</th><th>Location</th><th>Message</th></tr>");
         for (Issue i : issues) {
             boolean isNew = newIssues.contains(i) || i.tool().equals("secret");
             h.append("<tr class=\"").append(isNew ? "new" : "").append("\" data-cat=\"").append(i.category()).append("\" data-new=\"").append(isNew).append("\"><td>")
                     .append(i.tool().equals("secret") ? "<b>SECRET</b>" : newIssues.contains(i) ? "<b>NEW</b>" : "").append("</td><td>").append(i.category()).append("</td><td>")
-                    .append(i.severity()).append("</td><td><code>").append(esc(i.rule())).append("</code></td><td><code>").append(esc(i.file())).append(":").append(i.line())
+                    .append(i.severity()).append("</td><td><code>").append(esc(i.rule())).append("</code></td><td><code>").append(esc(i.file())).append(i.line() > 0 ? ":" + i.line() : "")
                     .append("</code></td><td>").append(esc(i.message())).append("</td></tr>");
         }
         h.append("""

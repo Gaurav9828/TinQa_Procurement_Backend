@@ -55,12 +55,18 @@
         <postgresql.version>42.7.14</postgresql.version>
 
         <!-- Quality gate (quality/QualityGate.java) runs on every `mvn package`.
-             -Dquality.strict=true    hard-coded secrets also fail the build (use for release images)
+             -Dquality.strict=true    UAT/production: every warning fails the build too (secrets, new findings,
+                                      API query budgets, new-code coverage, moderate vulnerabilities, skipped checks)
              -Dquality.baseline=true  accept the current findings as the new baseline
+             -Dquality.tests=external tests ran in an earlier `mvn package` (docker builds cannot start Testcontainers)
              -Dquality.skip=true      skip the gate -->
         <quality.strict>false</quality.strict>
         <quality.baseline>false</quality.baseline>
+        <quality.tests>run</quality.tests>
+        <!-- When this build started (UTC), so the gate ignores reports left by earlier builds -->
+        <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
         <quality.skip>false</quality.skip>
+        <datasource-proxy.version>1.10.1</datasource-proxy.version>
 
     </properties>
 
@@ -212,6 +218,13 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <!-- Counts the SQL statements each API request runs (common/monitoring) -->
+        <dependency>
+            <groupId>net.ttddyy</groupId>
+            <artifactId>datasource-proxy</artifactId>
+            <version>${datasource-proxy.version}</version>
         </dependency>
 
 
@@ -405,6 +418,8 @@
                                 <argument>--update-baseline=${quality.baseline}</argument>
                                 <!-- Unset (-DskipTests not given) resolves to the literal text, which reads as false -->
                                 <argument>--skip-tests=${skipTests}</argument>
+                                <argument>--tests=${quality.tests}</argument>
+                                <argument>--build-start=${maven.build.timestamp}</argument>
                             </arguments>
                         </configuration>
                     </execution>

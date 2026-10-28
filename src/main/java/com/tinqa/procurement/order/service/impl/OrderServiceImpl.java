@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -237,6 +238,12 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<OrderDTOs.Response> getOrdersByStatus(OrderStatus status) {
         return toResponses(orderRepository.findByOrderStatus(status));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderDTOs.Response> getOrdersByStatuses(Collection<OrderStatus> statuses) {
+        return toResponses(orderRepository.findByOrderStatusInOrderByIdAsc(statuses));
     }
 
     @Override

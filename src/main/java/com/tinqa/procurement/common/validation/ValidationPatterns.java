@@ -48,6 +48,9 @@ public final class ValidationPatterns {
     // Identifiers and codes
     public static final String CODE = "^[A-Za-z0-9][A-Za-z0-9_-]*$";
     public static final String CODE_MESSAGE = "can only contain letters, numbers, underscore and hyphen";
+    // Barcodes, compared upper-case: 8-32 letters, digits and hyphens, starting and ending with a letter or digit
+    public static final String BARCODE = "^[A-Z0-9][A-Z0-9-]{6,30}[A-Z0-9]$";
+    public static final String BARCODE_MESSAGE = "must be 8-32 letters, digits or hyphens, starting and ending with a letter or digit";
     public static final String UNIT = "^[A-Za-z][A-Za-z ._-]*$";
     public static final String UNIT_MESSAGE = "must be a unit name such as PCS, KG or METER";
 

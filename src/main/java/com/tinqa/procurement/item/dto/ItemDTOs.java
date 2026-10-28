@@ -35,11 +35,6 @@ public class ItemDTOs {
         @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Brand " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
         private String brand;
 
-        @NotBlank(message = "SKU is required")
-        @Size(max = 100, message = "SKU cannot exceed 100 characters")
-        @Pattern(regexp = ValidationPatterns.CODE, message = "SKU " + ValidationPatterns.CODE_MESSAGE)
-        private String sku;
-
         @NotBlank(message = "Unit of measure is required")
         @Size(max = 20, message = "Unit of measure cannot exceed 20 characters")
         @Pattern(regexp = ValidationPatterns.UNIT, message = "Unit of measure " + ValidationPatterns.UNIT_MESSAGE)

@@ -22,28 +22,37 @@ import java.util.UUID;
  * Service-to-service API (authenticated by InternalApiKeyFilter, not by admin JWTs).
  */
 @RestController
-@RequestMapping("/v1/internal/item-stock/movements")
+@RequestMapping("/v1/internal/item-stock")
 @PreAuthorize(Authorities.INTERNAL_SERVICE)
 @RequiredArgsConstructor
 public class InternalItemStockMovementController {
 
+    // Ecommerce products' item stock movements; products are "product:<id>" under this source
+    private static final String ECOMMERCE_PRODUCT = "ECOMMERCE_PRODUCT";
+
     private final ItemStockMovementService movementService;
 
-    @PostMapping
+    @PostMapping("/movements")
     public ResponseEntity<ApiResponse<ItemStockMovementDTOs.MovementResponse>> applyMovement(
             @Valid @RequestBody ItemStockMovementDTOs.MovementRequest request) {
         return ApiResponses.ok(movementService.applyMovement(request), "Item stock movement applied");
     }
 
-    @PostMapping("/{movementId}/reverse")
+    @PostMapping("/movements/{movementId}/reverse")
     public ResponseEntity<ApiResponse<ItemStockMovementDTOs.MovementResponse>> reverseMovement(
             @PathVariable UUID movementId,
             @Valid @RequestBody(required = false) ItemStockMovementDTOs.ReverseRequest request) {
         return ApiResponses.ok(movementService.reverseMovement(movementId, request), "Item stock movement reversed");
     }
 
-    @GetMapping("/{movementId}")
+    @GetMapping("/movements/{movementId}")
     public ResponseEntity<ApiResponse<ItemStockMovementDTOs.MovementResponse>> getMovement(@PathVariable UUID movementId) {
         return ApiResponses.ok(movementService.getMovement(movementId), "Item stock movement retrieved");
+    }
+
+    // What a product still holds, so Ecommerce can tell a released (rejected) product from one with units in stock
+    @GetMapping("/products/{productId}/held")
+    public ResponseEntity<ApiResponse<ItemStockMovementDTOs.ProductHoldings>> productHoldings(@PathVariable Long productId) {
+        return ApiResponses.ok(movementService.productHoldings(ECOMMERCE_PRODUCT, productId), "Product holdings retrieved");
     }
 }

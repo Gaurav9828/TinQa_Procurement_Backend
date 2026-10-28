@@ -1,6 +1,7 @@
 package com.tinqa.procurement.productapproval.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tinqa.procurement.barcode.service.BarcodeRegistry;
 import com.tinqa.procurement.common.constant.ErrorCodes;
 import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ApiException;
@@ -54,6 +55,7 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
     private final ItemStockMovementService itemStockMovementService;
     private final ItemRepository itemRepository;
     private final ProductApprovalProperties properties;
+    private final BarcodeRegistry barcodeRegistry;
     private final Clock clock;
 
     @Override
@@ -272,11 +274,14 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         // Approved products keep the component stock reserved when they were created; rejected or cancelled
         // ones give it back to the batches it came from (a resubmission reserves it again)
         // (UPDATE requests concern a live product: its stock is untouched whatever the decision)
+        // Barcodes follow: an approved product's units are locked, a rejected one's are withdrawn (their codes freed)
         String stockNote = "";
         if (decision != ProductApprovalStatus.APPROVED && !update) {
-            ItemStockMovementDTOs.MovementResponse released = itemStockMovementService.releaseReference(
-                    STOCK_SOURCE, stockReference(saved.getEcommerceProductId()), reviewer.getUsername());
+            ItemStockMovementDTOs.MovementResponse released = itemStockMovementService.releaseProduct(
+                    STOCK_SOURCE, saved.getEcommerceProductId(), reviewer.getUsername());
             stockNote = describeReturned(released);
+        } else if (!update) {
+            barcodeRegistry.approveProductUnits(saved.getEcommerceProductId(), BarcodeRegistry.Actor.of(reviewer));
         }
 
         if (update && !saved.getRequestedBy().equals(reviewer.getId())) {
@@ -310,13 +315,16 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
     private void reserveComponents(ProductApprovalDTOs.SubmitRequest request) {
         ProductApprovalDTOs.Snapshot snapshot = request.getSnapshot();
         BigDecimal units = BigDecimal.valueOf(Math.max(0, snapshot.getStockQuantity()));
+        List<ProductApprovalDTOs.Component> components = Optional.ofNullable(snapshot.getComponents()).orElse(List.of());
         Map<Long, BigDecimal> target = new HashMap<>();
-        for (ProductApprovalDTOs.Component component : Optional.ofNullable(snapshot.getComponents()).orElse(List.of())) {
+        for (ProductApprovalDTOs.Component component : components) {
             target.merge(component.getItemId(), component.getQuantity().multiply(units), BigDecimal::add);
         }
+        List<ItemStockMovementDTOs.NewUnit> newUnits = Optional.ofNullable(request.getUnits()).orElse(List.of());
+        requireUnitsMatch(snapshot.getStockQuantity(), components, newUnits);
         try {
-            itemStockMovementService.reconcileReference(STOCK_SOURCE, stockReference(request.getEcommerceProductId()),
-                    target, currentUserProvider.getCurrentUser().getUsername());
+            itemStockMovementService.reserveProduct(STOCK_SOURCE, request.getEcommerceProductId(), request.getProductTitle().trim(),
+                    target, newUnits, currentUserProvider.getCurrentUser().getUsername());
         } catch (ApiException exception) {
             if (!ErrorCodes.INSUFFICIENT_ITEM_STOCK.equals(exception.getErrorCode())) {
                 throw exception;
@@ -326,6 +334,42 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
             throw new ApiException(message, ErrorCodes.INSUFFICIENT_ITEM_STOCK, HttpStatus.CONFLICT,
                     List.of(ApiErrors.error("snapshot.components", exception.getMessage())));
         }
+    }
+
+    /**
+     * A resubmitted product is rebuilt from scratch: each unit in stock needs its barcode and, for every component, one
+     * piece barcode per unit of quantity.
+     */
+    private static void requireUnitsMatch(int stockQuantity, List<ProductApprovalDTOs.Component> components,
+                                          List<ItemStockMovementDTOs.NewUnit> units) {
+        List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
+        if (units.size() != stockQuantity) {
+            errors.add(ApiErrors.error("units", "Enter a barcode for each of the product's " + stockQuantity
+                    + " units in stock (" + units.size() + " entered)"));
+        }
+        Map<Long, BigDecimal> perUnit = new HashMap<>();
+        components.forEach(component -> perUnit.merge(component.getItemId(), component.getQuantity(), BigDecimal::add));
+        for (int i = 0; i < units.size(); i++) {
+            Map<Long, Integer> pieces = new HashMap<>();
+            for (ItemStockMovementDTOs.Part part : Optional.ofNullable(units.get(i).getParts()).orElse(List.of())) {
+                pieces.merge(part.getItemId(), part.getBarcodes().size(), Integer::sum);
+            }
+            for (ProductApprovalDTOs.Component component : components) {
+                BigDecimal needed = perUnit.get(component.getItemId());
+                int given = pieces.getOrDefault(component.getItemId(), 0);
+                if (needed.compareTo(BigDecimal.valueOf(given)) != 0) {
+                    errors.add(ApiErrors.error("units[" + i + "].parts", "Unit " + (i + 1) + " needs " + Quantities.plain(needed)
+                            + " piece barcode(s) of " + component.getItemName() + " (" + given + " entered)"));
+                }
+            }
+            for (Long itemId : pieces.keySet()) {
+                if (!perUnit.containsKey(itemId)) {
+                    errors.add(ApiErrors.error("units[" + i + "].parts", "Unit " + (i + 1) + " lists pieces of item " + itemId
+                            + ", which is not one of the product's components"));
+                }
+            }
+        }
+        ApiErrors.throwIfAny(errors);
     }
 
     // e.g. " Component stock returned: 2 Motherboard, 1 Cable."
@@ -340,10 +384,6 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
                 .map(line -> Quantities.plain(line.getQuantity().negate()) + " "
                         + names.getOrDefault(line.getItemId(), "item #" + line.getItemId()))
                 .collect(Collectors.joining(", ")) + ".";
-    }
-
-    private static String stockReference(Long ecommerceProductId) {
-        return "product:" + ecommerceProductId;
     }
 
     private List<Long> parseProductIds(String productIds) {

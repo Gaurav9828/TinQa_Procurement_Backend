@@ -10,6 +10,7 @@ import com.tinqa.procurement.notification.repository.NotificationRepository;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.access.AccessResolver;
 import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.access.UserAccess;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
 import com.tinqa.procurement.security.repository.UserRepository;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -80,11 +82,14 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void createForPermission(Permission permission, Long excludeUserId, String title, String message, String link) {
-        // Only employees (admin accounts) hold internal permissions
-        Stream.of(Role.ADMIN_L2, Role.ADMIN_L1)
+        // Only employees (admin accounts) hold internal permissions; their access is resolved in one query, not one each
+        List<User> admins = Stream.of(Role.ADMIN_L2, Role.ADMIN_L1)
                 .flatMap(role -> userRepository.findByRoleAndEnabledTrue(role).stream())
                 .filter(user -> !user.getId().equals(excludeUserId))
-                .filter(user -> accessResolver.resolve(user).has(permission))
+                .toList();
+        Map<Long, UserAccess> access = accessResolver.resolveAll(admins);
+        admins.stream()
+                .filter(user -> access.get(user.getId()).has(permission))
                 .forEach(user -> createForUser(user.getId(), title, message, link));
     }
 

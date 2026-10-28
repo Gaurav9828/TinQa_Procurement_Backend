@@ -5,6 +5,12 @@ spring:
   profiles:
     active: dev
 
+  jpa:
+    properties:
+      hibernate:
+        # Lazy collections and references load for up to 50 parents in one IN query instead of one query each (N+1)
+        default_batch_fetch_size: 50
+
 server:
   port: 9090
 
