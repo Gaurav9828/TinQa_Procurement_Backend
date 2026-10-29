@@ -42,6 +42,8 @@ public class ClientDemoController {
 
     private final ClientDemoService demoService;
     private final DemoBillService billService;
+    private final DemoUnitPlanner unitPlanner;
+    private final DemoUnitService unitService;
 
     // ------------------------------------------------------------------ demo managers and approvers
 
@@ -65,6 +67,28 @@ public class ClientDemoController {
     @GetMapping(BASE + "/staff")
     public ResponseEntity<ApiResponse<List<ClientDemoDTOs.StaffMember>>> staff() {
         return ApiResponses.ok(demoService.staffOptions(), "Staff fetched successfully");
+    }
+
+    // The product's units in stock, for picking the units a demo on these days takes (demoId: the demo being changed)
+    @RequiresPermission(Permission.DEMO_MANAGE)
+    @GetMapping(BASE + "/units")
+    public ResponseEntity<ApiResponse<List<ClientDemoDTOs.UnitOption>>> unitOptions(
+            @RequestParam Long productId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(defaultValue = "1") int days,
+            @RequestParam(required = false) Long demoId) {
+        return ApiResponses.ok(unitPlanner.options(productId, startDate, days, demoId), "Units fetched successfully");
+    }
+
+    // One unit by its barcode (typed or scanned), with its product
+    @RequiresPermission(Permission.DEMO_MANAGE)
+    @GetMapping(BASE + "/units/lookup")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.UnitOption>> unitLookup(
+            @RequestParam String code,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(defaultValue = "1") int days,
+            @RequestParam(required = false) Long demoId) {
+        return ApiResponses.ok(unitPlanner.lookup(code, startDate, days, demoId), "Unit found");
     }
 
     @RequiresPermission(Permission.DEMO_VIEW)
@@ -145,6 +169,28 @@ public class ClientDemoController {
         return ApiResponses.ok(demoService.reopen(id, request), "Reopened for correction. Send it for completion again when done.");
     }
 
+    // The demo's units leave stock (here and on the storefront) on one of its days, and come back afterwards
+    @RequiresPermission(Permission.DEMO_MANAGE)
+    @PostMapping(BASE + "/{id}/units/hand-out")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> handOut(@PathVariable Long id,
+                                                                      @Valid @RequestBody ClientDemoDTOs.UnitsRequest request) {
+        return ApiResponses.ok(unitService.handOut(id, request, false), "Handed out: the units are out of stock until they come back");
+    }
+
+    @RequiresPermission(Permission.DEMO_MANAGE)
+    @PostMapping(BASE + "/{id}/units/hand-back")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> handBack(@PathVariable Long id,
+                                                                       @Valid @RequestBody ClientDemoDTOs.UnitsRequest request) {
+        return ApiResponses.ok(unitService.handBack(id, request, false), "Handed back: the units are in stock again");
+    }
+
+    @RequiresPermission(Permission.DEMO_UNIT_WRITE_OFF)
+    @PostMapping(BASE + "/{id}/units/write-off")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> writeOff(@PathVariable Long id,
+                                                                       @Valid @RequestBody ClientDemoDTOs.WriteOffRequest request) {
+        return ApiResponses.ok(unitService.writeOff(id, request), "Unit written off");
+    }
+
     @RequiresPermission(Permission.DEMO_MANAGE)
     @PostMapping(BASE + "/{id}/expenses")
     public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> addExpense(@PathVariable Long id,
@@ -191,6 +237,20 @@ public class ClientDemoController {
     @GetMapping(MINE + "/{id}")
     public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> mine(@PathVariable Long id) {
         return ApiResponses.ok(demoService.mine(id), "Client demo fetched successfully");
+    }
+
+    @RequiresPermission(Permission.DEMO_UNITS_HANDLE_OWN)
+    @PostMapping(MINE + "/{id}/units/hand-out")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> handOutMine(@PathVariable Long id,
+                                                                          @Valid @RequestBody ClientDemoDTOs.UnitsRequest request) {
+        return ApiResponses.ok(unitService.handOut(id, request, true), "Handed out: the units are out of stock until they come back");
+    }
+
+    @RequiresPermission(Permission.DEMO_UNITS_HANDLE_OWN)
+    @PostMapping(MINE + "/{id}/units/hand-back")
+    public ResponseEntity<ApiResponse<ClientDemoDTOs.Detail>> handBackMine(@PathVariable Long id,
+                                                                           @Valid @RequestBody ClientDemoDTOs.UnitsRequest request) {
+        return ApiResponses.ok(unitService.handBack(id, request, true), "Handed back: the units are in stock again");
     }
 
     @RequiresPermission(Permission.DEMO_EXPENSE_RECORD_OWN)

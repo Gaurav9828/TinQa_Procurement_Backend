@@ -25,6 +25,7 @@ import java.text.NumberFormat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Client demos and meetings: a visit to a client for a demo appointment or a promotion. It is planned as an internal
@@ -59,6 +61,8 @@ public class ClientDemoService {
     private static final Set<DemoStatus> WAITING = EnumSet.of(DemoStatus.QUOTATION_PENDING, DemoStatus.COMPLETION_PENDING);
     private static final Set<EmployeeStatus> TAGGABLE = EnumSet.of(EmployeeStatus.ACTIVE, EmployeeStatus.FIRST_LOGIN);
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
+    // The bills the day-by-day plan holds; other bills are added on the demo itself
+    private static final Set<ExpenseKind> PLAN_KINDS = EnumSet.of(ExpenseKind.STAY, ExpenseKind.FOOD, ExpenseKind.TRAVEL);
 
     private final ClientDemoRepository demoRepository;
     private final DemoEventRepository eventRepository;
@@ -68,6 +72,7 @@ public class ClientDemoService {
     private final CurrentAccess currentAccess;
     private final NotificationService notificationService;
     private final DemoViews views;
+    private final DemoUnitPlanner unitPlanner;
     private final Clock clock;
 
     // ------------------------------------------------------------------ reading
@@ -130,10 +135,14 @@ public class ClientDemoService {
                 .createdAt(now)
                 .build();
         apply(demo, request, Set.of());
+        List<PlanEvent> billEvents = syncPlan(demo, request.getPlannedBills(), actor, null, now);
+        applyExtraBudget(demo, request.getExtraBudgetReason(), true);
         demo.setUpdatedAt(now);
-        demo = demoRepository.save(demo);
+        // The new bills' ids are in the response
+        demo = demoRepository.saveAndFlush(demo);
         event(demo, DemoEventType.CREATED, actor, "Planned " + demo.getDemoType().label().toLowerCase(Locale.ROOT) + " at "
-                + demo.getClientName() + " on " + DAY.format(demo.getStartDate()), null);
+                + clientsLabel(demo) + " on " + DAY.format(demo.getStartDate()), null);
+        saveEvents(demo, billEvents, actor, now);
         return views.detail(demo, actor);
     }
 
@@ -156,15 +165,23 @@ public class ClientDemoService {
         }
         BigDecimal oldBudget = demo.getProposedBudget();
         int oldDays = demo.getNumberOfDays();
+        Instant now = clock.instant();
         String changes = apply(demo, request, Set.copyOf(demo.getStaffEmployeeIds()));
-        if (changes.isEmpty()) {
+        List<PlanEvent> billEvents = syncPlan(demo, request.getPlannedBills(), actor, reason, now);
+        String extraChange = applyExtraBudget(demo, request.getExtraBudgetReason(), false);
+        changes = Stream.of(changes, extraChange).filter(change -> !change.isEmpty()).collect(Collectors.joining("; "));
+        if (changes.isEmpty() && billEvents.isEmpty()) {
             return views.detail(demo, actor);
         }
-        Instant now = clock.instant();
         demo.setUpdatedAt(now);
         boolean needsApproval = demo.getStatus() == DemoStatus.APPROVED
                 && (oldBudget.compareTo(demo.getProposedBudget()) != 0 || oldDays != demo.getNumberOfDays());
-        event(demo, DemoEventType.UPDATED, actor, changes, reason);
+        // The new bills' ids are in the response
+        demoRepository.saveAndFlush(demo);
+        if (!changes.isEmpty()) {
+            event(demo, DemoEventType.UPDATED, actor, changes, reason);
+        }
+        saveEvents(demo, billEvents, actor, now);
         if (needsApproval) {
             // A new budget or length is a new quotation
             sendForApproval(demo, DemoStatus.QUOTATION_PENDING, actor, now);
@@ -219,6 +236,7 @@ public class ClientDemoService {
         if (!views.managesBills(demo)) {
             throw notEditable(demo);
         }
+        DemoUnitService.requireAllBack(demo, "sent for completion");
         if (today().isBefore(demo.getStartDate())) {
             throw ApiErrors.conflict(ErrorCodes.DEMO_WRONG_STATUS, demo.reference() + " starts on " + DAY.format(demo.getStartDate())
                     + ", so it can't be completed yet.");
@@ -305,6 +323,7 @@ public class ClientDemoService {
             }
             demo.setBookedTotal(total);
             demo.setStatus(DemoStatus.COMPLETED);
+            DemoUnitService.releaseReserved(demo);
             if (!correction) {
                 demo.setCompletedAt(now);
             }
@@ -339,6 +358,7 @@ public class ClientDemoService {
         User actor = currentUserProvider.getCurrentUser();
         ClientDemo demo = lock(id);
         requireStatus(demo, "cancelled", DemoStatus.DRAFT, DemoStatus.QUOTATION_PENDING, DemoStatus.APPROVED);
+        DemoUnitService.requireAllBack(demo, "cancelled");
         if (demo.total().signum() > 0) {
             throw ApiErrors.conflict(ErrorCodes.DEMO_WRONG_STATUS, demo.reference() + " already has " + rupees(demo.total())
                     + " of bills. Send it for completion with the outcome instead, so the money spent is accounted for.");
@@ -346,6 +366,7 @@ public class ClientDemoService {
         String reason = request.getReason().trim();
         demo.setStatus(DemoStatus.CANCELLED);
         demo.setCancelReason(reason);
+        DemoUnitService.releaseReserved(demo);
         demo.setUpdatedAt(clock.instant());
         demoRepository.save(demo);
         event(demo, DemoEventType.CANCELLED, actor, null, reason);
@@ -387,6 +408,10 @@ public class ClientDemoService {
                 .build());
     }
 
+    Instant now() {
+        return clock.instant();
+    }
+
     LocalDate today() {
         return LocalDate.now(clock.withZone(BUSINESS_ZONE));
     }
@@ -418,8 +443,14 @@ public class ClientDemoService {
     }
 
     private static String describe(ClientDemo demo) {
-        return demo.reference() + " (" + demo.getDemoType().label() + " at " + demo.getClientName() + ", " + demo.getCity() + ", "
+        return demo.reference() + " (" + demo.getDemoType().label() + " at " + clientsLabel(demo) + ", " + demo.getCity() + ", "
                 + DAY.format(demo.getStartDate()) + ")";
+    }
+
+    // "Hotel Sunrise", or "Hotel Sunrise and 2 more clients"
+    private static String clientsLabel(ClientDemo demo) {
+        int more = demo.getVisits().size() - 1;
+        return demo.getClientName() + (more <= 0 ? "" : " and " + more + (more == 1 ? " more client" : " more clients"));
     }
 
     private static String truncate(String text, int max) {
@@ -485,23 +516,10 @@ public class ClientDemoService {
 
     /**
      * Copies the request onto the demo and describes what changed ("" when nothing did). Attending staff must be active
-     * employees, except those already tagged (who may have left since).
+     * employees, except those already tagged (who may have left since). Bills beyond the last day are refused by
+     * {@link #syncPlan}, which runs next.
      */
     private String apply(ClientDemo demo, ClientDemoDTOs.DemoRequest request, Set<Long> alreadyTagged) {
-        String categoryOther = OptionalText.blankToNull(request.getClientCategoryOther());
-        if (request.getClientCategory() == ClientCategory.OTHER && categoryOther == null) {
-            throw ApiErrors.fieldError("clientCategoryOther", "Say what kind of place the client is.");
-        }
-        if (request.getClientCategory() != ClientCategory.OTHER) {
-            categoryOther = null;
-        }
-        int lastBillDay = demo.getExpenses().stream().map(DemoExpense::getDayNumber).filter(Objects::nonNull)
-                .max(Integer::compare).orElse(0);
-        if (request.getNumberOfDays() < lastBillDay) {
-            throw ApiErrors.fieldError("numberOfDays", "There are bills for day " + lastBillDay + ". Move or remove them before "
-                    + "shortening the visit to " + days(request.getNumberOfDays()) + ".");
-        }
-
         Set<Long> staffIds = new LinkedHashSet<>(request.getStaffEmployeeIds() == null ? List.of() : request.getStaffEmployeeIds());
         Map<Long, Employee> employees = employeeRepository.findAllById(staffIds).stream()
                 .collect(Collectors.toMap(Employee::getId, Function.identity()));
@@ -518,20 +536,19 @@ public class ClientDemoService {
         List<String> changes = new ArrayList<>();
         boolean isNew = demo.getId() == null;
         change(changes, isNew, "type", demo.getDemoType(), request.getDemoType(), demo::setDemoType, DemoType::label);
-        change(changes, isNew, "client category", demo.getClientCategory(), request.getClientCategory(), demo::setClientCategory, ClientCategory::label);
-        change(changes, isNew, "client category", demo.getClientCategoryOther(), categoryOther, demo::setClientCategoryOther, Function.identity());
-        change(changes, isNew, "client name", demo.getClientName(), request.getClientName().trim(), demo::setClientName, Function.identity());
-        change(changes, isNew, "contact person", demo.getContactPerson(), OptionalText.blankToNull(request.getContactPerson()), demo::setContactPerson, Function.identity());
-        change(changes, isNew, "contact phone", demo.getContactPhone(), request.getContactPhone().trim(), demo::setContactPhone, Function.identity());
-        change(changes, isNew, "contact email", demo.getContactEmail(), OptionalText.lowerCaseOrNull(request.getContactEmail()), demo::setContactEmail, Function.identity());
-        change(changes, isNew, "address", demo.getAddressLine(), request.getAddressLine().trim(), demo::setAddressLine, Function.identity());
-        change(changes, isNew, "city", demo.getCity(), request.getCity().trim(), demo::setCity, Function.identity());
-        change(changes, isNew, "state", demo.getState(), OptionalText.blankToNull(request.getState()), demo::setState, Function.identity());
-        change(changes, isNew, "PIN code", demo.getPincode(), OptionalText.blankToNull(request.getPincode()), demo::setPincode, Function.identity());
-        change(changes, isNew, "location link", demo.getMapLink(), OptionalText.blankToNull(request.getMapLink()), demo::setMapLink, Function.identity());
+        LocalDate oldStart = demo.getStartDate();
         change(changes, isNew, "date", demo.getStartDate(), request.getStartDate(), demo::setStartDate, DAY::format);
-        change(changes, isNew, "time", demo.getStartTime(), request.getStartTime().withSecond(0).withNano(0), demo::setStartTime, Object::toString);
+        if (oldStart != null && !oldStart.equals(demo.getStartDate())) {
+            // Dated stays and journeys move with the trip
+            long shift = java.time.temporal.ChronoUnit.DAYS.between(oldStart, demo.getStartDate());
+            demo.getExpenses().stream().filter(expense -> expense.getStartDate() != null).forEach(expense -> {
+                expense.setStartDate(expense.getStartDate().plusDays(shift));
+                expense.setEndDate(expense.getEndDate().plusDays(shift));
+            });
+        }
         change(changes, isNew, "days", demo.getNumberOfDays(), request.getNumberOfDays(), demo::setNumberOfDays, String::valueOf);
+        applyVisits(demo, request.getClients(), changes, isNew);
+        applyProducts(demo, request.getProducts(), changes, isNew);
         BigDecimal budget = request.getProposedBudget().setScale(2, java.math.RoundingMode.HALF_UP);
         if (demo.getProposedBudget() == null || demo.getProposedBudget().compareTo(budget) != 0) {
             if (!isNew) {
@@ -550,8 +567,10 @@ public class ClientDemoService {
             if (!isNew) {
                 List<String> added = staffIds.stream().filter(staffId -> !demo.getStaffEmployeeIds().contains(staffId))
                         .map(staffId -> employees.get(staffId).getDisplayName()).toList();
-                List<String> removed = demo.getStaffEmployeeIds().stream().filter(staffId -> !staffIds.contains(staffId))
-                        .map(staffId -> employeeRepository.findById(staffId).map(Employee::getDisplayName).orElse("#" + staffId)).toList();
+                List<Long> removedIds = demo.getStaffEmployeeIds().stream().filter(staffId -> !staffIds.contains(staffId)).toList();
+                Map<Long, String> removedNames = employeeRepository.findAllById(removedIds).stream()
+                        .collect(Collectors.toMap(Employee::getId, Employee::getDisplayName));
+                List<String> removed = removedIds.stream().map(staffId -> removedNames.getOrDefault(staffId, "#" + staffId)).toList();
                 if (!added.isEmpty()) changes.add("staff added: " + String.join(", ", added));
                 if (!removed.isEmpty()) changes.add("staff removed: " + String.join(", ", removed));
             }
@@ -559,6 +578,234 @@ public class ClientDemoService {
             demo.getStaffEmployeeIds().addAll(staffIds);
         }
         return String.join("; ", changes);
+    }
+
+    /**
+     * Checks the clients visited (each within the trip, ending after it starts, never overlapping another visit that
+     * day, and never the same client twice in a row on a day) and replaces the demo's visits when they changed. The
+     * demo's own client columns follow the first visit.
+     */
+    private void applyVisits(ClientDemo demo, List<ClientDemoDTOs.VisitRequest> requests, List<String> changes, boolean isNew) {
+        List<DemoVisit> visits = new ArrayList<>();
+        for (int index = 0; index < requests.size(); index++) {
+            visits.add(visit(demo, requests.get(index), "clients[" + index + "]"));
+        }
+        List<DemoVisit> byTime = visits.stream()
+                .sorted(Comparator.comparing(DemoVisit::getDayNumber).thenComparing(DemoVisit::getStartTime)).toList();
+        for (int index = 1; index < byTime.size(); index++) {
+            DemoVisit before = byTime.get(index - 1);
+            DemoVisit after = byTime.get(index);
+            if (before.getDayNumber().equals(after.getDayNumber()) && before.getEndTime().isAfter(after.getStartTime())) {
+                throw ApiErrors.fieldError("clients", "The visits to " + before.getClientName() + " (" + before.getStartTime() + "–"
+                        + before.getEndTime() + ") and " + after.getClientName() + " (" + after.getStartTime() + "–" + after.getEndTime()
+                        + ") overlap on day " + after.getDayNumber() + ". Give each client its own time.");
+            }
+            if (before.getDayNumber().equals(after.getDayNumber()) && before.sameClientAs(after)) {
+                // The same client (by its own phone or email) twice in a row is one longer visit
+                throw ApiErrors.fieldError("clients", after.getClientName() + " is visited twice in a row on day " + after.getDayNumber()
+                        + " (" + before.getStartTime() + "–" + before.getEndTime() + " and " + after.getStartTime() + "–" + after.getEndTime()
+                        + "; the same client phone or email). Make it one visit from " + before.getStartTime() + " to " + after.getEndTime()
+                        + ", or visit another client in between.");
+            }
+        }
+        List<List<Object>> current = demo.getVisits().stream().map(ClientDemoService::fields).toList();
+        List<List<Object>> requested = byTime.stream().map(ClientDemoService::fields).toList();
+        if (current.equals(requested)) {
+            return;
+        }
+        if (!isNew) {
+            changes.add("clients " + visitsLabel(demo.getVisits()) + " → " + visitsLabel(byTime));
+        }
+        demo.getVisits().clear();
+        demo.getVisits().addAll(byTime);
+        demo.mirrorFirstVisit();
+    }
+
+    private static DemoVisit visit(ClientDemo demo, ClientDemoDTOs.VisitRequest request, String field) {
+        String categoryOther = OptionalText.blankToNull(request.getClientCategoryOther());
+        if (request.getClientCategory() == ClientCategory.OTHER && categoryOther == null) {
+            throw ApiErrors.fieldError(field + ".clientCategoryOther", "Say what kind of place " + request.getClientName().trim() + " is.");
+        }
+        if (request.getDayNumber() > demo.getNumberOfDays()) {
+            throw ApiErrors.fieldError(field + ".dayNumber", "The visit to " + request.getClientName().trim() + " is on day "
+                    + request.getDayNumber() + ", but the demo is " + days(demo.getNumberOfDays()) + " long.");
+        }
+        LocalTime start = request.getStartTime().withSecond(0).withNano(0);
+        LocalTime end = request.getEndTime().withSecond(0).withNano(0);
+        if (!end.isAfter(start)) {
+            throw ApiErrors.fieldError(field + ".endTime", "The visit to " + request.getClientName().trim() + " must end after it starts.");
+        }
+        boolean business = request.getClientCategory().hasLegalDetails();
+        return DemoVisit.builder()
+                .demo(demo)
+                .clientCategory(request.getClientCategory())
+                .clientCategoryOther(request.getClientCategory() == ClientCategory.OTHER ? categoryOther : null)
+                .clientName(request.getClientName().trim())
+                .legalName(business ? OptionalText.blankToNull(request.getLegalName()) : null)
+                .gstin(business ? OptionalText.blankToNull(request.getGstin()) : null)
+                .clientPhone(request.getClientPhone().trim())
+                .clientEmail(OptionalText.lowerCaseOrNull(request.getClientEmail()))
+                .contactPerson(OptionalText.blankToNull(request.getContactPerson()))
+                .contactPhone(request.getContactPhone().trim())
+                .contactEmail(OptionalText.lowerCaseOrNull(request.getContactEmail()))
+                .addressLine(request.getAddressLine().trim())
+                .city(request.getCity().trim())
+                .state(OptionalText.blankToNull(request.getState()))
+                .pincode(OptionalText.blankToNull(request.getPincode()))
+                .mapLink(OptionalText.blankToNull(request.getMapLink()))
+                .dayNumber(request.getDayNumber())
+                .startTime(start)
+                .endTime(end)
+                .build();
+    }
+
+    // Everything a visit says, to tell whether the plan changed
+    private static List<Object> fields(DemoVisit visit) {
+        return java.util.Arrays.asList(visit.getClientCategory(), visit.getClientCategoryOther(), visit.getClientName(),
+                visit.getLegalName(), visit.getGstin(), visit.getClientPhone(), visit.getClientEmail(), visit.getContactPerson(), visit.getContactPhone(), visit.getContactEmail(),
+                visit.getAddressLine(), visit.getCity(), visit.getState(), visit.getPincode(), visit.getMapLink(),
+                visit.getDayNumber(), visit.getStartTime(), visit.getEndTime());
+    }
+
+    private static String visitsLabel(List<DemoVisit> visits) {
+        return visits.isEmpty() ? "—" : visits.stream().map(DemoVisit::describe).collect(Collectors.joining(", "));
+    }
+
+    /**
+     * The products shown, each once, with the units taken by barcode (see {@link DemoUnitPlanner#applyPlan}); replaced
+     * when they changed.
+     */
+    private void applyProducts(ClientDemo demo, List<ClientDemoDTOs.ProductRequest> sent, List<String> changes, boolean isNew) {
+        List<ClientDemoDTOs.ProductRequest> requests = sent == null ? List.of() : sent;
+        Set<Long> seen = new java.util.HashSet<>();
+        for (ClientDemoDTOs.ProductRequest request : requests) {
+            if (!seen.add(request.getProductId())) {
+                throw ApiErrors.fieldError("products", request.getProductName().trim() + " is listed twice. Pick more of its units instead.");
+            }
+        }
+        Map<Long, Integer> quantities = unitPlanner.applyPlan(demo, requests, changes, isNew);
+        Map<Long, DemoProduct> byId = new java.util.LinkedHashMap<>();
+        for (ClientDemoDTOs.ProductRequest request : requests) {
+            byId.put(request.getProductId(), new DemoProduct(request.getProductId(), request.getProductName().trim(),
+                    quantities.get(request.getProductId())));
+        }
+        List<DemoProduct> requested = byId.values().stream().sorted(Comparator.comparing(DemoProduct::getProductName)).toList();
+        if (Set.copyOf(demo.getProducts()).equals(Set.copyOf(requested))) {
+            return;
+        }
+        if (!isNew) {
+            changes.add("products " + productsLabel(demo.getProducts()) + " → " + productsLabel(requested));
+        }
+        demo.getProducts().clear();
+        demo.getProducts().addAll(requested);
+    }
+
+    private static String productsLabel(List<DemoProduct> products) {
+        return products.isEmpty() ? "—" : products.stream().map(product -> product.getProductName() + " ×" + product.getQuantity())
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Makes the demo's stay, meal and travel bills match the day-by-day plan (nothing when no plan was sent): listed
+     * bills with an id are changed, new ones added in the order given, unlisted stays, meals and travel removed. Other
+     * bills are kept. Returns the timeline entries, saved once the demo is.
+     */
+    private List<PlanEvent> syncPlan(ClientDemo demo, List<ClientDemoDTOs.ExpenseRequest> plan, User actor, String reason, Instant now) {
+        List<PlanEvent> events = new ArrayList<>();
+        if (plan != null) {
+            Map<Long, DemoExpense> planned = demo.getExpenses().stream().filter(expense -> PLAN_KINDS.contains(expense.getKind()))
+                    .collect(Collectors.toMap(DemoExpense::getId, Function.identity()));
+            Set<Long> kept = new java.util.HashSet<>();
+            for (ClientDemoDTOs.ExpenseRequest bill : plan) {
+                if (!PLAN_KINDS.contains(bill.getKind())) {
+                    throw ApiErrors.fieldError("plannedBills", "The day-by-day plan holds stays, meals and travel. Add other bills on the demo.");
+                }
+                if (bill.getId() == null) {
+                    DemoExpense expense = DemoExpense.builder().demo(demo).addedBy(actor.getId()).addedAt(now).build();
+                    DemoBills.apply(demo, expense, bill);
+                    demo.getExpenses().add(expense);
+                    events.add(new PlanEvent(DemoEventType.EXPENSE_ADDED, DemoBills.describe(expense), null));
+                    continue;
+                }
+                DemoExpense expense = planned.get(bill.getId());
+                if (expense == null || !kept.add(bill.getId())) {
+                    throw ApiErrors.fieldError("plannedBills", "Bill " + bill.getId() + " is not one of this demo's stays, meals or travel.");
+                }
+                List<Object> before = fields(expense);
+                String described = DemoBills.describe(expense);
+                DemoBills.apply(demo, expense, bill);
+                if (!before.equals(fields(expense))) {
+                    expense.setUpdatedBy(actor.getId());
+                    expense.setUpdatedAt(now);
+                    String after = DemoBills.describe(expense);
+                    events.add(new PlanEvent(DemoEventType.EXPENSE_UPDATED, described.equals(after) ? after : described + " → " + after, reason));
+                }
+            }
+            List<DemoExpense> dropped = planned.values().stream().filter(expense -> !kept.contains(expense.getId()))
+                    .sorted(Comparator.comparing(DemoExpense::getId)).toList();
+            dropped.forEach(expense -> events.add(new PlanEvent(DemoEventType.EXPENSE_REMOVED, DemoBills.describe(expense), reason)));
+            demo.getExpenses().removeAll(dropped);
+            if (demo.getExpenses().size() > ClientDemoDTOs.MAX_EXPENSES) {
+                throw ApiErrors.fieldError("plannedBills", "A demo holds at most " + ClientDemoDTOs.MAX_EXPENSES + " bills.");
+            }
+        }
+        int lastBillDay = demo.getExpenses().stream().map(DemoExpense::getDayNumber).filter(Objects::nonNull)
+                .max(Integer::compare).orElse(0);
+        if (demo.getNumberOfDays() < lastBillDay) {
+            throw ApiErrors.fieldError("numberOfDays", "There are bills for day " + lastBillDay + ". Move or remove them before "
+                    + "shortening the visit to " + days(demo.getNumberOfDays()) + ".");
+        }
+        return events;
+    }
+
+    /**
+     * The proposed budget is the day-by-day plan's stays, meals and travel plus an extra amount, which needs its reason
+     * and breakup. Keeps the extra and its reason on the demo; returns what changed on an existing demo ("" if nothing).
+     */
+    private static String applyExtraBudget(ClientDemo demo, String requestedReason, boolean isNew) {
+        BigDecimal planned = demo.getExpenses().stream().filter(expense -> PLAN_KINDS.contains(expense.getKind()))
+                .map(DemoExpense::getAmount).reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
+        BigDecimal extra = demo.getProposedBudget().subtract(planned);
+        if (extra.signum() < 0) {
+            throw ApiErrors.fieldError("proposedBudget", "The proposed budget (" + rupees(demo.getProposedBudget()) + ") can't be less "
+                    + "than the day-by-day plan's stays, meals and travel (" + rupees(planned) + ").");
+        }
+        String reason = extra.signum() == 0 ? null : OptionalText.blankToNull(requestedReason);
+        if (extra.signum() > 0 && reason == null) {
+            throw ApiErrors.fieldError("extraBudgetReason", "The budget is " + rupees(extra) + " more than the day-by-day plan ("
+                    + rupees(planned) + "). Say why the extra is needed, with its breakup.");
+        }
+        boolean reasonChanged = !Objects.equals(demo.getExtraBudgetReason(), reason);
+        demo.setExtraBudget(extra);
+        demo.setExtraBudgetReason(reason);
+        if (isNew || !reasonChanged) {
+            return "";
+        }
+        return reason == null ? "no extra budget" : "extra budget " + rupees(extra) + ": " + reason;
+    }
+
+    // Everything a bill says, to tell whether the plan changed it
+    private static List<Object> fields(DemoExpense expense) {
+        return java.util.Arrays.asList(expense.getKind(), expense.getDayNumber(), expense.getVendorName(), expense.getVendorAddress(),
+                expense.getVendorMapLink(), expense.getVendorPhone(), expense.getVendorGstin(), expense.getMealType(),
+                expense.getFromPlace(), expense.getToPlace(), expense.getTravelMode(), expense.getStartDate(), expense.getStartTime(),
+                expense.getEndDate(), expense.getEndTime(), expense.getReferenceNumber(), expense.getAmount(),
+                expense.getGstAmount(), expense.getDescription());
+    }
+
+    // A timeline entry of the plan, written once the demo has its id
+    private record PlanEvent(DemoEventType type, String detail, String reason) {
+    }
+
+    private void saveEvents(ClientDemo demo, List<PlanEvent> events, User actor, Instant now) {
+        eventRepository.saveAll(events.stream().map(event -> DemoEvent.builder()
+                .demoId(demo.getId())
+                .type(event.type())
+                .actorId(actor.getId())
+                .at(now)
+                .detail(truncate(event.detail(), 1000))
+                .reason(event.reason())
+                .build()).toList());
     }
 
     private static <T> void change(List<String> changes, boolean isNew, String field, T current, T requested,

@@ -107,6 +107,7 @@ public class DealerPortalService {
                         .brand(item.getBrand())
                         .sku(item.getSku())
                         .unitOfMeasure(item.getUnitOfMeasure())
+                        .mrp(item.getMrp())
                         .build())
                 .toList();
     }
@@ -164,6 +165,10 @@ public class DealerPortalService {
         String note = OptionalText.blankToNull(request.getNote());
         if (note != null) {
             info.put(QuotationChangeService.DEALER_NOTE, note);
+        }
+        String priceChangeReason = OptionalText.blankToNull(request.getPriceChangeReason());
+        if (priceChangeReason != null) {
+            info.put(OrderDTOs.PRICE_CHANGE_REASON, priceChangeReason);
         }
 
         OrderDTOs.Response created = orderService.createOrder(OrderDTOs.CreateRequest.builder()

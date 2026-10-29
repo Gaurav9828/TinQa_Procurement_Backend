@@ -82,6 +82,18 @@ class DemoViews {
                 && (expense == null || userId.equals(expense.getAddedBy()));
     }
 
+    /**
+     * Whether the caller may hand the demo's units out or back now: while the approved demo runs, demo managers, and
+     * attending staff on their own demo (DEMO_UNITS_HANDLE_OWN).
+     */
+    boolean handlesUnits(ClientDemo demo, Long userId, Set<Long> staffUserIds) {
+        if (demo.getStatus() != DemoStatus.APPROVED || demo.getUnits().isEmpty()) {
+            return false;
+        }
+        return currentAccess.has(Permission.DEMO_MANAGE)
+                || currentAccess.has(Permission.DEMO_UNITS_HANDLE_OWN) && staffUserIds.contains(userId);
+    }
+
     // ------------------------------------------------------------------ views
 
     /** Display names of user accounts: the employee's name, else the username. */
@@ -118,6 +130,7 @@ class DemoViews {
                     .clientCategoryLabel(categoryLabel(demo))
                     .clientName(demo.getClientName())
                     .city(demo.getCity())
+                    .clientCount(demo.getVisits().size())
                     .startDate(demo.getStartDate())
                     .startTime(demo.getStartTime())
                     .numberOfDays(demo.getNumberOfDays())
@@ -146,6 +159,10 @@ class DemoViews {
             people.add(expense.getUpdatedBy());
         });
         events.forEach(event -> people.add(event.getActorId()));
+        demo.getUnits().forEach(unit -> {
+            people.add(unit.getHandedOutBy());
+            people.add(unit.getReturnedBy());
+        });
         Map<Long, String> names = names(people);
         Map<Long, String> files = documentRepository.findAllById(demo.getExpenses().stream().map(DemoExpense::getDocumentId)
                         .filter(Objects::nonNull).toList()).stream()
@@ -182,8 +199,20 @@ class DemoViews {
                 .numberOfDays(demo.getNumberOfDays())
                 .endDate(demo.endDate())
                 .proposedBudget(demo.getProposedBudget())
+                .extraBudget(demo.getExtraBudget())
+                .extraBudgetReason(demo.getExtraBudgetReason())
                 .purpose(demo.getPurpose())
                 .outcome(demo.getOutcome())
+                .clients(demo.getVisits().stream().map(visit -> visit(demo, visit)).toList())
+                .products(demo.getProducts().stream()
+                        .map(product -> new ClientDemoDTOs.ProductLine(product.getProductId(), product.getProductName(), product.getQuantity(),
+                                demo.getUnits().stream().filter(unit -> unit.getProductId().equals(product.getProductId()))
+                                        .map(DemoUnit::getCode).toList()))
+                        .toList())
+                .units(demo.getUnits().stream().map(unit -> unit(demo, unit, names)).toList())
+                .handlesUnits(handlesUnits(demo, userId, staffUsers))
+                .writesOffUnits(demo.getStatus() == DemoStatus.APPROVED && currentAccess.has(Permission.DEMO_UNIT_WRITE_OFF)
+                        && demo.getUnits().stream().anyMatch(unit -> unit.getStatus() == DemoUnitStatus.OUT))
                 .staff(staff.stream().map(DemoViews::staffMember)
                         .sorted((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(nullToEmpty(a.getName()), nullToEmpty(b.getName())))
                         .toList())
@@ -216,6 +245,23 @@ class DemoViews {
                 .build();
     }
 
+    private static ClientDemoDTOs.Unit unit(ClientDemo demo, DemoUnit unit, Map<Long, String> names) {
+        String productName = demo.getProducts().stream().filter(product -> product.getProductId().equals(unit.getProductId()))
+                .map(DemoProduct::getProductName).findFirst().orElse(null);
+        return ClientDemoDTOs.Unit.builder()
+                .barcode(unit.getCode())
+                .productId(unit.getProductId())
+                .productName(productName)
+                .status(unit.getStatus())
+                .statusLabel(unit.getStatus().label())
+                .handedOutAt(unit.getHandedOutAt())
+                .handedOutByName(names.get(unit.getHandedOutBy()))
+                .returnedAt(unit.getReturnedAt())
+                .returnedByName(names.get(unit.getReturnedBy()))
+                .writeOffReason(unit.getWriteOffReason())
+                .build();
+    }
+
     static ClientDemoDTOs.StaffMember staffMember(Employee employee) {
         return ClientDemoDTOs.StaffMember.builder()
                 .employeeId(employee.getId())
@@ -228,6 +274,33 @@ class DemoViews {
     static String categoryLabel(ClientDemo demo) {
         return demo.getClientCategory() == ClientCategory.OTHER && demo.getClientCategoryOther() != null
                 ? demo.getClientCategoryOther() : demo.getClientCategory().label();
+    }
+
+    private static ClientDemoDTOs.Visit visit(ClientDemo demo, DemoVisit visit) {
+        return ClientDemoDTOs.Visit.builder()
+                .id(visit.getId())
+                .clientCategory(visit.getClientCategory())
+                .clientCategoryLabel(visit.getClientCategory() == ClientCategory.OTHER && visit.getClientCategoryOther() != null
+                        ? visit.getClientCategoryOther() : visit.getClientCategory().label())
+                .clientCategoryOther(visit.getClientCategoryOther())
+                .clientName(visit.getClientName())
+                .legalName(visit.getLegalName())
+                .gstin(visit.getGstin())
+                .clientPhone(visit.getClientPhone())
+                .clientEmail(visit.getClientEmail())
+                .contactPerson(visit.getContactPerson())
+                .contactPhone(visit.getContactPhone())
+                .contactEmail(visit.getContactEmail())
+                .addressLine(visit.getAddressLine())
+                .city(visit.getCity())
+                .state(visit.getState())
+                .pincode(visit.getPincode())
+                .mapLink(visit.getMapLink())
+                .dayNumber(visit.getDayNumber())
+                .date(demo.getStartDate().plusDays(visit.getDayNumber() - 1L))
+                .startTime(visit.getStartTime())
+                .endTime(visit.getEndTime())
+                .build();
     }
 
     private static ClientDemoDTOs.Expense expense(ClientDemo demo, DemoExpense expense, Map<Long, String> names,
@@ -246,6 +319,10 @@ class DemoViews {
                 .fromPlace(expense.getFromPlace())
                 .toPlace(expense.getToPlace())
                 .travelMode(expense.getTravelMode())
+                .startDate(expense.getStartDate())
+                .startTime(expense.getStartTime())
+                .endDate(expense.getEndDate())
+                .endTime(expense.getEndTime())
                 .referenceNumber(expense.getReferenceNumber())
                 .amount(expense.getAmount())
                 .gstAmount(expense.getGstAmount())

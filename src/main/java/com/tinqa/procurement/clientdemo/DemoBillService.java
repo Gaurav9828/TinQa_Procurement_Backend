@@ -30,8 +30,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.Clock;
 import java.util.Locale;
@@ -71,12 +69,12 @@ public class DemoBillService {
         }
         Instant now = clock.instant();
         DemoExpense expense = DemoExpense.builder().demo(demo).addedBy(actor.getId()).addedAt(now).build();
-        apply(demo, expense, request);
+        DemoBills.apply(demo, expense, request);
         demo.getExpenses().add(expense);
         demo.setUpdatedAt(now);
         // The new bill's id is in the response
         demoRepository.saveAndFlush(demo);
-        demoService.event(demo, DemoEventType.EXPENSE_ADDED, actor, describe(expense), null);
+        demoService.event(demo, DemoEventType.EXPENSE_ADDED, actor, DemoBills.describe(expense), null);
         return views.detail(demo, actor);
     }
 
@@ -87,13 +85,13 @@ public class DemoBillService {
         DemoExpense expense = expenseOf(demo, expenseId);
         requireMayWrite(acting, demo, expense, actor);
         String reason = changeReason(demo, request.getChangeReason());
-        String before = describe(expense);
-        apply(demo, expense, request);
+        String before = DemoBills.describe(expense);
+        DemoBills.apply(demo, expense, request);
         Instant now = clock.instant();
         expense.setUpdatedBy(actor.getId());
         expense.setUpdatedAt(now);
         demo.setUpdatedAt(now);
-        String after = describe(expense);
+        String after = DemoBills.describe(expense);
         demoService.event(demo, DemoEventType.EXPENSE_UPDATED, actor, before.equals(after) ? after : before + " → " + after, reason);
         return views.detail(demo, actor);
     }
@@ -107,7 +105,7 @@ public class DemoBillService {
         String reason = changeReason(demo, changeReason);
         demo.getExpenses().remove(expense);
         demo.setUpdatedAt(clock.instant());
-        demoService.event(demo, DemoEventType.EXPENSE_REMOVED, actor, describe(expense), reason);
+        demoService.event(demo, DemoEventType.EXPENSE_REMOVED, actor, DemoBills.describe(expense), reason);
         return views.detail(demo, actor);
     }
 
@@ -153,7 +151,7 @@ public class DemoBillService {
         expense.setUpdatedAt(now);
         demo.setUpdatedAt(now);
         demoService.event(demo, DemoEventType.INVOICE_ATTACHED, actor, (replaced ? "Replaced the invoice of " : "Invoice attached to ")
-                + describe(expense) + ": " + validated.originalFileName(), null);
+                + DemoBills.describe(expense) + ": " + validated.originalFileName(), null);
         return views.detail(demo, actor);
     }
 
@@ -208,81 +206,6 @@ public class DemoBillService {
     private static DemoExpense expenseOf(ClientDemo demo, Long expenseId) {
         return demo.getExpenses().stream().filter(expense -> expense.getId().equals(expenseId)).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id: " + expenseId));
-    }
-
-    /** Validates the request for its kind and copies it onto the bill; fields that don't belong to the kind are cleared. */
-    private static void apply(ClientDemo demo, DemoExpense expense, ClientDemoDTOs.ExpenseRequest request) {
-        ExpenseKind kind = request.getKind();
-        Integer day = request.getDayNumber();
-        String vendor = OptionalText.blankToNull(request.getVendorName());
-        if (kind != ExpenseKind.OTHER && day == null) {
-            throw ApiErrors.fieldError("dayNumber", "Choose the day of the visit this bill belongs to.");
-        }
-        if (day != null && day > demo.getNumberOfDays()) {
-            throw ApiErrors.fieldError("dayNumber", "The visit is " + demo.getNumberOfDays() + (demo.getNumberOfDays() == 1 ? " day" : " days")
-                    + " long, so there is no day " + day + ".");
-        }
-        BigDecimal amount = request.getAmount().setScale(2, RoundingMode.HALF_UP);
-        BigDecimal gst = request.getGstAmount() == null ? null : request.getGstAmount().setScale(2, RoundingMode.HALF_UP);
-        if (gst != null && gst.compareTo(amount) > 0) {
-            throw ApiErrors.fieldError("gstAmount", "The GST is part of the amount, so it can't be more than the amount.");
-        }
-        switch (kind) {
-            case STAY -> require(vendor, "vendorName", "Enter the hotel's name.");
-            case FOOD -> {
-                require(vendor, "vendorName", "Enter the restaurant's name.");
-                if (request.getMealType() == null) {
-                    throw ApiErrors.fieldError("mealType", "Choose the meal: breakfast, lunch, snacks or dinner.");
-                }
-            }
-            case TRAVEL -> {
-                require(OptionalText.blankToNull(request.getFromPlace()), "fromPlace", "Enter where the journey started.");
-                require(OptionalText.blankToNull(request.getToPlace()), "toPlace", "Enter where the journey ended.");
-                if (request.getTravelMode() == null) {
-                    throw ApiErrors.fieldError("travelMode", "Choose how the staff travelled.");
-                }
-            }
-            case OTHER -> {
-                require(OptionalText.blankToNull(request.getDescription()), "description", "Say what this cost was for.");
-                require(OptionalText.blankToNull(request.getReason()), "reason", "Give the reason this cost was needed.");
-            }
-        }
-
-        boolean stay = kind == ExpenseKind.STAY;
-        expense.setKind(kind);
-        expense.setDayNumber(day);
-        expense.setVendorName(vendor);
-        expense.setVendorAddress(stay || kind == ExpenseKind.FOOD ? OptionalText.blankToNull(request.getVendorAddress()) : null);
-        expense.setVendorMapLink(stay ? OptionalText.blankToNull(request.getVendorMapLink()) : null);
-        expense.setVendorPhone(stay ? OptionalText.blankToNull(request.getVendorPhone()) : null);
-        expense.setVendorGstin(kind == ExpenseKind.TRAVEL ? null : OptionalText.blankToNull(request.getVendorGstin()));
-        expense.setMealType(kind == ExpenseKind.FOOD ? request.getMealType() : null);
-        expense.setFromPlace(kind == ExpenseKind.TRAVEL ? OptionalText.blankToNull(request.getFromPlace()) : null);
-        expense.setToPlace(kind == ExpenseKind.TRAVEL ? OptionalText.blankToNull(request.getToPlace()) : null);
-        expense.setTravelMode(kind == ExpenseKind.TRAVEL ? request.getTravelMode() : null);
-        expense.setReferenceNumber(OptionalText.blankToNull(request.getReferenceNumber()));
-        expense.setAmount(amount);
-        expense.setGstAmount(gst);
-        expense.setDescription(OptionalText.blankToNull(request.getDescription()));
-        expense.setReason(kind == ExpenseKind.OTHER ? OptionalText.blankToNull(request.getReason()) : null);
-    }
-
-    private static void require(String value, String field, String message) {
-        if (value == null) {
-            throw ApiErrors.fieldError(field, message);
-        }
-    }
-
-    private static String describe(DemoExpense expense) {
-        String day = expense.getDayNumber() == null ? "" : "Day " + expense.getDayNumber() + " ";
-        String what = switch (expense.getKind()) {
-            case STAY -> "stay at " + expense.getVendorName();
-            case FOOD -> expense.getMealType().name().toLowerCase(Locale.ROOT) + " at " + expense.getVendorName();
-            case TRAVEL -> expense.getTravelMode().name().toLowerCase(Locale.ROOT).replace('_', ' ') + " "
-                    + expense.getFromPlace() + " to " + expense.getToPlace();
-            case OTHER -> expense.getDescription();
-        };
-        return day + what + " " + ClientDemoService.rupees(expense.getAmount());
     }
 
     private void deleteFileAfterRollback(String storageKey) {

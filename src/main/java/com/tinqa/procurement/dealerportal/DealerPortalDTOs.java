@@ -67,6 +67,8 @@ public final class DealerPortalDTOs {
         private String brand;
         private String sku;
         private String unitOfMeasure;
+        /** The item's existing price; quoting another price needs a reason. */
+        private BigDecimal mrp;
     }
 
     @Data
@@ -106,6 +108,10 @@ public final class DealerPortalDTOs {
 
         @Size(max = 500, message = "Remarks cannot exceed 500 characters")
         private String note;
+
+        // Required when unitPrice differs from the item's MRP
+        @Size(max = 500, message = "Reason for the new price cannot exceed 500 characters")
+        private String priceChangeReason;
     }
 
     /** A proposed change: only the fields that are sent are changed. */

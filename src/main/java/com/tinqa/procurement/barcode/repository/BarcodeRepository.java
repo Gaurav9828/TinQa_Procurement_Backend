@@ -40,6 +40,14 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
     @Query("SELECT b FROM Barcode b WHERE b.code IN :codes AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID ORDER BY b.id")
     List<Barcode> findLiveByCodesForUpdate(@Param("codes") Collection<String> codes);
 
+    // Read-only: the live units carrying the codes
+    @Query("SELECT b FROM Barcode b WHERE b.code IN :codes AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID ORDER BY b.id")
+    List<Barcode> findLiveByCodes(@Param("codes") Collection<String> codes);
+
+    // A product's units in one status, oldest first (uses idx_barcodes_product)
+    List<Barcode> findByUnitTypeAndEcommerceProductIdAndStatusOrderByIdAsc(BarcodeUnitType unitType, Long ecommerceProductId,
+                                                                            BarcodeStatus status, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT b FROM Barcode b WHERE b.id IN :ids ORDER BY b.id")
     List<Barcode> findAllByIdForUpdate(@Param("ids") Collection<Long> ids);

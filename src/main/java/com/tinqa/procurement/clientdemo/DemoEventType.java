@@ -16,5 +16,9 @@ public enum DemoEventType {
     COMPLETION_APPROVED,
     COMPLETION_REJECTED,
     REOPENED,
-    CANCELLED
+    CANCELLED,
+    // Product units taken to the demo, by barcode
+    UNITS_HANDED_OUT,
+    UNITS_HANDED_BACK,
+    UNIT_WRITTEN_OFF
 }

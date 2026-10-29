@@ -14,6 +14,8 @@ public enum BarcodeStatus {
     REMOVED,
     // An approved item unit taken off by a count correction that waits for Admin L2
     WITHDRAWAL_PENDING,
+    // A product unit staff took to a client demo: out of stock until it is handed back (or written off)
+    ON_DEMO,
     // Registration rejected, reversed or corrected away; the code is free again
     VOID;
 

@@ -88,7 +88,7 @@ public class OrderServiceImpl implements OrderService {
                 .orderStatus(OrderStatus.QUOTATION)
                 .expectedDelivery(request.getExpectedDelivery())
                 .orderDate(request.getOrderDate())
-                .additionalInfo(orEmpty(request.getAdditionalInfo()))
+                .additionalInfo(withPriceJustification(item, request.getUnitPrice(), orEmpty(request.getAdditionalInfo())))
                 .createdBy(currentUserId)
                 .updatedBy(currentUserId)
                 .build();
@@ -327,6 +327,27 @@ public class OrderServiceImpl implements OrderService {
 
     private Order lockOrder(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> orderNotFound(orderId));
+    }
+
+    /**
+     * A unit price other than the item's MRP needs a reason; the MRP it was compared with is kept beside it so approvers
+     * see both. At the MRP (or for an item without one) neither key is kept.
+     */
+    private static Map<String, Object> withPriceJustification(Item item, BigDecimal unitPrice, Map<String, Object> info) {
+        Map<String, Object> result = new LinkedHashMap<>(info);
+        result.remove(OrderDTOs.PRICE_CHANGE_REASON);
+        result.remove(OrderDTOs.QUOTED_MRP);
+        BigDecimal mrp = item.getMrp();
+        if (mrp == null || mrp.signum() <= 0 || mrp.compareTo(unitPrice) == 0) {
+            return result;
+        }
+        if (!(info.get(OrderDTOs.PRICE_CHANGE_REASON) instanceof String reason) || reason.isBlank()) {
+            throw ApiErrors.fieldError(OrderDTOs.PRICE_CHANGE_REASON, "Give the reason for quoting " + unitPrice.toPlainString()
+                    + " instead of the item's existing price " + mrp.toPlainString() + ".");
+        }
+        result.put(OrderDTOs.PRICE_CHANGE_REASON, reason.trim());
+        result.put(OrderDTOs.QUOTED_MRP, mrp);
+        return result;
     }
 
     private static Map<String, Object> orEmpty(Map<String, Object> value) {

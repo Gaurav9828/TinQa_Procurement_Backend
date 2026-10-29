@@ -39,7 +39,36 @@ class DealerPortalIntegrationTest extends IntegrationTestSupport {
 
     private Map<String, Object> quotation(long itemId) {
         return body("itemId", itemId, "orderQuantity", new BigDecimal("10"), "unitType", "PCS",
-                "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"), "note", "Ex-works Pune");
+                "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"), "note", "Ex-works Pune",
+                "priceChangeReason", "Bulk rate");
+    }
+
+    @Test
+    void aPriceOtherThanTheItemsMrpNeedsAReason() throws Exception {
+        Dealer dealer = dealerWithLogin();
+        long itemId = createItem();
+        JsonNode items = data(get("/v1/dealer-portal/items", dealer.token(), 200));
+        JsonNode item = java.util.stream.StreamSupport.stream(items.spliterator(), false)
+                .filter(node -> node.get("id").asLong() == itemId).findFirst().orElseThrow();
+        assertThat(item.get("mrp").decimalValue()).isEqualByComparingTo("1500.00");
+
+        Map<String, Object> raised = quotation(itemId);
+        raised.put("unitPrice", new BigDecimal("1700.00"));
+        raised.remove("priceChangeReason");
+        JsonNode refused = post("/v1/dealer-portal/quotations", dealer.token(), raised, 400);
+        assertThat(refused.get("message").asText()).contains("reason");
+
+        raised.put("priceChangeReason", "  Copper prices went up  ");
+        long orderId = data(post("/v1/dealer-portal/quotations", dealer.token(), raised, 201)).get("id").asLong();
+        JsonNode info = data(get("/v1/orders/" + orderId, l1.token(), 200)).get("additionalInfo");
+        assertThat(info.get("priceChangeReason").asText()).isEqualTo("Copper prices went up");
+        assertThat(info.get("mrp").decimalValue()).isEqualByComparingTo("1500.00");
+
+        // At the existing price no reason is needed, and one sent anyway isn't kept
+        Map<String, Object> atMrp = quotation(itemId);
+        atMrp.put("unitPrice", new BigDecimal("1500.00"));
+        long plain = data(post("/v1/dealer-portal/quotations", dealer.token(), atMrp, 201)).get("id").asLong();
+        assertThat(data(get("/v1/orders/" + plain, l1.token(), 200)).get("additionalInfo").has("priceChangeReason")).isFalse();
     }
 
     @Test

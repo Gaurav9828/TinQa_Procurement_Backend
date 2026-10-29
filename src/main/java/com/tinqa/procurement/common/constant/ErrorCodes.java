@@ -119,6 +119,10 @@ public final class ErrorCodes {
     public static final String DEMO_WRONG_STATUS = "DEMO_WRONG_STATUS";
     public static final String DEMO_SELF_DECISION = "DEMO_SELF_DECISION";
     public static final String DEMO_NOT_ATTENDING = "DEMO_NOT_ATTENDING";
+    public static final String DEMO_UNIT_NOT_AVAILABLE = "DEMO_UNIT_NOT_AVAILABLE";
+    public static final String DEMO_UNITS_OUT = "DEMO_UNITS_OUT";
+    public static final String DEMO_STOCK_REFUSED = "DEMO_STOCK_REFUSED";
+    public static final String DEMO_STOCK_UNAVAILABLE = "DEMO_STOCK_UNAVAILABLE";
 
     private ErrorCodes() {
     }

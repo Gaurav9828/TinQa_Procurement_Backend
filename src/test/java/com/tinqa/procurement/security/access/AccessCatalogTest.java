@@ -98,7 +98,8 @@ class AccessCatalogTest {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.DELIVERY_RIDER).permissions())
                     .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE,
-                            Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN);
+                            Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN,
+                            Permission.DEMO_UNITS_HANDLE_OWN);
         }
     }
 
@@ -138,11 +139,13 @@ class AccessCatalogTest {
         assertThat(UserAccess.of(Role.ADMIN_L2, Designation.FINANCE_MANAGER).permissions())
                 .contains(Permission.DEMO_APPROVE)
                 .doesNotContain(Permission.DEMO_COMPLETED_EDIT);
-        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).contains(Permission.DEMO_COMPLETED_EDIT);
-        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions()).doesNotContain(Permission.DEMO_COMPLETED_EDIT);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions())
+                .contains(Permission.DEMO_COMPLETED_EDIT, Permission.DEMO_UNIT_WRITE_OFF);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions())
+                .doesNotContain(Permission.DEMO_COMPLETED_EDIT, Permission.DEMO_UNIT_WRITE_OFF);
         for (Designation designation : Designation.values()) {
             assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
-                    .contains(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN);
+                    .contains(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
         }
     }
 
@@ -153,7 +156,7 @@ class AccessCatalogTest {
             assertThat(UserAccess.of(level, Designation.SALES_AGENT).permissions()).as(level.name())
                     .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
                             Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN,
-                            Permission.DEMO_EXPENSE_RECORD_OWN);
+                            Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
         }
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
         for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,

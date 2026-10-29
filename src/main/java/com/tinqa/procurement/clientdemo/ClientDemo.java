@@ -13,8 +13,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A visit to a client for a demo appointment or a promotion: who the client is, when and for how many days, which staff
- * attend, the proposed budget, and every bill of the visit. See {@link DemoStatus} for its life.
+ * A trip to one or more clients for a demo appointment or a promotion: which clients are visited when, for how many
+ * days, which staff attend, which products are shown, the proposed budget, and every bill of the trip. The client
+ * columns hold the first visit's client (see {@link #mirrorFirstVisit()}). See {@link DemoStatus} for its life.
  */
 @Entity
 @Table(name = "client_demo")
@@ -83,6 +84,14 @@ public class ClientDemo {
     @Column(name = "proposed_budget", nullable = false, precision = 12, scale = 2)
     private BigDecimal proposedBudget;
 
+    // What the budget holds beyond the day-by-day plan's stays, meals and travel, and why
+    @Column(name = "extra_budget", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal extraBudget = BigDecimal.ZERO.setScale(2);
+
+    @Column(name = "extra_budget_reason", length = 1000)
+    private String extraBudgetReason;
+
     @Column(length = 1000)
     private String purpose;
 
@@ -142,6 +151,25 @@ public class ClientDemo {
     @Builder.Default
     private List<DemoExpense> expenses = new ArrayList<>();
 
+    // The clients visited, by day and time
+    @OneToMany(mappedBy = "demo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("dayNumber ASC, startTime ASC, id ASC")
+    @Builder.Default
+    private List<DemoVisit> visits = new ArrayList<>();
+
+    // The storefront products shown
+    @ElementCollection
+    @CollectionTable(name = "client_demo_product", joinColumns = @JoinColumn(name = "demo_id"))
+    @OrderBy("productName ASC")
+    @Builder.Default
+    private List<DemoProduct> products = new ArrayList<>();
+
+    // The product units taken, by barcode (see DemoUnit)
+    @OneToMany(mappedBy = "demo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("productId ASC, code ASC")
+    @Builder.Default
+    private List<DemoUnit> units = new ArrayList<>();
+
     /** The number staff and approvers refer to the demo by. */
     public String reference() {
         return reference(id);
@@ -159,6 +187,28 @@ public class ClientDemo {
     /** What the visit cost so far: the sum of its bills. */
     public BigDecimal total() {
         return expenses.stream().map(DemoExpense::getAmount).reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
+    }
+
+    /**
+     * Copies the first visit's client (earliest day and time) and its start time onto the demo, which lists, the
+     * Approvals Hub and the finance feed show.
+     */
+    public void mirrorFirstVisit() {
+        DemoVisit first = visits.stream()
+                .min(java.util.Comparator.comparing(DemoVisit::getDayNumber).thenComparing(DemoVisit::getStartTime))
+                .orElseThrow();
+        clientCategory = first.getClientCategory();
+        clientCategoryOther = first.getClientCategoryOther();
+        clientName = first.getClientName();
+        contactPerson = first.getContactPerson();
+        contactPhone = first.getContactPhone();
+        contactEmail = first.getContactEmail();
+        addressLine = first.getAddressLine();
+        city = first.getCity();
+        state = first.getState();
+        pincode = first.getPincode();
+        mapLink = first.getMapLink();
+        startTime = first.getStartTime();
     }
 
     /** Whether it was completed (and booked) before, i.e. it is being corrected. */

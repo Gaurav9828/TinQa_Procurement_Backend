@@ -22,4 +22,17 @@ public enum ClientCategory {
     public String label() {
         return label;
     }
+
+    /** Whether the client is a business that may have a legal (registered) name and a GSTIN. */
+    public boolean hasLegalDetails() {
+        return switch (this) {
+            case HOTEL, HOME_STAY, CORPORATE_OFFICE, HOSPITAL, CLINIC, RESTAURANT -> true;
+            default -> false;
+        };
+    }
+
+    /** Whether staff can stay there, so its details can fill in a planned stay. */
+    public boolean offersStay() {
+        return this == HOTEL || this == HOME_STAY;
+    }
 }

@@ -12,6 +12,11 @@ import java.util.Map;
 
 public class OrderDTOs {
 
+    /** additionalInfo key: why a quotation's unit price differs from the item's MRP (required when it does). */
+    public static final String PRICE_CHANGE_REASON = "priceChangeReason";
+    /** additionalInfo key: the item's MRP when the quotation was created at another price, for approvers. */
+    public static final String QUOTED_MRP = "mrp";
+
     @Data
     @Builder
     @NoArgsConstructor

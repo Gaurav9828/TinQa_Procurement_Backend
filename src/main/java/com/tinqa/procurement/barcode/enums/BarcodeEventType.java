@@ -15,5 +15,8 @@ public enum BarcodeEventType {
     WITHDRAWAL_REJECTED,
     CODE_CORRECTED,
     // An item stock movement was reversed, undoing what it did to the barcode
-    REVERSED
+    REVERSED,
+    // A product unit taken out of stock to a client demo, and handed back into stock afterwards
+    DEMO_HANDED_OUT,
+    DEMO_RETURNED
 }

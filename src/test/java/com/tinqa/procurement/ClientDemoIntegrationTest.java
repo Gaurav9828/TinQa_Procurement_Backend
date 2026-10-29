@@ -1,8 +1,11 @@
 package com.tinqa.procurement;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tinqa.procurement.clientdemo.DemoStockClient;
+import com.tinqa.procurement.common.exception.ApiException;
 import com.tinqa.procurement.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
@@ -13,6 +16,14 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 
 /**
  * Client demos: the quotation is approved by someone else, bills are recorded while the visit runs (attending staff
@@ -35,12 +46,21 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         return new Attendee(userId, employeeId, login(username, SEED_PASSWORD));
     }
 
+    // Each client has its own phone (by name); the contact person may be the same at every client
+    private static Map<String, Object> client(String name, String category, int day, String from, String to) {
+        return body("clientCategory", category, "clientName", name, "clientPhone", String.format("+9198%08d", Math.abs(name.hashCode()) % 100_000_000),
+                "contactPerson", "Asha Rao", "contactPhone", "+919876543210",
+                "addressLine", "12 MG Road", "city", "Jaipur", "mapLink", "https://maps.app.goo.gl/abc123",
+                "dayNumber", day, "startTime", from, "endTime", to);
+    }
+
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+
+    // Without a day-by-day plan the whole budget is extra, so it says why
     private static Map<String, Object> plan(long staffEmployeeId, int days, int budget) {
-        return body("demoType", "APPOINTMENT", "clientCategory", "HOTEL", "clientName", "Hotel Sunrise",
-                "contactPerson", "Asha Rao", "contactPhone", "+919876543210", "addressLine", "12 MG Road", "city", "Jaipur",
-                "mapLink", "https://maps.app.goo.gl/abc123",
-                "startDate", LocalDate.now(ZoneId.of("Asia/Kolkata")).toString(), "startTime", "10:30",
-                "numberOfDays", days, "proposedBudget", budget, "staffEmployeeIds", List.of(staffEmployeeId));
+        return body("demoType", "APPOINTMENT", "clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "10:30", "12:30")),
+                "startDate", TODAY.toString(), "numberOfDays", days, "proposedBudget", budget,
+                "extraBudgetReason", "Rooms and meals are booked on arrival", "staffEmployeeIds", List.of(staffEmployeeId));
     }
 
     private long create(Map<String, Object> plan) throws Exception {
@@ -60,6 +80,13 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
             if (expense.get("kind").asText().equals(kind)) return expense.get("id").asLong();
         }
         throw new AssertionError("No " + kind + " bill");
+    }
+
+    private static String unitStatus(JsonNode demo, String barcode) {
+        for (JsonNode unit : demo.get("units")) {
+            if (unit.get("barcode").asText().equals(barcode)) return unit.get("status").asText();
+        }
+        throw new AssertionError("No unit " + barcode);
     }
 
     private JsonNode feed() throws Exception {
@@ -161,13 +188,13 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         decide(l2b, id, "APPROVED", 200);
 
         Map<String, Object> later = plan(rider.employeeId(), 1, 5000);
-        later.put("startTime", "15:00");
+        later.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "15:00", "16:00")));
         put(DEMOS + "/" + id, l2a.token(), later, 400);
         later.put("changeReason", "Client asked for the afternoon");
         assertThat(data(put(DEMOS + "/" + id, l2a.token(), later, 200)).get("status").asText()).isEqualTo("APPROVED");
 
         Map<String, Object> bigger = plan(rider.employeeId(), 1, 8000);
-        bigger.put("startTime", "15:00");
+        bigger.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "15:00", "16:00")));
         bigger.put("changeReason", "Two more staff need rooms");
         assertThat(data(put(DEMOS + "/" + id, l2a.token(), bigger, 200)).get("status").asText()).isEqualTo("QUOTATION_PENDING");
         JsonNode rejected = data(decide(l2b, id, "REJECTED", 200));
@@ -183,5 +210,248 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         long draft = create(plan(rider.employeeId(), 1, 1000));
         delete(DEMOS + "/" + draft, l2a.token(), 200);
         get(DEMOS + "/" + draft, l2a.token(), 404);
+    }
+
+    @Test
+    void aTripVisitsSeveralClientsInSlotsThatNeverClashAndItsDayPlanIsKeptInOneSave() throws Exception {
+        Attendee rider = attendee();
+        Map<String, Object> trip = plan(rider.employeeId(), 2, 30000);
+        Map<String, Object> pearl = client("Hotel Pearl", "HOTEL", 1, "14:00", "15:00");
+        pearl.put("legalName", "Pearl Hospitality Pvt Ltd");
+        pearl.put("gstin", "08AAAAA0000A1Z5");
+        Map<String, Object> office = client("Infotech Park", "PUBLIC_PLACE", 2, "11:00", "12:00");
+        // Only business clients keep legal details
+        office.put("gstin", "08AAAAA0000A1Z5");
+
+        // Two visits on day 1 that overlap are refused
+        trip.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "10:00", "14:30"), pearl, office));
+        assertThat(post(DEMOS, l2a.token(), trip, 400).toString()).contains("overlap on day 1");
+        // A visit after the last day is refused
+        trip.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 3, "10:00", "11:00")));
+        post(DEMOS, l2a.token(), trip, 400);
+
+        trip.put("clients", List.of(office, pearl, client("Hotel Sunrise", "HOTEL", 1, "10:00", "13:00")));
+        trip.put("products", List.of(body("productId", 41, "productName", "Smart Lock X1", "quantity", 2,
+                        "barcodes", insertProductUnits(41, "Smart Lock X1", 2)),
+                body("productId", 42, "productName", "Door Sensor", "quantity", 5, "barcodes", insertProductUnits(42, "Door Sensor", 5))));
+        trip.put("plannedBills", List.of(
+                body("kind", "STAY", "dayNumber", 1, "vendorName", "Hotel Pearl", "vendorGstin", "08AAAAA0000A1Z5",
+                        "startDate", TODAY.toString(), "startTime", "21:00", "endDate", TODAY.plusDays(1).toString(), "endTime", "06:00",
+                        "amount", 3500),
+                body("kind", "FOOD", "dayNumber", 1, "mealType", "DINNER", "vendorName", "Hotel Pearl", "amount", 800)));
+        JsonNode created = data(post(DEMOS, l2a.token(), trip, 201));
+        long id = created.get("id").asLong();
+
+        // The demo shows the first visit (by day and time) as its client; every visit is listed in time order
+        assertThat(created.get("clientName").asText()).isEqualTo("Hotel Sunrise");
+        assertThat(created.get("startTime").asText()).startsWith("10:00");
+        assertThat(created.get("clients").findValuesAsText("clientName")).containsExactly("Hotel Sunrise", "Hotel Pearl", "Infotech Park");
+        assertThat(created.get("clients").get(1).get("gstin").asText()).isEqualTo("08AAAAA0000A1Z5");
+        assertThat(created.get("clients").get(2).get("gstin").isNull()).isTrue();
+        assertThat(created.get("products").findValuesAsText("productName")).containsExactly("Door Sensor", "Smart Lock X1");
+        assertThat(created.get("products").get(0).get("quantity").asInt()).isEqualTo(5);
+        assertThat(created.get("units")).hasSize(7);
+        assertThat(created.get("units").findValuesAsText("status")).containsOnly("RESERVED");
+        assertThat(created.get("total").decimalValue()).isEqualByComparingTo("4300");
+        JsonNode stay = created.get("expenses").get(0);
+        assertThat(stay.get("startTime").asText()).startsWith("21:00");
+        assertThat(stay.get("endDate").asText()).isEqualTo(TODAY.plusDays(1).toString());
+        assertThat(stay.get("endTime").asText()).startsWith("06:00");
+        assertThat(created.get("extraBudget").decimalValue()).isEqualByComparingTo("25700");
+
+        // Products are listed once each
+        trip.put("products", List.of(body("productId", 41, "productName", "Smart Lock X1", "quantity", 2),
+                body("productId", 41, "productName", "Smart Lock X1", "quantity", 1)));
+        post(DEMOS, l2a.token(), trip, 400);
+
+        // Saving the plan again: the dinner changes, the stay is dropped, a breakfast is added; other bills stay
+        post(DEMOS + "/" + id + "/expenses", l2a.token(), body("kind", "OTHER", "description", "Parking",
+                "reason", "No parking at the hotel", "amount", 1200), 201);
+        long dinnerId = billId(data(get(DEMOS + "/" + id, l2a.token(), 200)), "FOOD");
+        Map<String, Object> changed = new java.util.LinkedHashMap<>(trip);
+        changed.put("products", List.of());
+        changed.put("plannedBills", List.of(
+                body("id", dinnerId, "kind", "FOOD", "dayNumber", 1, "mealType", "DINNER", "vendorName", "Hotel Pearl", "amount", 950),
+                body("kind", "FOOD", "dayNumber", 2, "mealType", "BREAKFAST", "vendorName", "Cafe Lane", "amount", 250)));
+        JsonNode saved = data(put(DEMOS + "/" + id, l2a.token(), changed, 200));
+        assertThat(saved.get("expenses").findValuesAsText("kind")).containsExactlyInAnyOrder("FOOD", "OTHER", "FOOD");
+        assertThat(saved.get("total").decimalValue()).isEqualByComparingTo("2400");
+        assertThat(saved.get("products")).isEmpty();
+        assertThat(saved.get("events").findValuesAsText("type")).contains("EXPENSE_ADDED", "EXPENSE_UPDATED", "EXPENSE_REMOVED");
+
+        // The plan holds stays, meals and travel only
+        changed.put("plannedBills", List.of(body("kind", "OTHER", "description", "Parking", "reason", "None at the hotel", "amount", 10)));
+        put(DEMOS + "/" + id, l2a.token(), changed, 400);
+    }
+
+    @Test
+    void theSameClientIsNeverVisitedTwiceInARowOnOneDay() throws Exception {
+        Attendee rider = attendee();
+        Map<String, Object> trip = plan(rider.employeeId(), 2, 5000);
+        Map<String, Object> morning = client("Hotel Sunrise", "HOTEL", 1, "10:00", "12:00");
+        Map<String, Object> afternoon = client("Hotel Sunrise", "HOTEL", 1, "13:00", "15:00");
+        // Matched by the client's phone, however it is written, even under another name
+        afternoon.put("clientName", "Sunrise Residency");
+        afternoon.put("clientPhone", "0" + ((String) morning.get("clientPhone")).substring(3));
+        trip.put("clients", List.of(morning, afternoon));
+        assertThat(post(DEMOS, l2a.token(), trip, 400).toString()).contains("visited twice in a row on day 1", "from 10:00 to 15:00");
+
+        // ... or by its email
+        Map<String, Object> byEmail = client("Sunrise Annexe", "HOTEL", 1, "13:00", "15:00");
+        morning.put("clientEmail", "desk@sunrise.example");
+        byEmail.put("clientEmail", "DESK@sunrise.example");
+        trip.put("clients", List.of(morning, byEmail));
+        post(DEMOS, l2a.token(), trip, 400);
+
+        // Another client in between, or another day, is fine; the contact person may be the same everywhere
+        trip.put("clients", List.of(morning, client("City Care Hospital", "HOSPITAL", 1, "12:15", "12:45"), afternoon,
+                client("Hotel Sunrise", "HOTEL", 2, "10:00", "11:00")));
+        JsonNode created = data(post(DEMOS, l2a.token(), trip, 201));
+        assertThat(created.get("clients")).hasSize(4);
+        assertThat(created.get("clients").get(0).get("clientEmail").asText()).isEqualTo("desk@sunrise.example");
+    }
+
+    @Test
+    void theBudgetIsTheDayByDayPlanPlusAJustifiedExtraAndStaysAndJourneysAreDated() throws Exception {
+        Attendee rider = attendee();
+        Map<String, Object> trip = plan(rider.employeeId(), 2, 6000);
+        trip.remove("extraBudgetReason");
+        String day1 = TODAY.toString();
+        String day2 = TODAY.plusDays(1).toString();
+        // An overnight journey and a night's stay each end on the next day
+        Map<String, Object> train = body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "Delhi", "toPlace", "Manali", "travelMode", "BUS",
+                "startDate", day1, "startTime", "18:00", "endDate", day2, "endTime", "06:00", "amount", 1500);
+        Map<String, Object> cab = body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "Manali", "toPlace", "Mall Road", "travelMode", "CAB",
+                "startDate", day2, "startTime", "07:00", "endDate", day2, "endTime", "07:30", "amount", 500);
+        Map<String, Object> stay = body("kind", "STAY", "dayNumber", 1, "vendorName", "Hotel Pearl",
+                "startDate", day1, "startTime", "18:00", "endDate", day2, "endTime", "06:00", "amount", 4000);
+        trip.put("plannedBills", List.of(train, cab, stay));
+
+        // The plan comes to 6000, so there is no extra and no reason is needed
+        JsonNode created = data(post(DEMOS, l2a.token(), trip, 201));
+        long id = created.get("id").asLong();
+        assertThat(created.get("extraBudget").decimalValue()).isEqualByComparingTo("0");
+        assertThat(created.get("extraBudgetReason").isNull()).isTrue();
+        assertThat(created.get("expenses").findValuesAsText("endDate")).containsOnly(day2);
+
+        // A budget below the plan is refused; one above it needs its reason
+        trip.put("proposedBudget", 5000);
+        assertThat(post(DEMOS, l2a.token(), trip, 400).toString()).contains("can't be less than the day-by-day plan");
+        trip.put("proposedBudget", 8000);
+        assertThat(post(DEMOS, l2a.token(), trip, 400).toString()).contains("more than the day-by-day plan");
+        trip.put("extraBudgetReason", "Snow chains 1200, local guide 800");
+        JsonNode extra = data(post(DEMOS, l2a.token(), trip, 201));
+        assertThat(extra.get("extraBudget").decimalValue()).isEqualByComparingTo("2000");
+        assertThat(extra.get("extraBudgetReason").asText()).isEqualTo("Snow chains 1200, local guide 800");
+
+        // Arriving before leaving, a half-given time, or a start two days after its day is refused
+        trip.put("plannedBills", List.of(body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "A", "toPlace", "B", "travelMode", "CAB",
+                "startDate", day2, "startTime", "08:00", "endDate", day2, "endTime", "07:00", "amount", 10)));
+        post(DEMOS, l2a.token(), trip, 400);
+        trip.put("plannedBills", List.of(body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "A", "toPlace", "B", "travelMode", "CAB",
+                "startTime", "08:00", "endTime", "09:00", "amount", 10)));
+        post(DEMOS, l2a.token(), trip, 400);
+        trip.put("plannedBills", List.of(body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "A", "toPlace", "B", "travelMode", "CAB",
+                "startDate", TODAY.plusDays(2).toString(), "startTime", "08:00", "endDate", TODAY.plusDays(2).toString(), "endTime", "09:00",
+                "amount", 10)));
+        post(DEMOS, l2a.token(), trip, 400);
+
+        // Moving the trip moves its dated stays and journeys with it
+        Map<String, Object> later = plan(rider.employeeId(), 2, 6000);
+        later.remove("extraBudgetReason");
+        later.put("startDate", TODAY.plusDays(7).toString());
+        JsonNode moved = data(put(DEMOS + "/" + id, l2a.token(), later, 200));
+        assertThat(moved.get("expenses").findValuesAsText("startDate"))
+                .containsExactlyInAnyOrder(TODAY.plusDays(7).toString(), TODAY.plusDays(8).toString(), TODAY.plusDays(7).toString());
+    }
+
+    @Test
+    void productUnitsArePickedByBarcodeHandedOutOnTheDayAndAllComeBackBeforeCompletion() throws Exception {
+        Attendee rider = attendee();
+        List<String> rudrax = insertProductUnits(77, "RudraX", 3);
+        Map<String, Object> plan = plan(rider.employeeId(), 1, 5000);
+        plan.put("products", List.of(body("productId", 77, "productName", "RudraX", "quantity", 2,
+                "barcodes", List.of(rudrax.get(0).toLowerCase(), rudrax.get(1)))));
+        long id = create(plan);
+        String reference = String.format("DEMO-%05d", id);
+
+        // A product without its units' barcodes, or a unit of another product, is refused
+        Map<String, Object> noUnits = new java.util.LinkedHashMap<>(plan);
+        noUnits.put("products", List.of(body("productId", 77, "productName", "RudraX", "quantity", 1)));
+        post(DEMOS, l2a.token(), noUnits, 400);
+        noUnits.put("products", List.of(body("productId", 78, "productName", "Other", "quantity", 1, "barcodes", List.of(rudrax.get(2)))));
+        post(DEMOS, l2a.token(), noUnits, 409);
+
+        // A unit picked for these days can't be picked by another demo on an overlapping day, only on other days
+        Map<String, Object> clash = new java.util.LinkedHashMap<>(plan);
+        clash.put("products", List.of(body("productId", 77, "productName", "RudraX", "quantity", 1, "barcodes", List.of(rudrax.get(1)))));
+        assertThat(post(DEMOS, l2a.token(), clash, 409).get("message").asText()).contains("taken by " + reference);
+        clash.put("startDate", TODAY.plusDays(3).toString());
+        create(clash);
+
+        // Picking: the product's units for the days, or one unit by its barcode (typed or scanned)
+        JsonNode options = data(get(DEMOS + "/units?productId=77&startDate=" + TODAY + "&days=1", l2a.token(), 200));
+        assertThat(options).hasSize(3);
+        assertThat(options.findValuesAsText("barcode")).containsExactlyElementsOf(rudrax);
+        assertThat(options.findValuesAsText("available")).containsExactly("false", "false", "true");
+        assertThat(options.get(0).get("heldBy").asText()).isEqualTo(reference);
+        JsonNode free = data(get(DEMOS + "/units/lookup?code=" + rudrax.get(2).toLowerCase() + "&startDate=" + TODAY, l2a.token(), 200));
+        assertThat(free.get("productTitle").asText()).isEqualTo("RudraX");
+        assertThat(free.get("available").asBoolean()).isTrue();
+        assertThat(data(get(DEMOS + "/units/lookup?code=" + rudrax.get(0) + "&startDate=" + TODAY + "&demoId=" + id, l2a.token(), 200))
+                .get("available").asBoolean()).isTrue();
+        get(DEMOS + "/units/lookup?code=NO-SUCH-UNIT&startDate=" + TODAY, l2a.token(), 404);
+        get(DEMOS + "/units?productId=77&startDate=" + TODAY, rider.token(), 403);
+
+        // Units leave stock only once the demo is approved
+        post(DEMOS + "/" + id + "/units/hand-out", l2a.token(), body("barcodes", List.of(rudrax.get(0))), 409);
+        post(DEMOS + "/" + id + "/submit", l2a.token(), null, 200);
+        decide(l2b, id, "APPROVED", 200);
+
+        // The attending rider hands one out: the storefront's stock goes down first, then the unit is out here
+        JsonNode out = data(post(MINE + "/" + id + "/units/hand-out", rider.token(), body("barcodes", List.of(rudrax.get(0))), 200));
+        verify(demoStockClient).move(anyString(), eq(DemoStockClient.Direction.OUT), eq(reference), eq(Map.of(77L, 1)), anyString());
+        assertThat(barcodeStatus(rudrax.get(0))).isEqualTo("ON_DEMO");
+        assertThat(unitStatus(out, rudrax.get(0))).isEqualTo("OUT");
+        assertThat(unitStatus(out, rudrax.get(1))).isEqualTo("RESERVED");
+        assertThat(out.get("events").findValuesAsText("type")).contains("UNITS_HANDED_OUT");
+        // Handing it out again is refused before the storefront is asked
+        clearInvocations(demoStockClient);
+        post(MINE + "/" + id + "/units/hand-out", rider.token(), body("barcodes", List.of(rudrax.get(0))), 409);
+        verify(demoStockClient, never()).move(anyString(), any(), anyString(), any(), anyString());
+
+        // The storefront refuses (the unit was sold online): nothing changes here
+        doThrow(new ApiException("Too few units are left to sell", "DEMO_STOCK_REFUSED", HttpStatus.CONFLICT))
+                .when(demoStockClient).move(anyString(), eq(DemoStockClient.Direction.OUT), anyString(), any(), anyString());
+        post(DEMOS + "/" + id + "/units/hand-out", l2a.token(), body("barcodes", List.of(rudrax.get(1))), 409);
+        assertThat(barcodeStatus(rudrax.get(1))).isEqualTo("IN_STOCK");
+        reset(demoStockClient);
+
+        // A unit handed out stays on the demo; the demo can't be completed or cancelled while it is out
+        Map<String, Object> dropOut = new java.util.LinkedHashMap<>(plan);
+        dropOut.put("products", List.of(body("productId", 77, "productName", "RudraX", "quantity", 1, "barcodes", List.of(rudrax.get(1)))));
+        dropOut.put("changeReason", "Taking one less");
+        put(DEMOS + "/" + id, l2a.token(), dropOut, 400);
+        assertThat(post(DEMOS + "/" + id + "/complete", l2a.token(), body("outcome", "Done"), 409).get("errorCode").asText())
+                .isEqualTo("DEMO_UNITS_OUT");
+        post(DEMOS + "/" + id + "/cancel", l2a.token(), body("reason", "Client cancelled"), 409);
+
+        // Handed back: in stock again on both sides
+        post(MINE + "/" + id + "/units/hand-back", rider.token(), body("barcodes", List.of(rudrax.get(0))), 200);
+        verify(demoStockClient).move(anyString(), eq(DemoStockClient.Direction.BACK), eq(reference), eq(Map.of(77L, 1)), anyString());
+        assertThat(barcodeStatus(rudrax.get(0))).isEqualTo("IN_STOCK");
+
+        // A unit that does not come back is written off by a Super Admin only; it leaves stock for good
+        post(DEMOS + "/" + id + "/units/hand-out", l2a.token(), body("barcodes", List.of(rudrax.get(1))), 200);
+        post(DEMOS + "/" + id + "/units/write-off", l1.token(), body("barcode", rudrax.get(1), "reason", "Dropped at the venue"), 403);
+        JsonNode writtenOff = data(post(DEMOS + "/" + id + "/units/write-off", l2a.token(),
+                body("barcode", rudrax.get(1), "reason", "Dropped at the venue"), 200));
+        assertThat(barcodeStatus(rudrax.get(1))).isEqualTo("REMOVED");
+        assertThat(unitStatus(writtenOff, rudrax.get(0))).isEqualTo("RETURNED");
+        assertThat(unitStatus(writtenOff, rudrax.get(1))).isEqualTo("WRITTEN_OFF");
+
+        // Every unit is accounted for, so the demo completes
+        post(DEMOS + "/" + id + "/complete", l2a.token(), body("outcome", "Demo done"), 200);
+        assertThat(data(decide(l2b, id, "APPROVED", 200)).get("status").asText()).isEqualTo("COMPLETED");
     }
 }

@@ -7,7 +7,9 @@ import com.tinqa.procurement.common.validation.ValidationPatterns;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -31,6 +33,12 @@ public final class ClientDemoDTOs {
     public static final int MAX_STAFF = 30;
     /** The most bills on one demo. */
     public static final int MAX_EXPENSES = 300;
+    /** The most clients visited on one demo trip. */
+    public static final int MAX_VISITS = 20;
+    /** The most products shown on one demo. */
+    public static final int MAX_PRODUCTS = 50;
+    /** The most units of one product taken to a demo. */
+    public static final int MAX_PRODUCT_UNITS = 1000;
 
     private static final String OPTIONAL_TEXT = "^\\s*$|" + ValidationPatterns.SINGLE_LINE_TEXT;
     private static final String TEXT_MESSAGE = " " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE;
@@ -42,9 +50,17 @@ public final class ClientDemoDTOs {
     // ------------------------------------------------------------------ requests
 
     /**
-     * The plan of a demo: the client, when, for how long, who attends and the proposed budget. Once the quotation is
-     * approved every change needs a {@code changeReason}; changing the budget or the number of days then sends the
-     * quotation back for approval.
+     * The plan of a demo: the clients visited (each on a day, between two times that don't overlap another visit that
+     * day, and never the same client twice in a row on a day), the start date, for how long, who attends, the products
+     * shown and the proposed budget. Once the quotation is approved every change needs a {@code changeReason}; changing
+     * the budget or the number of days then sends the quotation back for approval.
+     *
+     * <p>{@code plannedBills}, when sent, is the full day-by-day plan of stays, meals and travel (STAY, FOOD and TRAVEL
+     * bills): bills with an {@code id} are changed, those without are added (in the order given, so their ids ascend in
+     * that order), and stay, food and travel bills left out are removed. Leave it out to keep the bills as they are.
+     *
+     * <p>The proposed budget is the plan's total plus an optional extra amount; any extra needs
+     * {@code extraBudgetReason}, the reason and its breakup.
      */
     @Data
     @Builder
@@ -54,6 +70,53 @@ public final class ClientDemoDTOs {
         @NotNull(message = "Type is required (APPOINTMENT or PROMOTION)")
         private DemoType demoType;
 
+        @NotEmpty(message = "Add at least one client to visit")
+        @Size(max = MAX_VISITS, message = "At most " + MAX_VISITS + " clients can be visited on one demo")
+        @Valid
+        private List<VisitRequest> clients;
+
+        @NotNull(message = "Date is required")
+        private LocalDate startDate;
+
+        @NotNull(message = "Number of days is required")
+        @Min(value = 1, message = "Number of days must be at least 1")
+        @Max(value = MAX_DAYS, message = "Number of days cannot exceed " + MAX_DAYS)
+        private Integer numberOfDays;
+
+        @NotNull(message = "Proposed budget is required")
+        @DecimalMin(value = "0.00", message = "Proposed budget cannot be negative")
+        @MaxAmount(message = "Proposed budget cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
+        private BigDecimal proposedBudget;
+
+        // Why the budget is more than the day-by-day plan, and its breakup; required when it is
+        @Size(max = 1000, message = "Reason for the extra budget cannot exceed 1000 characters")
+        private String extraBudgetReason;
+
+        @Size(max = 1000, message = "Purpose cannot exceed 1000 characters")
+        private String purpose;
+
+        @Size(max = MAX_STAFF, message = "At most " + MAX_STAFF + " staff can attend one demo")
+        private List<Long> staffEmployeeIds;
+
+        @Size(max = MAX_PRODUCTS, message = "At most " + MAX_PRODUCTS + " products can be shown on one demo")
+        @Valid
+        private List<ProductRequest> products;
+
+        @Size(max = MAX_EXPENSES, message = "At most " + MAX_EXPENSES + " bills fit on one demo")
+        @Valid
+        private List<ExpenseRequest> plannedBills;
+
+        // Why the plan changes, once the quotation was approved
+        @Size(max = 500, message = "Reason cannot exceed 500 characters")
+        private String changeReason;
+    }
+
+    /** One client visited, and when: a day of the trip and the expected time there (e.g. 10:00 to 13:00). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VisitRequest {
         @NotNull(message = "Client category is required")
         private ClientCategory clientCategory;
 
@@ -66,6 +129,23 @@ public final class ClientDemoDTOs {
         @Size(max = 150, message = "Client name cannot exceed 150 characters")
         @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Client name" + TEXT_MESSAGE)
         private String clientName;
+
+        // A business client's registered name and GSTIN; kept only for categories that have them
+        @Size(max = 150, message = "Legal name cannot exceed 150 characters")
+        @Pattern(regexp = OPTIONAL_TEXT, message = "Legal name" + TEXT_MESSAGE)
+        private String legalName;
+
+        @Pattern(regexp = "^\\s*$|" + ValidationPatterns.GSTIN, message = "GSTIN must be 15 characters like 22AAAAA0000A1Z5 (capital letters)")
+        private String gstin;
+
+        // The client's own phone and email (front desk, reception), not its contact person's
+        @NotBlank(message = "Client phone is required")
+        @Pattern(regexp = ValidationPatterns.PHONE, message = "Client phone " + ValidationPatterns.PHONE_MESSAGE)
+        private String clientPhone;
+
+        @Size(max = 255, message = "Client email cannot exceed 255 characters")
+        @Pattern(regexp = "^\\s*$|" + ValidationPatterns.EMAIL, message = "Client email " + ValidationPatterns.EMAIL_MESSAGE)
+        private String clientEmail;
 
         @Size(max = 100, message = "Contact person cannot exceed 100 characters")
         @Pattern(regexp = ValidationPatterns.OPTIONAL_PERSON_NAME, message = "Contact person " + ValidationPatterns.OPTIONAL_PERSON_NAME_MESSAGE)
@@ -100,31 +180,44 @@ public final class ClientDemoDTOs {
         @GoogleMapsUrl(message = "Client location " + MAPS_MESSAGE)
         private String mapLink;
 
-        @NotNull(message = "Date is required")
-        private LocalDate startDate;
+        @NotNull(message = "Day of the visit is required")
+        @Min(value = 1, message = "Day must be at least 1")
+        @Max(value = MAX_DAYS, message = "Day cannot exceed " + MAX_DAYS)
+        private Integer dayNumber;
 
-        @NotNull(message = "Time is required")
+        @NotNull(message = "Visit start time is required")
         private LocalTime startTime;
 
-        @NotNull(message = "Number of days is required")
-        @Min(value = 1, message = "Number of days must be at least 1")
-        @Max(value = MAX_DAYS, message = "Number of days cannot exceed " + MAX_DAYS)
-        private Integer numberOfDays;
+        @NotNull(message = "Visit end time is required")
+        private LocalTime endTime;
+    }
 
-        @NotNull(message = "Proposed budget is required")
-        @DecimalMin(value = "0.00", message = "Proposed budget cannot be negative")
-        @MaxAmount(message = "Proposed budget cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
-        private BigDecimal proposedBudget;
+    /**
+     * A storefront product shown on the demo and the barcodes of the units taken (each one of its units in stock, not
+     * held by an overlapping demo); the number of units is the number of barcodes. A product listed before units were
+     * picked by barcode may keep only its number of units while it is unchanged.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProductRequest {
+        @NotNull(message = "Product is required")
+        @Min(value = 1, message = "Product is required")
+        private Long productId;
 
-        @Size(max = 1000, message = "Purpose cannot exceed 1000 characters")
-        private String purpose;
+        // The product's title as the storefront shows it, kept as chosen
+        @NotBlank(message = "Product name is required")
+        @Size(max = 200, message = "Product name cannot exceed 200 characters")
+        private String productName;
 
-        @Size(max = MAX_STAFF, message = "At most " + MAX_STAFF + " staff can attend one demo")
-        private List<Long> staffEmployeeIds;
+        @NotNull(message = "Number of units is required")
+        @Min(value = 1, message = "Take at least 1 unit")
+        @Max(value = MAX_PRODUCT_UNITS, message = "At most " + MAX_PRODUCT_UNITS + " units of one product")
+        private Integer quantity;
 
-        // Why the plan changes, once the quotation was approved
-        @Size(max = 500, message = "Reason cannot exceed 500 characters")
-        private String changeReason;
+        @Size(max = MAX_PRODUCT_UNITS, message = "At most " + MAX_PRODUCT_UNITS + " units of one product")
+        private List<String> barcodes;
     }
 
     /**
@@ -137,6 +230,9 @@ public final class ClientDemoDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ExpenseRequest {
+        // Only in a plan's plannedBills: the bill this changes; blank for a new one
+        private Long id;
+
         @NotNull(message = "Bill type is required (STAY, FOOD, TRAVEL or OTHER)")
         private ExpenseKind kind;
 
@@ -173,6 +269,15 @@ public final class ClientDemoDTOs {
         private String toPlace;
 
         private TravelMode travelMode;
+
+        // A stay's check-in and check-out, or a journey's departure and arrival: all four or none; it may end the next day
+        private LocalDate startDate;
+
+        private LocalTime startTime;
+
+        private LocalDate endDate;
+
+        private LocalTime endTime;
 
         @Size(max = 60, message = "Invoice / ticket number cannot exceed 60 characters")
         @Pattern(regexp = OPTIONAL_TEXT, message = "Invoice / ticket number" + TEXT_MESSAGE)
@@ -216,6 +321,29 @@ public final class ClientDemoDTOs {
         private String outcome;
     }
 
+    /** Units of the demo handed out or handed back, by barcode (scanned or picked). */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UnitsRequest {
+        @NotEmpty(message = "Scan or pick at least one unit")
+        @Size(max = MAX_PRODUCT_UNITS, message = "At most " + MAX_PRODUCT_UNITS + " units at once")
+        private List<String> barcodes;
+    }
+
+    /** A Super Admin writes off a unit that did not come back from the demo. */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WriteOffRequest {
+        @NotBlank(message = "Barcode is required")
+        private String barcode;
+
+        @NotBlank(message = "Say what happened to the unit")
+        @Size(max = 500, message = "Reason cannot exceed 500 characters")
+        private String reason;
+    }
+
     public enum Decision { APPROVED, REJECTED }
 
     @Data
@@ -257,6 +385,8 @@ public final class ClientDemoDTOs {
         private String clientCategoryLabel;
         private String clientName;
         private String city;
+        // How many clients the trip visits; the one above is the first
+        private int clientCount;
         private LocalDate startDate;
         private LocalTime startTime;
         private Integer numberOfDays;
@@ -289,6 +419,10 @@ public final class ClientDemoDTOs {
         private String fromPlace;
         private String toPlace;
         private TravelMode travelMode;
+        private LocalDate startDate;
+        private LocalTime startTime;
+        private LocalDate endDate;
+        private LocalTime endTime;
         private String referenceNumber;
         private BigDecimal amount;
         private BigDecimal gstAmount;
@@ -301,6 +435,77 @@ public final class ClientDemoDTOs {
         private String updatedByName;
         private Instant updatedAt;
         private boolean editableByYou;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Visit {
+        private Long id;
+        private ClientCategory clientCategory;
+        private String clientCategoryLabel;
+        private String clientCategoryOther;
+        private String clientName;
+        private String legalName;
+        private String gstin;
+        private String clientPhone;
+        private String clientEmail;
+        private String contactPerson;
+        private String contactPhone;
+        private String contactEmail;
+        private String addressLine;
+        private String city;
+        private String state;
+        private String pincode;
+        private String mapLink;
+        private Integer dayNumber;
+        private LocalDate date;
+        private LocalTime startTime;
+        private LocalTime endTime;
+    }
+
+    /** A product shown, its number of units and their barcodes (empty for a product listed before barcodes were picked). */
+    public record ProductLine(Long productId, String productName, Integer quantity, List<String> barcodes) {
+    }
+
+    /** A unit taken to the demo and where it is. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Unit {
+        private String barcode;
+        private Long productId;
+        private String productName;
+        private DemoUnitStatus status;
+        private String statusLabel;
+        private Instant handedOutAt;
+        private String handedOutByName;
+        private Instant returnedAt;
+        private String returnedByName;
+        private String writeOffReason;
+    }
+
+    /**
+     * A product unit that may be picked for a demo: its barcode, product and stock status, and whether it can be
+     * picked for the demo's days ({@code heldBy}: the demo that has it then).
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UnitOption {
+        private String barcode;
+        private Long productId;
+        private String productTitle;
+        private String status;
+        private String statusLabel;
+        private java.time.LocalDateTime inStockSince;
+        private boolean available;
+        private String heldBy;
+        // Why it can't be picked, when it can't
+        private String note;
     }
 
     @Data
@@ -342,8 +547,19 @@ public final class ClientDemoDTOs {
         private Integer numberOfDays;
         private LocalDate endDate;
         private BigDecimal proposedBudget;
+        // What the budget holds beyond the day-by-day plan when it was set, and why
+        private BigDecimal extraBudget;
+        private String extraBudgetReason;
         private String purpose;
         private String outcome;
+        // Every client visited, by day and time; the client fields above are the first
+        private List<Visit> clients;
+        private List<ProductLine> products;
+        // Every unit taken, by barcode
+        private List<Unit> units;
+        // Whether the caller may hand units out or back now, and write off a unit that is out
+        private boolean handlesUnits;
+        private boolean writesOffUnits;
         private List<StaffMember> staff;
         private List<Expense> expenses;
         // Spent per bill type (STAY, FOOD, TRAVEL, OTHER), the total, and what is left of the budget (negative: over)

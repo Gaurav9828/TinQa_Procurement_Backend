@@ -3,6 +3,7 @@ package com.tinqa.procurement.support;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinqa.procurement.common.util.SecureTokens;
+import com.tinqa.procurement.clientdemo.DemoStockClient;
 import com.tinqa.procurement.mail.StaffMailer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -86,6 +87,10 @@ public abstract class IntegrationTestSupport {
     @MockitoBean
     protected StaffMailer staffMailer;
 
+    // The storefront's stock of units taken to client demos lives in the e-commerce service; tests check what it is told
+    @MockitoBean
+    protected DemoStockClient demoStockClient;
+
     @Autowired
     protected ObjectMapper objectMapper;
 
@@ -134,6 +139,19 @@ public abstract class IntegrationTestSupport {
     }
 
     // Seeded admins are Super Admins, so their admin level alone decides what they can do (as before designations)
+    /** Registers product units of a storefront product, in stock, and returns their codes. */
+    protected List<String> insertProductUnits(long productId, String title, int count) {
+        List<String> codes = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String code = ("PU" + productId + "-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 10)).toUpperCase();
+            jdbc.update("""
+                    INSERT INTO barcodes (code, unit_type, status, ecommerce_product_id, product_title, locked_at)
+                    VALUES (?, 'PRODUCT_UNIT', 'IN_STOCK', ?, ?, CURRENT_TIMESTAMP)""", code, productId, title);
+            codes.add(code);
+        }
+        return codes;
+    }
+
     protected long insertEmployee(long userId) {
         return insertEmployee(userId, "SUPER_ADMIN");
     }
@@ -329,7 +347,9 @@ public abstract class IntegrationTestSupport {
     protected Map<String, Object> orderBody(long dealerId, long itemId, String quantity) {
         return body("dealerId", dealerId, "itemId", itemId, "orderQuantity", new BigDecimal(quantity),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
-                "orderDate", LocalDate.now().minusDays(5).toString());
+                "orderDate", LocalDate.now().minusDays(5).toString(),
+                // Below the item's MRP of 1500.00, so it needs a reason
+                "additionalInfo", body("priceChangeReason", "Bulk rate agreed with the dealer"));
     }
 
     protected JsonNode createOrder(long dealerId, long itemId, String quantity) throws Exception {

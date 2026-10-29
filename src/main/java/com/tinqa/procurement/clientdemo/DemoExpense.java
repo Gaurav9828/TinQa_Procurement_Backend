@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 /** One bill of a demo: a stay, a meal, a leg of travel or another cost. {@link ExpenseKind} decides which fields count. */
 @Entity
@@ -61,6 +63,19 @@ public class DemoExpense {
     @Enumerated(EnumType.STRING)
     @Column(name = "travel_mode", length = 20)
     private TravelMode travelMode;
+
+    // When a stay (check-in to check-out) or a journey (departure to arrival) starts and ends; it may end the next day
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "start_time")
+    private LocalTime startTime;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(name = "end_time")
+    private LocalTime endTime;
 
     // Invoice number, or ticket / PNR number
     @Column(name = "reference_number", length = 60)

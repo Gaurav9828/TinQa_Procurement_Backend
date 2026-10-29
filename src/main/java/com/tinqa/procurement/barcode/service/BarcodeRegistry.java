@@ -274,6 +274,26 @@ public class BarcodeRegistry {
                 BarcodeEventType.APPROVED, approver).locking());
     }
 
+    // ------------------------------------------------------------------ product units on client demos
+
+    /** Product units in stock leave it for a client demo ({@code note} names the demo). The caller locked them. */
+    public void handOutForDemo(List<Barcode> units, Actor actor, String note) {
+        writer.apply(BarcodeWriter.Change.of(ids(units), BarcodeStatus.ON_DEMO, BarcodeEventType.DEMO_HANDED_OUT, actor)
+                .noted(note).withStatusNote(note));
+    }
+
+    /** Product units back from a client demo come into stock again. The caller locked them. */
+    public void returnFromDemo(List<Barcode> units, Actor actor, String note) {
+        writer.apply(BarcodeWriter.Change.of(ids(units), BarcodeStatus.IN_STOCK, BarcodeEventType.DEMO_RETURNED, actor)
+                .noted(note).withStatusNote(note));
+    }
+
+    /** A product unit that did not come back from a demo (lost, damaged): removed for good, with its pieces. */
+    public void writeOffFromDemo(Barcode unit, Actor actor, String reason) {
+        List<Barcode> parts = barcodes.findPartsForUpdate(List.of(unit.getId()));
+        removeProductUnits(List.of(unit), parts, false, false, null, actor, reason);
+    }
+
     // ------------------------------------------------------------------ reversal of a movement
 
     /**
@@ -339,6 +359,7 @@ public class BarcodeRegistry {
             case FITTED -> "fitted in a product";
             case REMOVED -> "removed from stock";
             case WITHDRAWAL_PENDING -> "being taken off stock";
+            case ON_DEMO -> "out on a client demo";
             case VOID -> "void";
         };
     }

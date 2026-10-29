@@ -161,6 +161,8 @@ public enum Permission {
     COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),
     // /v1/admin/client-demos/{id}/reopen and the edits of a reopened demo: correcting a completed (booked) demo
     DEMO_COMPLETED_EDIT(SYSTEM_ADMINISTRATION, "Reopen and correct completed client demos (the correction is approved again)"),
+    // /v1/admin/client-demos/{id}/units/write-off: a product unit that did not come back from a demo leaves stock for good
+    DEMO_UNIT_WRITE_OFF(SYSTEM_ADMINISTRATION, "Write off a product unit that did not come back from a client demo"),
     // Web UI only (static content, no endpoint): the user guide page and its per-role PDF downloads
     USER_GUIDE_VIEW(USER_GUIDE, "View the user guide and download role guides as PDF"),
 
@@ -169,6 +171,8 @@ public enum Permission {
     // /v1/client-demos/mine: the demos the employee is tagged on as attending staff, and the bills they pay on them
     DEMO_VIEW_OWN(SELF_SERVICE, "View the client demos you attend"),
     DEMO_EXPENSE_RECORD_OWN(SELF_SERVICE, "Record your hotel, food, travel and other bills on demos you attend"),
+    // /v1/client-demos/mine/{id}/units: the product units taken, by barcode, out of stock on the day and back afterwards
+    DEMO_UNITS_HANDLE_OWN(SELF_SERVICE, "Hand out and hand back the product units taken on demos you attend"),
 
     // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
     DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),
