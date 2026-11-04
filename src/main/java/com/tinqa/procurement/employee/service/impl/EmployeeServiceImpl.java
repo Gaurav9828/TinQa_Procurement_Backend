@@ -24,9 +24,9 @@ import com.tinqa.procurement.employee.service.EmployeeService;
 import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.security.access.CurrentAccess;
-import com.tinqa.procurement.security.access.Designation;
-import com.tinqa.procurement.security.access.DesignationAccess;
 import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.access.role.AssignedDesignation;
+import com.tinqa.procurement.security.access.role.DesignationDirectory;
 import com.tinqa.procurement.security.model.AuthClient;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
@@ -72,6 +72,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordLinkService passwordLinkService;
     private final EmployeeProfileChangeRequestRepository changeRequestRepository;
+    private final DesignationDirectory designationDirectory;
     private final Clock clock;
 
     // employee_profile_change_request.status for a request dropped because its employee was deleted
@@ -101,9 +102,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 ? Role.ADMIN_L1
                 : Role.valueOf(request.getRole().trim().toUpperCase(Locale.ROOT));
 
-        Designation designation = Designation.fromCode(request.getDesignation()).orElseThrow();
+        AssignedDesignation designation = designationDirectory.requireAssignable(request.getDesignation(), null);
         // Level 2 only exists for designations with approval powers
-        Role role = DesignationAccess.effectiveLevel(requestedRole, designation);
+        Role role = designation.effectiveLevel(requestedRole);
         List<ApiResponse.ApiErrorItem> departmentErrors = new ArrayList<>();
         checkDepartmentMatches(request.getDepartment(), designation, departmentErrors);
         ApiErrors.throwIfAny(departmentErrors);
@@ -112,7 +113,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // ADMIN_L2 or Super Admin always needs a second approver, so nobody can create a powerful account alone
         boolean needsApproval = !currentAccess.has(Permission.EMPLOYEE_APPROVE)
                 || role == Role.ADMIN_L2
-                || designation == Designation.SUPER_ADMIN;
+                || designation.isSuperAdmin();
         LocalDateTime now = LocalDateTime.now(clock);
 
         User account = User.builder()
@@ -134,7 +135,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         try {
             savedAccount = userRepository.saveAndFlush(account);
             employeeRepository.lockEmployeeCodeSequence();
-            savedEmployee = employeeRepository.saveAndFlush(Employee.builder()
+            Employee employee = Employee.builder()
                     .userId(savedAccount.getId())
                     .employeeCode(String.format(AppConstants.EMPLOYEE_CODE_FORMAT, employeeRepository.findHighestEmployeeCodeNumber() + 1))
                     .firstName(request.getFirstName().trim())
@@ -143,8 +144,6 @@ public class EmployeeServiceImpl implements EmployeeService {
                     .displayName(displayName(request))
                     .dateOfBirth(request.getDateOfBirth())
                     .gender(request.getGender())
-                    .designation(designation)
-                    .department(designation.department())
                     .employmentType(request.getEmploymentType())
                     .joiningDate(request.getJoiningDate())
                     .salaryAmount(Objects.requireNonNullElse(request.getSalaryAmount(), BigDecimal.ZERO))
@@ -164,7 +163,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                     .createdBy(creator.getId())
                     .createdAt(now)
                     .updatedAt(now)
-                    .build());
+                    .build();
+            designation.applyTo(employee);
+            savedEmployee = employeeRepository.saveAndFlush(employee);
         } catch (DataIntegrityViolationException exception) {
             // Another request took one of these values between our checks and the insert
             throw ApiErrors.conflict(ErrorCodes.DUPLICATE_VALUE,
@@ -230,9 +231,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
         checkStatusChange(employee.getStatus(), request.getStatus(), invalid);
         checkRequiredAddressKept(request, invalid);
-        checkDesignationChange(employee, request, invalid);
-        checkDepartmentMatches(request.getDepartment(),
-                Designation.fromCode(request.getDesignation()).orElse(employee.getDesignation()), invalid);
+        AssignedDesignation current = AssignedDesignation.of(employee);
+        AssignedDesignation requestedDesignation = OptionalText.blankToNull(request.getDesignation()) == null ? null
+                : designationDirectory.requireAssignable(request.getDesignation(), current);
+        checkDesignationChange(employee, current, requestedDesignation, invalid);
+        checkDepartmentMatches(request.getDepartment(), requestedDesignation != null ? requestedDesignation : current, invalid);
         User account = userRepository.findById(employee.getUserId()).orElseThrow(() -> employeeNotFound(id));
         Role requestedRole = checkRoleChange(employee, account, request, invalid);
         ApiErrors.throwIfAny(invalid);
@@ -245,10 +248,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         contactValidator.checkPan(employee.getId(), request.getPanNumber(), duplicates);
         contactValidator.throwIfAny(duplicates);
 
-        applyUpdate(employee, request);
+        applyUpdate(employee, request, requestedDesignation);
         // Level 2 only exists for designations with approval powers, so a move to one without them is Level 1
-        Role targetRole = DesignationAccess.effectiveLevel(requestedRole != null ? requestedRole : account.getRole(),
-                employee.getDesignation());
+        AssignedDesignation held = AssignedDesignation.of(employee);
+        Role requestedLevel = requestedRole != null ? requestedRole : account.getRole();
+        Role targetRole = held == null ? requestedLevel : held.effectiveLevel(requestedLevel);
         if (targetRole != account.getRole()) {
             account.setRole(targetRole);
             userRepository.save(account);
@@ -403,16 +407,16 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     // Only the fields that were sent change; a blank middle name, landmark or map link removes it
-    private void applyUpdate(Employee employee, UpdateEmployeeRequest request) {
+    private void applyUpdate(Employee employee, UpdateEmployeeRequest request, AssignedDesignation designation) {
         if (request.getFirstName() != null) employee.setFirstName(request.getFirstName());
         if (request.getMiddleName() != null) employee.setMiddleName(OptionalText.blankToNull(request.getMiddleName()));
         if (request.getLastName() != null) employee.setLastName(request.getLastName());
         if (request.getDisplayName() != null) employee.setDisplayName(request.getDisplayName());
         if (request.getDateOfBirth() != null) employee.setDateOfBirth(request.getDateOfBirth());
         if (request.getGender() != null) employee.setGender(request.getGender());
-        if (request.getDesignation() != null) employee.setDesignation(Designation.fromCode(request.getDesignation()).orElseThrow());
         // The department always follows the designation
-        if (employee.getDesignation() != null) employee.setDepartment(employee.getDesignation().department());
+        AssignedDesignation target = designation != null ? designation : AssignedDesignation.of(employee);
+        if (target != null) target.applyTo(employee);
         if (request.getEmploymentType() != null) employee.setEmploymentType(request.getEmploymentType());
         if (request.getJoiningDate() != null) employee.setJoiningDate(request.getJoiningDate());
         if (request.getLeavingDate() != null) employee.setLeavingDate(request.getLeavingDate());
@@ -433,14 +437,14 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     // The designation decides access: nobody changes their own, and only an employee approver can make someone Super Admin
-    private void checkDesignationChange(Employee employee, UpdateEmployeeRequest request, List<ApiResponse.ApiErrorItem> errors) {
-        Designation requested = Designation.fromCode(request.getDesignation()).orElse(null);
-        if (requested == null || requested == employee.getDesignation()) {
+    private void checkDesignationChange(Employee employee, AssignedDesignation current, AssignedDesignation requested,
+                                        List<ApiResponse.ApiErrorItem> errors) {
+        if (requested == null || requested.sameAs(current)) {
             return;
         }
         if (employee.getUserId().equals(currentUserProvider.getCurrentUserId())) {
             errors.add(ApiErrors.error("designation", "You can't change your own designation. Ask another administrator."));
-        } else if (requested == Designation.SUPER_ADMIN && !currentAccess.has(Permission.EMPLOYEE_APPROVE)) {
+        } else if (requested.isSuperAdmin() && !currentAccess.has(Permission.EMPLOYEE_APPROVE)) {
             errors.add(ApiErrors.error("designation", "Only an administrator who can approve employees can assign the Super Admin designation."));
         }
     }
@@ -468,7 +472,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     // The department is derived from the designation; a client may send it, but only the matching value
-    private static void checkDepartmentMatches(String requested, Designation designation, List<ApiResponse.ApiErrorItem> errors) {
+    private static void checkDepartmentMatches(String requested, AssignedDesignation designation, List<ApiResponse.ApiErrorItem> errors) {
         String department = OptionalText.blankToNull(requested);
         if (department != null && designation != null && !department.trim().equalsIgnoreCase(designation.department())) {
             errors.add(ApiErrors.error("department", "The department follows the designation: " + designation.label()

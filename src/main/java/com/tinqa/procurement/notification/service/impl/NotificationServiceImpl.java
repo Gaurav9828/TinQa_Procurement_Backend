@@ -81,6 +81,27 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void createEach(List<Message> messages) {
+        List<Message> valid = messages.stream().filter(m -> m.userId() != null && !isBlank(m.title(), m.message())).toList();
+        if (valid.isEmpty()) {
+            return;
+        }
+        List<Notification> notifications = notificationRepository.saveAll(valid.stream()
+                .map(m -> Notification.builder().title(m.title()).message(m.message()).link(m.link()).broadcast(false).build())
+                .toList());
+        List<NotificationRecipient> recipients = new java.util.ArrayList<>();
+        for (int i = 0; i < valid.size(); i++) {
+            recipients.add(NotificationRecipient.builder()
+                    .notification(notifications.get(i))
+                    // A reference only: the user is not read
+                    .user(userRepository.getReferenceById(valid.get(i).userId()))
+                    .read(false)
+                    .build());
+        }
+        notificationRecipientRepository.saveAll(recipients);
+    }
+
+    @Override
     public void createForPermission(Permission permission, Long excludeUserId, String title, String message, String link) {
         // Only employees (admin accounts) hold internal permissions; their access is resolved in one query, not one each
         List<User> admins = Stream.of(Role.ADMIN_L2, Role.ADMIN_L1)

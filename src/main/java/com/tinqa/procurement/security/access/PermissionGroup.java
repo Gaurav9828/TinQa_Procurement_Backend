@@ -67,6 +67,9 @@ public enum PermissionGroup {
     CUSTOMER_READ("Customers - view profiles, order history and carts", false),
     CUSTOMER_MANAGEMENT("Customers - request changes to a customer's details", false),
     CUSTOMER_APPROVAL("Customers - edit customer details", true),
+    // Storefront promo codes: senior staff see them so they can tell a customer which code to use. Creating and
+    // changing them is the Super Admin's alone (Permission.PROMO_CODE_MANAGE, in SYSTEM_ADMINISTRATION)
+    PROMO_CODE_READ("Promo codes - view codes and who used them", false),
 
     // Company profile (storefront branding and legal details)
     COMPANY_PROFILE_READ("Company profile - view", false),
@@ -92,14 +95,30 @@ public enum PermissionGroup {
     CLIENT_DEMO_READ("Client demos - view", false),
     CLIENT_DEMO_MANAGEMENT("Client demos - schedule, record bills and submit", false),
     CLIENT_DEMO_APPROVAL("Client demos - approve quotations, completions and corrections", true),
+    // The staff who go on demos: they see the demos they are tagged on, record their own bills there and hand the
+    // product units out and back. Only roles that do field work hold it, so nobody else can be tagged on a demo
+    CLIENT_DEMO_ATTENDANCE("Client demos - attend demos: own bills and product units", false),
+
+    // Client outreach: every call, email and WhatsApp message to a business we pitch to, so nobody calls twice blind
+    CLIENT_OUTREACH_READ("Client outreach - view businesses and every contact logged with them", false),
+    CLIENT_OUTREACH_MANAGEMENT("Client outreach - log calls, emails and WhatsApp messages with businesses", false),
+
+    // Meetings: online or face-to-face, scheduled without approval; attendees answer through SELF_SERVICE
+    MEETING_READ("Meetings - view every meeting and its feedback", false),
+    MEETING_MANAGEMENT("Meetings - schedule, cancel and complete meetings", false),
+
+    // Careers: job openings on the storefront's Careers tab, the people who apply, their interviews and the decisions
+    RECRUITMENT_READ("Careers - view openings and applications", false),
+    RECRUITMENT_MANAGEMENT("Careers - post openings, screen applicants and schedule interviews", false),
+    RECRUITMENT_APPROVAL("Careers - confirm shortlists and selections", true),
 
     // Platform
     SYSTEM_ADMINISTRATION("System - settings, integrations and audit logs", true),
     // The in-app user guide: every role's flows, downloadable as a PDF to hand to a colleague
     USER_GUIDE("User guide - view and share role guides", false),
 
-    // Every employee, whatever their designation: their own records (payslips, the client demos they attend)
-    SELF_SERVICE("Self service - own payslips and client demos", false),
+    // Every employee, whatever their designation: their own records (payslips, the meetings they are invited to)
+    SELF_SERVICE("Self service - own payslips and meetings", false),
 
     // External: dealers signed in to this web app with a dealer login. Everything in it is limited to the dealer's own
     // records on the server, whatever is asked for

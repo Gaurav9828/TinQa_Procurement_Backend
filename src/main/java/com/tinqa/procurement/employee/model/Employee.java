@@ -2,11 +2,14 @@ package com.tinqa.procurement.employee.model;
 
 import com.tinqa.procurement.employee.enums.EmployeeStatus;
 import com.tinqa.procurement.security.access.Designation;
+import com.tinqa.procurement.security.access.role.CustomRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,10 +51,18 @@ public class Employee {
     @Column(name = "gender", nullable = false, length = 20)
     private String gender;
 
-    // Decides the employee's permission groups (see DesignationAccess)
+    // Decides the employee's permission groups (see DesignationAccess). Exactly one of designation (built-in) and
+    // customRole is set (checked by the database)
     @Enumerated(EnumType.STRING)
-    @Column(name = "designation", nullable = false, length = 100)
+    @Column(name = "designation", length = 100)
     private Designation designation;
+
+    // Loaded in batches (default_batch_fetch_size) when a list shows the labels
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "custom_role_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private CustomRole customRole;
 
     @Column(name = "department", nullable = false, length = 100)
     private String department;
@@ -135,4 +146,14 @@ public class Employee {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** The designation's code: the built-in designation's name, or the custom role's code. */
+    public String designationCode() {
+        return designation != null ? designation.name() : customRole != null ? customRole.getCode() : null;
+    }
+
+    /** The designation as people read it ("Store Manager", "Marketing Executive"). */
+    public String designationLabel() {
+        return designation != null ? designation.label() : customRole != null ? customRole.getLabel() : null;
+    }
 }

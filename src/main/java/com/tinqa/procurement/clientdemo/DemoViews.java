@@ -267,7 +267,7 @@ class DemoViews {
                 .employeeId(employee.getId())
                 .employeeCode(employee.getEmployeeCode())
                 .name(employee.getDisplayName())
-                .designation(employee.getDesignation() != null ? employee.getDesignation().label() : null)
+                .designation(employee.designationLabel())
                 .build();
     }
 

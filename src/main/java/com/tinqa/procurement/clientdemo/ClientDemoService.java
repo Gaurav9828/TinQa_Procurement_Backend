@@ -10,9 +10,12 @@ import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.security.access.AccessResolver;
 import com.tinqa.procurement.security.access.CurrentAccess;
 import com.tinqa.procurement.security.access.Permission;
+import com.tinqa.procurement.security.access.UserAccess;
 import com.tinqa.procurement.security.model.User;
+import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -68,6 +71,8 @@ public class ClientDemoService {
     private final DemoEventRepository eventRepository;
     private final DemoPostingRepository postingRepository;
     private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
+    private final AccessResolver accessResolver;
     private final CurrentUserProvider currentUserProvider;
     private final CurrentAccess currentAccess;
     private final NotificationService notificationService;
@@ -97,11 +102,18 @@ public class ClientDemoService {
         return views.detail(find(id), currentUserProvider.getCurrentUser());
     }
 
-    /** Employees who can be tagged as attending staff. */
+    /**
+     * Employees who can be tagged as attending staff: active, and their role goes on demos (CLIENT_DEMO_ATTENDANCE).
+     * The staff list is small by design (unpaginated), and access is worked out with one query for all of them.
+     */
     @Transactional(readOnly = true)
     public List<ClientDemoDTOs.StaffMember> staffOptions() {
-        return employeeRepository.findAll().stream()
+        List<Employee> active = employeeRepository.findAll().stream()
                 .filter(employee -> TAGGABLE.contains(employee.getStatus()) && employee.getUserId() != null)
+                .toList();
+        Set<Long> attending = attendingEmployeeIds(active);
+        return active.stream()
+                .filter(employee -> attending.contains(employee.getId()))
                 .map(DemoViews::staffMember)
                 .sorted(Comparator.comparing(ClientDemoDTOs.StaffMember::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -515,6 +527,26 @@ public class ClientDemoService {
     }
 
     /**
+     * Of these employees, the ids of those whose role lets them attend demos (DEMO_VIEW_OWN). Two queries whatever
+     * the number: their accounts, then their designations and custom roles.
+     */
+    private Set<Long> attendingEmployeeIds(Collection<Employee> employees) {
+        List<Long> userIds = employees.stream().map(Employee::getUserId).filter(Objects::nonNull).toList();
+        if (userIds.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, UserAccess> access = accessResolver.resolveAll(userRepository.findAllById(userIds));
+        return employees.stream()
+                .filter(employee -> employee.getUserId() != null)
+                .filter(employee -> {
+                    UserAccess userAccess = access.get(employee.getUserId());
+                    return userAccess != null && userAccess.has(Permission.DEMO_VIEW_OWN);
+                })
+                .map(Employee::getId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Copies the request onto the demo and describes what changed ("" when nothing did). Attending staff must be active
      * employees, except those already tagged (who may have left since). Bills beyond the last day are refused by
      * {@link #syncPlan}, which runs next.
@@ -523,6 +555,7 @@ public class ClientDemoService {
         Set<Long> staffIds = new LinkedHashSet<>(request.getStaffEmployeeIds() == null ? List.of() : request.getStaffEmployeeIds());
         Map<Long, Employee> employees = employeeRepository.findAllById(staffIds).stream()
                 .collect(Collectors.toMap(Employee::getId, Function.identity()));
+        List<Employee> newlyTagged = new ArrayList<>();
         for (Long employeeId : staffIds) {
             Employee employee = employees.get(employeeId);
             if (employee == null) {
@@ -531,7 +564,16 @@ public class ClientDemoService {
             if (!alreadyTagged.contains(employeeId) && (!TAGGABLE.contains(employee.getStatus()) || employee.getUserId() == null)) {
                 throw ApiErrors.fieldError("staffEmployeeIds", employee.getDisplayName() + " is not an active employee.");
             }
+            if (!alreadyTagged.contains(employeeId)) {
+                newlyTagged.add(employee);
+            }
         }
+        // Only staff whose role goes on demos; those already tagged stay even if their role changed since
+        Set<Long> attending = attendingEmployeeIds(newlyTagged);
+        newlyTagged.stream().filter(employee -> !attending.contains(employee.getId())).findFirst().ifPresent(employee -> {
+            throw ApiErrors.fieldError("staffEmployeeIds", employee.getDisplayName() + "'s role does not go on client demos, "
+                    + "so they can't be tagged as attending staff.");
+        });
 
         List<String> changes = new ArrayList<>();
         boolean isNew = demo.getId() == null;

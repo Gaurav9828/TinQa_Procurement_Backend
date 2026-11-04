@@ -15,6 +15,16 @@ public interface NotificationService {
             String link
     );
 
+    /** One notification for one user, as created by {@link #createEach}. link: see NotificationLinks, or null */
+    record Message(Long userId, String title, String message, String link) {
+    }
+
+    /**
+     * Creates many notifications (each for one user) with batched inserts instead of one round trip per user; the users
+     * must exist. Messages with an empty title or text are skipped.
+     */
+    void createEach(List<Message> messages);
+
     void createBroadcast(
             String title,
             String message

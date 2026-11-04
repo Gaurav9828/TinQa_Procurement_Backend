@@ -19,7 +19,7 @@ import java.util.Map;
  * Sends staff emails through the e-commerce service (POST /internal/staff-emails with the shared internal API key),
  * so both portals mail through the one server a Super Admin sets up in Company Profile › Email. That service builds
  * the email and the staff-portal link from the token; nothing here is queued or stored (payslips are retried by
- * PayslipEmailJob).
+ * PayslipEmailJob, meeting emails by MeetingJobs).
  */
 @Slf4j
 @Component
@@ -63,6 +63,35 @@ public class EcommerceStaffMailer implements StaffMailer {
         body.put("amount", netPay);
         body.put("attachmentName", filename);
         body.put("attachmentBase64", Base64.getEncoder().encodeToString(pdf));
+        send(body);
+    }
+
+    @Override
+    public void sendMeetingEmail(MeetingEmail email) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", "MEETING_" + email.kind());
+        body.put("to", email.to());
+        body.put("name", email.name());
+        Map<String, Object> meeting = new LinkedHashMap<>();
+        meeting.put("id", email.meetingId());
+        meeting.put("code", email.code());
+        meeting.put("uid", email.uid());
+        meeting.put("sequence", email.sequence());
+        meeting.put("title", email.title());
+        meeting.put("subject", email.subject());
+        meeting.put("mode", email.mode());
+        meeting.put("meetingType", email.meetingType());
+        meeting.put("startsAt", email.startsAt() == null ? null : email.startsAt().toString());
+        meeting.put("endsAt", email.endsAt() == null ? null : email.endsAt().toString());
+        meeting.put("joinUrl", email.joinUrl());
+        meeting.put("placeName", email.placeName());
+        meeting.put("address", email.address());
+        meeting.put("googleMapsUrl", email.googleMapsUrl());
+        meeting.put("organizerName", email.organizerName());
+        meeting.put("organizerEmail", email.organizerEmail());
+        meeting.put("cancelReason", email.cancelReason());
+        meeting.put("declineBy", email.declineBy() == null ? null : email.declineBy().toString());
+        body.put("meeting", meeting);
         send(body);
     }
 

@@ -124,6 +124,25 @@ public final class ErrorCodes {
     public static final String DEMO_STOCK_REFUSED = "DEMO_STOCK_REFUSED";
     public static final String DEMO_STOCK_UNAVAILABLE = "DEMO_STOCK_UNAVAILABLE";
 
+    // Custom roles
+    public static final String ROLE_EXISTS = "ROLE_EXISTS";
+    public static final String ROLE_IN_USE = "ROLE_IN_USE";
+    public static final String ROLE_GROUP_NOT_GRANTABLE = "ROLE_GROUP_NOT_GRANTABLE";
+
+    // Client outreach
+    public static final String BUSINESS_EXISTS = "BUSINESS_EXISTS";
+    public static final String OUTREACH_NOT_YOURS = "OUTREACH_NOT_YOURS";
+    public static final String OUTREACH_PROOF_LIMIT = "OUTREACH_PROOF_LIMIT";
+
+    // Meetings
+    public static final String MEETING_NOT_ORGANIZER = "MEETING_NOT_ORGANIZER";
+    public static final String MEETING_WRONG_STATUS = "MEETING_WRONG_STATUS";
+    public static final String MEETING_NOT_INVITED = "MEETING_NOT_INVITED";
+    public static final String MEETING_ALREADY_INVITED = "MEETING_ALREADY_INVITED";
+    public static final String MEETING_TIME_CLASH = "MEETING_TIME_CLASH";
+    public static final String DECLINE_WINDOW_CLOSED = "DECLINE_WINDOW_CLOSED";
+    public static final String FEEDBACK_ALREADY_SUBMITTED = "FEEDBACK_ALREADY_SUBMITTED";
+
     private ErrorCodes() {
     }
 }

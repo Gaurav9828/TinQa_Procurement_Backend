@@ -23,4 +23,11 @@ public interface StaffMailer {
      * @throws StaffMailException when the email could not be sent
      */
     void sendPayslip(String to, String name, String period, String netPay, String filename, byte[] pdf);
+
+    /**
+     * A meeting invite, update, reminder, cancellation or feedback request (see {@link MeetingEmail}).
+     *
+     * @throws StaffMailException when the email could not be sent
+     */
+    void sendMeetingEmail(MeetingEmail email);
 }

@@ -193,7 +193,9 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
     @Test
     void catalogDescribesEveryDesignationGroupAndPermission() throws Exception {
         JsonNode catalog = data(get("/v1/access/catalog", l1.token(), 200));
-        assertThat(catalog.get("designations")).hasSize(Designation.values().length);
+        // Built-in designations first; active custom roles (made by other tests) follow them
+        assertThat(java.util.stream.StreamSupport.stream(catalog.get("designations").spliterator(), false)
+                .filter(entry -> !entry.get("custom").asBoolean()).count()).isEqualTo(Designation.values().length);
         assertThat(catalog.get("designations").get(0).get("code").asText()).isEqualTo("SUPER_ADMIN");
         assertThat(catalog.get("groups").findValues("code").stream().map(JsonNode::asText)).contains("REFUND_APPROVAL");
         assertThat(catalog.get("permissions").findValues("code").stream().map(JsonNode::asText)).contains("REFUND_APPROVE");

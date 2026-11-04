@@ -190,4 +190,22 @@ public class BarcodeDTOs {
         private LocalDateTime decidedAt;
         private String decisionReason;
     }
+
+    /**
+     * The storefront product a scanned product unit belongs to, for finding it at the store counter. Says nothing
+     * about the unit's parts, batches or dealers (that is the trace, for BARCODE_VIEW).
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StoreUnit {
+        private String barcode;
+        private Long productId;
+        private String productTitle;
+        private BarcodeStatus status;
+        private boolean inStock;
+        // Why the unit can't be sold from the shelf, when it can't
+        private String note;
+    }
 }

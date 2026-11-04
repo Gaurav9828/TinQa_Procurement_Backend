@@ -47,7 +47,7 @@ public class JwtServiceImpl implements JwtService {
                 .subject(user.getUsername())
                 .claim(CLAIM_ROLE, user.getRole().name())
                 .claim(CLAIM_AUTH_CLIENT, user.getAuthClient().name())
-                .claim(CLAIM_DESIGNATION, access.designation() == null ? null : access.designation().name())
+                .claim(CLAIM_DESIGNATION, access.designationCode())
                 .claim(CLAIM_PERMISSIONS, access.permissions().stream().map(Permission::name).sorted().toList())
                 .claim(CLAIM_NAME, displayName)
                 .issuedAt(now)

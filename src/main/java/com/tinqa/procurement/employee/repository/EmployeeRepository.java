@@ -43,6 +43,29 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     List<Employee> findByUserIdIn(Collection<Long> userIds);
 
+    // Meeting invitees: active employees by name (search over lower(display_name) uses its trigram index)
+    @Query("SELECT e FROM Employee e WHERE e.status IN :statuses ORDER BY e.displayName, e.id")
+    Page<Employee> findByStatusInOrderByName(@Param("statuses") Collection<EmployeeStatus> statuses, Pageable pageable);
+
+    @Query("SELECT e FROM Employee e WHERE e.status IN :statuses AND LOWER(e.displayName) LIKE :pattern ORDER BY e.displayName, e.id")
+    Page<Employee> searchByStatusInOrderByName(@Param("statuses") Collection<EmployeeStatus> statuses,
+                                               @Param("pattern") String pattern, Pageable pageable);
+
+    // Display names of user accounts: the employee's display name, else the username (one row per account)
+    @Query(value = """
+            SELECT u.id, COALESCE(NULLIF(TRIM(e.display_name), ''), u.username)
+            FROM users u LEFT JOIN employee e ON e.user_id = u.id
+            WHERE u.id IN (:userIds)
+            """, nativeQuery = true)
+    List<Object[]> findDisplayNames(@Param("userIds") Collection<Long> userIds);
+
+    // Access checks: the employee with their custom role and its groups, in one query
+    @Query("SELECT e FROM Employee e LEFT JOIN FETCH e.customRole r LEFT JOIN FETCH r.groups WHERE e.userId = :userId")
+    List<Employee> findWithRoleByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT e FROM Employee e LEFT JOIN FETCH e.customRole r LEFT JOIN FETCH r.groups WHERE e.userId IN :userIds")
+    List<Employee> findWithRoleByUserIdIn(@Param("userIds") Collection<Long> userIds);
+
     // Another employee using any of these numbers as phone or alternate phone (excludeEmployeeId = -1 for none)
     @Query("""
             SELECT e FROM Employee e

@@ -57,11 +57,10 @@ public final class ValidationPatterns {
     public static final String GENDER = "MALE|FEMALE|OTHER";
     public static final String EMPLOYMENT_TYPE = "FULL_TIME|PART_TIME|CONTRACT|INTERN|CONSULTANT|TEMPORARY";
     public static final String ROLE = "(?i)ADMIN_L1|ADMIN_L2|DEALER|INSPECTOR";
-    // Must list exactly the Designation codes (checked by a test)
-    public static final String DESIGNATION = "(?i)\\s*(SUPER_ADMIN|STORE_MANAGER|DEALER_MANAGER|CATALOG_SPECIALIST|FULFILLMENT_SPECIALIST"
-            + "|DELIVERY_RIDER|FLEET_COORDINATOR|CUSTOMER_SUPPORT|FINANCIAL_AUDITOR|FINANCE_MANAGER|SALES_AGENT)\\s*";
-    public static final String DESIGNATION_MESSAGE = "must be one of SUPER_ADMIN, STORE_MANAGER, DEALER_MANAGER, CATALOG_SPECIALIST, "
-            + "FULFILLMENT_SPECIALIST, DELIVERY_RIDER, FLEET_COORDINATOR, CUSTOMER_SUPPORT, FINANCIAL_AUDITOR, FINANCE_MANAGER or SALES_AGENT";
+    // A designation code: a built-in Designation or a custom role's code (e.g. MARKETING_EXECUTIVE). Whether it exists is
+    // checked by the service (DesignationDirectory)
+    public static final String DESIGNATION = "(?i)\\s*[A-Z][A-Z0-9_]{1,59}\\s*";
+    public static final String DESIGNATION_MESSAGE = "must be a designation code such as STORE_MANAGER, SALES_AGENT or a custom role's code";
 
     private ValidationPatterns() {
     }

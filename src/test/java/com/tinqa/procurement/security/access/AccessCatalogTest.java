@@ -98,8 +98,7 @@ class AccessCatalogTest {
         for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
             assertThat(UserAccess.of(level, Designation.DELIVERY_RIDER).permissions())
                     .containsExactlyInAnyOrder(Permission.CUSTOMER_ORDER_VIEW, Permission.DELIVERY_STATUS_UPDATE,
-                            Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN,
-                            Permission.DEMO_UNITS_HANDLE_OWN);
+                            Permission.PAYSLIP_VIEW_OWN, Permission.MEETING_VIEW_OWN, Permission.MEETING_RESPOND_OWN);
         }
     }
 
@@ -143,10 +142,69 @@ class AccessCatalogTest {
                 .contains(Permission.DEMO_COMPLETED_EDIT, Permission.DEMO_UNIT_WRITE_OFF);
         assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions())
                 .doesNotContain(Permission.DEMO_COMPLETED_EDIT, Permission.DEMO_UNIT_WRITE_OFF);
+    }
+
+    // Going on demos is field work for the roles that do it, not self service: a rider, warehouse or support employee
+    // has no "My demos" and can't be tagged on one
+    @Test
+    void onlyRolesThatGoOnDemosAttendThem() {
+        Set<Designation> attending = EnumSet.of(Designation.SUPER_ADMIN, Designation.STORE_MANAGER,
+                Designation.FINANCE_MANAGER, Designation.SALES_AGENT);
         for (Designation designation : Designation.values()) {
-            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
-                    .contains(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                Set<Permission> permissions = UserAccess.of(level, designation).permissions();
+                if (attending.contains(designation)) {
+                    assertThat(permissions).as(designation + " " + level)
+                            .contains(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
+                } else {
+                    assertThat(permissions).as(designation + " " + level)
+                            .doesNotContain(Permission.DEMO_VIEW_OWN, Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
+                }
+            }
         }
+        assertThat(PermissionGroup.CLIENT_DEMO_ATTENDANCE.approvalLevel()).isFalse();
+        assertThat(Permission.DEMO_VIEW_OWN.group()).isEqualTo(PermissionGroup.CLIENT_DEMO_ATTENDANCE);
+    }
+
+    // Store managers and catalog specialists post openings and screen applicants; only Level 2 confirms the decisions
+    @Test
+    void careersAreScreenedByStoreAndCatalogStaffAndDecidedAtLevelTwo() {
+        for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.CATALOG_SPECIALIST, Designation.SUPER_ADMIN)) {
+            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
+                    .contains(Permission.CAREER_OPENING_VIEW, Permission.CAREER_APPLICATION_VIEW,
+                            Permission.CAREER_OPENING_MANAGE, Permission.CAREER_APPLICATION_SCREEN)
+                    .doesNotContain(Permission.CAREER_DECISION_APPROVE);
+        }
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.STORE_MANAGER).permissions()).contains(Permission.CAREER_DECISION_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).contains(Permission.CAREER_DECISION_APPROVE);
+        // Only a Super Admin at Level 2 hides or shows the Careers tab itself
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).contains(Permission.STOREFRONT_FEATURE_TOGGLE);
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions()).doesNotContain(Permission.STOREFRONT_FEATURE_TOGGLE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.STORE_MANAGER).permissions()).doesNotContain(Permission.STOREFRONT_FEATURE_TOGGLE);
+        // Catalog specialists have no approval groups, so they are never Level 2
+        assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.CATALOG_SPECIALIST)).isEqualTo(Role.ADMIN_L1);
+        for (Designation designation : List.of(Designation.DELIVERY_RIDER, Designation.SALES_AGENT, Designation.CUSTOMER_SUPPORT)) {
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
+                    .doesNotContain(Permission.CAREER_APPLICATION_VIEW);
+        }
+    }
+
+    // Senior staff see promo codes to tell customers about them; only a Super Admin at Level 2 makes or changes them
+    @Test
+    void onlyTheSuperAdminManagesPromoCodesWhileSeniorStaffSeeThem() {
+        Set<Designation> viewers = EnumSet.of(Designation.SUPER_ADMIN, Designation.STORE_MANAGER, Designation.SALES_AGENT,
+                Designation.CUSTOMER_SUPPORT, Designation.FINANCE_MANAGER, Designation.FINANCIAL_AUDITOR);
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                Set<Permission> permissions = UserAccess.of(level, designation).permissions();
+                assertThat(permissions.contains(Permission.PROMO_CODE_VIEW)).as(designation + " " + level + " views")
+                        .isEqualTo(viewers.contains(designation));
+                assertThat(permissions.contains(Permission.PROMO_CODE_MANAGE)).as(designation + " " + level + " manages")
+                        .isEqualTo(designation == Designation.SUPER_ADMIN && level == Role.ADMIN_L2);
+            }
+        }
+        // Never part of a custom role, whoever builds it
+        assertThat(DesignationAccess.NEVER_IN_CUSTOM_ROLES).contains(Permission.PROMO_CODE_MANAGE.group());
     }
 
     // Agents book store sales and see only their own; store and finance staff read every agent's sales
@@ -156,7 +214,8 @@ class AccessCatalogTest {
             assertThat(UserAccess.of(level, Designation.SALES_AGENT).permissions()).as(level.name())
                     .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
                             Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN,
-                            Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN);
+                            Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN, Permission.MEETING_VIEW_OWN,
+                            Permission.MEETING_RESPOND_OWN, Permission.PROMO_CODE_VIEW);
         }
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
         for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,
@@ -266,15 +325,41 @@ class AccessCatalogTest {
         assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DELIVERY_RIDER).permissions()).doesNotContain(Permission.PAYMENT_VIEW);
     }
 
+    // Custom roles are designations too, so the pattern takes any designation-shaped code; the service checks it exists
     @Test
-    void designationPatternAcceptsExactlyTheDesignationCodes() {
+    void designationPatternAcceptsDesignationCodes() {
         for (Designation designation : Designation.values()) {
             assertThat(designation.name().matches(ValidationPatterns.DESIGNATION)).as(designation.name()).isTrue();
             assertThat(designation.name().toLowerCase().matches(ValidationPatterns.DESIGNATION)).isTrue();
         }
-        assertThat("Engineer".matches(ValidationPatterns.DESIGNATION)).isFalse();
+        assertThat("MARKETING_EXECUTIVE".matches(ValidationPatterns.DESIGNATION)).isTrue();
+        assertThat("Sales Head".matches(ValidationPatterns.DESIGNATION)).isFalse();
         assertThat("SUPER_ADMIN|X".matches(ValidationPatterns.DESIGNATION)).isFalse();
-        assertThat(ValidationPatterns.DESIGNATION.split("\\|")).hasSize(Designation.values().length);
+        assertThat("1ST_ROLE".matches(ValidationPatterns.DESIGNATION)).isFalse();
+    }
+
+    // A custom role works like a designation: SELF_SERVICE added, approval groups only at Level 2, Level 2 only when
+    // it adds something, and never the dealer portal or system administration
+    @Test
+    void customRolesGrantTheirGroupsLikeADesignation() {
+        CustomRoleGrant marketing = new CustomRoleGrant(1L, "MARKETING_EXECUTIVE", "Marketing Executive", "Marketing",
+                EnumSet.of(PermissionGroup.CLIENT_OUTREACH_READ, PermissionGroup.CLIENT_OUTREACH_MANAGEMENT,
+                        PermissionGroup.MEETING_READ, PermissionGroup.MEETING_MANAGEMENT, PermissionGroup.CLIENT_DEMO_APPROVAL,
+                        PermissionGroup.SYSTEM_ADMINISTRATION));
+        UserAccess l1 = UserAccess.of(Role.ADMIN_L1, null, marketing);
+        assertThat(l1.permissions()).contains(Permission.OUTREACH_LOG, Permission.MEETING_SCHEDULE, Permission.MEETING_RESPOND_OWN,
+                Permission.PAYSLIP_VIEW_OWN).doesNotContain(Permission.DEMO_APPROVE, Permission.SYSTEM_SETTINGS_MANAGE);
+        assertThat(l1.designationCode()).isEqualTo("MARKETING_EXECUTIVE");
+        assertThat(l1.designationLabel()).isEqualTo("Marketing Executive");
+        assertThat(UserAccess.of(Role.ADMIN_L2, null, marketing).permissions()).contains(Permission.DEMO_APPROVE)
+                .doesNotContain(Permission.SYSTEM_SETTINGS_MANAGE);
+        assertThat(DesignationAccess.effectiveLevelOfCustomRole(Role.ADMIN_L2, marketing)).isEqualTo(Role.ADMIN_L2);
+
+        CustomRoleGrant caller = new CustomRoleGrant(2L, "CALLER", "Caller", "Marketing",
+                EnumSet.of(PermissionGroup.CLIENT_OUTREACH_READ));
+        assertThat(DesignationAccess.effectiveLevelOfCustomRole(Role.ADMIN_L2, caller)).isEqualTo(Role.ADMIN_L1);
+        // A dealer never picks up an employee's custom role
+        assertThat(UserAccess.of(Role.DEALER, null, caller).permissions()).doesNotContain(Permission.OUTREACH_VIEW);
     }
 
     // A new endpoint must say who may call it, normally with @RequiresPermission, so nothing ships unguarded

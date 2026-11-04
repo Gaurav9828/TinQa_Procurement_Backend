@@ -1196,8 +1196,8 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         private Map<String, Object> submission(long productId, int stockQuantity, List<Map<String, Object>> components) {
             return body("ecommerceProductId", productId, "productTitle", "Laptop " + productId,
-                    "snapshot", body("title", "Laptop " + productId, "price", new BigDecimal("999.00"),
-                            "stockQuantity", stockQuantity, "components", components));
+                    "snapshot", body("title", "Laptop " + productId, "modelName", "LP-" + productId,
+                            "price", new BigDecimal("999.00"), "stockQuantity", stockQuantity, "components", components));
         }
 
         @Test
@@ -1211,6 +1211,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(created.get("requestType").asText()).isEqualTo("CREATE");
             assertThat(created.get("status").asText()).isEqualTo("PENDING");
             assertThat(created.get("requestedByUsername").asText()).isEqualTo(l1.username());
+            assertThat(created.get("snapshot").get("modelName").asText()).isEqualTo("LP-" + productId);
             assertThat(notificationTitles(l2a)).contains("Product awaiting approval");
             JsonNode duplicate = post("/v1/product-approvals", l1.token(), submission(productId, 0, List.of()), 409);
             assertThat(duplicate.get("errorCode").asText()).isEqualTo("PRODUCT_APPROVAL_PENDING");

@@ -18,7 +18,6 @@ import com.tinqa.procurement.employee.model.Employee;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.employee.service.EmployeeContactValidator;
 import com.tinqa.procurement.security.access.CurrentAccess;
-import com.tinqa.procurement.security.access.Designation;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.Role;
 import com.tinqa.procurement.security.model.User;
@@ -99,9 +98,7 @@ public class AdminProfileServiceImpl implements AdminProfileService {
         if (OptionalText.blankToNull(request.getDesignation()) == null) {
             return;
         }
-        boolean unchanged = Designation.fromCode(request.getDesignation())
-                .map(requested -> requested == employee.getDesignation())
-                .orElse(false);
+        boolean unchanged = request.getDesignation().trim().equalsIgnoreCase(employee.designationCode());
         if (!unchanged) {
             throw ApiErrors.fieldError("designation",
                     "Your designation decides what you can access, so it can only be changed by an administrator in Employee Management.");
@@ -189,8 +186,8 @@ public class AdminProfileServiceImpl implements AdminProfileService {
                 .middleName(employee.getMiddleName())
                 .lastName(employee.getLastName())
                 .department(employee.getDepartment())
-                .designation(employee.getDesignation() == null ? null : employee.getDesignation().name())
-                .designationLabel(employee.getDesignation() == null ? null : employee.getDesignation().label())
+                .designation(employee.designationCode())
+                .designationLabel(employee.designationLabel())
                 .workEmail(Objects.requireNonNull(account).getEmail())
                 .username(account.getUsername())
                 .gender(employee.getGender())

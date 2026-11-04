@@ -87,8 +87,23 @@ public class ProductApprovalDTOs {
         @Size(max = 150, message = "Snapshot title cannot exceed 150 characters")
         private String title;
 
+        // The version's own model name (Ecommerce product); absent on snapshots taken before model names existed
+        @Size(max = 100, message = "Snapshot model name cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Snapshot model name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String modelName;
+
         @Size(max = 250, message = "Snapshot tagline cannot exceed 250 characters")
         private String tagline;
+
+        // The software the product runs and its version (Ecommerce product); absent when it has none, or on snapshots
+        // taken before software was recorded
+        @Size(max = 100, message = "Snapshot software name cannot exceed 100 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Snapshot software name " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String softwareName;
+
+        @Size(max = 50, message = "Snapshot software version cannot exceed 50 characters")
+        @Pattern(regexp = ValidationPatterns.SINGLE_LINE_TEXT, message = "Snapshot software version " + ValidationPatterns.SINGLE_LINE_TEXT_MESSAGE)
+        private String softwareVersion;
 
         // Ecommerce product category (existing or new); absent on snapshots taken before categories existed
         @Size(max = 60, message = "Snapshot category cannot exceed 60 characters")

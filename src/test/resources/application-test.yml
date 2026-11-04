@@ -37,6 +37,14 @@ tinqa:
     payslip-email:
       enabled: false
 
+  # Tests run the outreach reminders and meeting emails themselves (OutreachFollowUpReminder, MeetingMailer)
+  outreach:
+    follow-up-reminder:
+      enabled: false
+  meetings:
+    jobs:
+      enabled: false
+
   security:
     jwt:
       secret: TinQaTestJwtSecretKeyMustBeAtLeast32CharactersLong!

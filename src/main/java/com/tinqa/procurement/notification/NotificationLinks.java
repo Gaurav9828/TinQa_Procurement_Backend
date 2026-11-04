@@ -28,6 +28,12 @@ public final class NotificationLinks {
     public static final String CLIENT_DEMOS = "/client-demos";
     public static final String MY_DEMOS = "/my-demos";
 
+    /** Client outreach (the call log); one business is OUTREACH_BUSINESSES + "/" + its id */
+    public static final String OUTREACH = "/client-outreach";
+    public static final String OUTREACH_BUSINESSES = "/client-outreach/businesses";
+    /** Meetings; one meeting is MEETINGS + "/" + its id, and its feedback form that + "/feedback" */
+    public static final String MEETINGS = "/meetings";
+
     private NotificationLinks() {
     }
 }

@@ -1,4 +1,4 @@
-# Engineering rules: database and API efficiency
+# Engineering rules: database, API efficiency and testing
 
 These rules apply to all four TinQa services:
 
@@ -95,7 +95,54 @@ optimization work is tracked in `Tinqa-Procurement-Web-UI/docs/optimization-road
 31. Every endpoint a page calls has an e2e fixture (Web UI: `e2e/support/fixtures.ts`). Unmocked calls fail strict
     builds.
 
-## 4. Checklist for every change request
+## 4. Testing (all four services)
+
+### What runs where
+
+| Service | Unit tests | Integration tests | Command |
+|---|---|---|---|
+| Procurement BE | `*Test.java` (no Spring context) | `*IntegrationTest.java` (Testcontainers PostgreSQL, `IntegrationTestSupport`) | `mvn test -Dquality.skip=true` |
+| Ecommerce BE | `*Test.java` | `it/*IT.java` (Testcontainers PostgreSQL, `IntegrationTest`, response snapshots) | `./mvnw test` |
+| Procurement Web UI | `*.test.ts(x)` (Vitest + Testing Library) | `e2e/*.spec.ts` (Playwright on the built bundle) | `npx vitest run`; `vite build`, `npx playwright test`, `node scripts/e2e-gate.mjs` |
+| Storefront | `*.test.ts(x)` (Vitest + Testing Library) | `e2e/*.spec.ts` (Playwright on the built bundle) | the same as the Web UI |
+
+`node scripts/test-all.mjs --e2e` in `Tinqa-Procurement-Web-UI` runs every suite of all four services side by side
+and prints the status table of rule 39 (leave out `--e2e` to skip the Playwright suites; `--only=web-ui,...` picks
+services). Backend integration tests need Docker running.
+
+### Rules
+32. Every change ships with tests in the same change: new behaviour gets a test that fails without it, and every bug
+    fix gets a regression test. Backend rules (permissions, maker-checker, state transitions, SQL functions) are
+    tested through the HTTP API in an integration test, not only in a unit test.
+33. Before a change is called done, the full unit and integration suites of every repo it touches pass. A change
+    to a contract between services (an endpoint, a DTO, a permission name, an `ApprovalQueue`) runs all four.
+34. A red test is never deleted, skipped (`@Disabled`, `it.skip`, `.only`), or weakened to make a build pass. Fix
+    the code or the test. When they disagree, the intended rule is in the user guide, the feature doc or the code
+    comments; follow that, and say in the change which side was wrong.
+35. Tests do not depend on today's date. Freeze the clock (Ecommerce `TestClock.freezeAt`, `Clock.fixed` in unit
+    tests, `vi.useFakeTimers({ toFake: ['Date'] })` in Vitest), or compute dates relative to now. A hard-coded date
+    that a validation compares with today (such as an expected delivery date with `min = today`) is far in the
+    future (`2099-12-31`) or in the past on purpose, never "a few days from now".
+36. Response snapshots (`src/test/resources/snapshots`) mask values that change between runs (ids, timestamps,
+    dates) and are taken on a frozen clock. A snapshot is updated only when the response was meant to change, and
+    the diff is reviewed in the change.
+37. Tests are independent: no order between test classes or files, no shared mutable state, and each one creates
+    the data it needs. Integration tests use a throwaway Testcontainers database, never a shared or local one.
+38. Mock only at the edges: other services, email, payment gateways, the clock. In front ends, mock the API module
+    (`vi.mock('./api/...')`), not the hooks or components under test. Query the DOM by role and label, as a user
+    would.
+39. Test status is reported per service in one table, with unit and integration counts kept apart:
+    `service | unit passed/total | integration passed/total | result`. The result is one of:
+    - **pass**: every test ran and passed;
+    - **fail**: name each failing test, its cause, and whether it was fixed;
+    - **not run**: the suite could not start (for example Docker down). It is never reported as passing.
+40. A failure caused by the environment (Docker, ports, network) is fixed and the suite re-run before reporting. A
+    failure that appears only under load or on one run is flaky; it is fixed, not re-run until green.
+41. Keep the suites fast. Unit tests need no Spring context, database or network. An integration test that needs
+    its own application context (a new `@MockitoBean` or properties) says why in a comment, because each one starts
+    the application again.
+
+## 5. Checklist for every change request
 
 - [ ] Any schema, index or function change is a new migration; no applied migration was edited.
 - [ ] New filters and sorts have matching indexes; redundant indexes were dropped.
@@ -107,6 +154,10 @@ optimization work is tracked in `Tinqa-Procurement-Web-UI/docs/optimization-road
 - [ ] Every load is gated by permission and loads lazily.
 - [ ] Behaviour users notice is in the user guide and its changelog
       (`src/features/user-guide/content/guideContent.ts`).
+- [ ] New behaviour and bug fixes have tests; no test was deleted, skipped or weakened.
+- [ ] Unit and integration suites of every touched repo pass (all four for a contract change), and the status table
+      (rule 39) is in the change.
+- [ ] No test depends on today's date; snapshots changed only on purpose.
 - [ ] Performance work shows numbers before and after:
   - Procurement: SQL statements per request (`QueryCountingDataSourcePostProcessor`, `ApiCallRegistry`);
   - front ends: calls per page from `reports/e2e/network`.

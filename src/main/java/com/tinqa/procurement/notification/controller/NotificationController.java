@@ -2,9 +2,12 @@ package com.tinqa.procurement.notification.controller;
 
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
+import com.tinqa.procurement.meeting.MeetingService;
 import com.tinqa.procurement.notification.dto.NotificationResponse;
 import com.tinqa.procurement.notification.dto.UnreadCountResponse;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.security.access.CurrentAccess;
+import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.config.Authorities;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,8 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final MeetingService meetingService;
+    private final CurrentAccess currentAccess;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponse>>> getMyNotifications() {
@@ -35,6 +40,8 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<UnreadCountResponse>> getUnreadCount() {
         UnreadCountResponse response = UnreadCountResponse.builder()
                 .unreadCount(notificationService.getMyUnreadCount())
+                // The meetings badge rides on the bell's call, so no page needs another one for it
+                .meetingFeedbackPending(currentAccess.has(Permission.MEETING_VIEW_OWN) ? meetingService.pendingFeedbackCount() : 0)
                 .build();
         return ApiResponses.ok(response, "Unread Notification Count Retrieved Successfully");
     }

@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -35,14 +36,18 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
     private static final String DEMOS = "/v1/admin/client-demos";
     private static final String MINE = "/v1/client-demos/mine";
 
-    /** An attending employee without demo powers (a delivery rider). */
+    /** An attending employee without demo-management powers (a store sales agent, who goes on demos). */
     private record Attendee(long userId, long employeeId, String token) {
     }
 
     private Attendee attendee() throws Exception {
-        String username = uniq("rider");
+        return employee("SALES_AGENT");
+    }
+
+    private Attendee employee(String designation) throws Exception {
+        String username = uniq(designation.toLowerCase());
         long userId = insertUser(username, "ADMIN_L1", "WEB", false, true);
-        long employeeId = insertEmployee(userId, "DELIVERY_RIDER");
+        long employeeId = insertEmployee(userId, designation);
         return new Attendee(userId, employeeId, login(username, SEED_PASSWORD));
     }
 
@@ -94,14 +99,33 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
                 .header(INTERNAL_KEY_HEADER, INTERNAL_API_KEY), 200)).get("events");
     }
 
+    // Demos are field work for the roles that go on them: a delivery rider is never offered, can't be tagged and has no
+    // "My demos"
+    @Test
+    void onlyStaffWhoseRoleGoesOnDemosCanBeTagged() throws Exception {
+        Attendee agent = attendee();
+        Attendee rider = employee("DELIVERY_RIDER");
+
+        List<Long> offered = new ArrayList<>();
+        data(get(DEMOS + "/staff", l2a.token(), 200)).forEach(member -> offered.add(member.get("employeeId").asLong()));
+        assertThat(offered).contains(agent.employeeId()).doesNotContain(rider.employeeId());
+
+        JsonNode refused = post(DEMOS, l2a.token(), plan(rider.employeeId(), 1, 5000), 400);
+        assertThat(refused.get("errors").get(0).get("field").asText()).isEqualTo("staffEmployeeIds");
+        assertThat(refused.get("message").asText()).endsWith("'s role does not go on client demos, so they can't be tagged as attending staff.");
+
+        get(MINE, rider.token(), 403);
+        assertThat(data(get(MINE, agent.token(), 200))).isEmpty();
+    }
+
     @Test
     void aDemoIsApprovedRunCompletedBookedAndCorrectedOnlyThroughASuperAdmin() throws Exception {
-        Attendee rider = attendee();
-        long id = create(plan(rider.employeeId(), 2, 20000));
+        Attendee agent = attendee();
+        long id = create(plan(agent.employeeId(), 2, 20000));
 
         // Drafts aren't shown to attending staff
-        assertThat(data(get(MINE, rider.token(), 200))).isEmpty();
-        get(MINE + "/" + id, rider.token(), 404);
+        assertThat(data(get(MINE, agent.token(), 200))).isEmpty();
+        get(MINE + "/" + id, agent.token(), 404);
 
         // Quotation: maker-checker, approval level only
         assertThat(data(post(DEMOS + "/" + id + "/submit", l2a.token(), null, 200)).get("status").asText()).isEqualTo("QUOTATION_PENDING");
@@ -109,31 +133,31 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         decide(l1, id, "APPROVED", 403);
         assertThat(data(decide(l2b, id, "APPROVED", 200)).get("status").asText()).isEqualTo("APPROVED");
 
-        // The rider records their own travel and food, with the ticket attached
-        assertThat(data(get(MINE, rider.token(), 200))).hasSize(1);
-        JsonNode withTravel = data(post(MINE + "/" + id + "/expenses", rider.token(), body("kind", "TRAVEL", "dayNumber", 1,
+        // The agent records their own travel and food, with the ticket attached
+        assertThat(data(get(MINE, agent.token(), 200))).hasSize(1);
+        JsonNode withTravel = data(post(MINE + "/" + id + "/expenses", agent.token(), body("kind", "TRAVEL", "dayNumber", 1,
                 "fromPlace", "Delhi", "toPlace", "Jaipur", "travelMode", "TRAIN", "referenceNumber", "PNR 4521", "amount", 1200), 201));
         long travelId = billId(withTravel, "TRAVEL");
-        post(MINE + "/" + id + "/expenses", rider.token(), body("kind", "FOOD", "dayNumber", 1, "mealType", "LUNCH",
+        post(MINE + "/" + id + "/expenses", agent.token(), body("kind", "FOOD", "dayNumber", 1, "mealType", "LUNCH",
                 "vendorName", "Spice Court", "amount", 450.5), 201);
         // A day beyond the visit and a food bill without its meal are refused
-        post(MINE + "/" + id + "/expenses", rider.token(), body("kind", "FOOD", "dayNumber", 3, "mealType", "DINNER",
+        post(MINE + "/" + id + "/expenses", agent.token(), body("kind", "FOOD", "dayNumber", 3, "mealType", "DINNER",
                 "vendorName", "Spice Court", "amount", 300), 400);
-        post(MINE + "/" + id + "/expenses", rider.token(), body("kind", "FOOD", "dayNumber", 1, "vendorName", "Spice Court",
+        post(MINE + "/" + id + "/expenses", agent.token(), body("kind", "FOOD", "dayNumber", 1, "vendorName", "Spice Court",
                 "amount", 300), 400);
         JsonNode attached = perform(MockMvcRequestBuilders.multipart(MINE + "/" + id + "/expenses/" + travelId + "/invoice")
                 .file(new MockMultipartFile("file", "ticket.pdf", "application/pdf", "%PDF-1.4\n%test\n".getBytes(StandardCharsets.UTF_8)))
-                .header("Authorization", "Bearer " + rider.token()), 200);
+                .header("Authorization", "Bearer " + agent.token()), 200);
         assertThat(data(attached).get("expenses").findValuesAsText("invoiceFileName")).contains("ticket.pdf");
         assertThat(mockMvc.perform(MockMvcRequestBuilders.get(DEMOS + "/" + id + "/expenses/" + travelId + "/invoice")
                 .header("Authorization", "Bearer " + l1.token())).andReturn().getResponse().getStatus()).isEqualTo(200);
 
-        // The manager books the hotel; the rider can't touch it, and changes after approval need a reason
+        // The manager books the hotel; the agent can't touch it, and changes after approval need a reason
         JsonNode withStay = data(post(DEMOS + "/" + id + "/expenses", l2a.token(), body("kind", "STAY", "dayNumber", 1,
                 "vendorName", "Hotel Pearl", "vendorGstin", "08AAAAA0000A1Z5", "referenceNumber", "INV-77", "amount", 3500,
                 "gstAmount", 420), 201));
         long stayId = billId(withStay, "STAY");
-        put(MINE + "/" + id + "/expenses/" + stayId, rider.token(), body("kind", "STAY", "dayNumber", 1, "vendorName", "Hotel Pearl",
+        put(MINE + "/" + id + "/expenses/" + stayId, agent.token(), body("kind", "STAY", "dayNumber", 1, "vendorName", "Hotel Pearl",
                 "amount", 1, "changeReason", "Mine now"), 403);
         Map<String, Object> cheaperTrain = body("kind", "TRAVEL", "dayNumber", 1, "fromPlace", "Delhi", "toPlace", "Jaipur",
                 "travelMode", "TRAIN", "amount", 1000);
@@ -149,13 +173,13 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
 
         // Completion: locked while it waits, then booked once approved
         post(DEMOS + "/" + id + "/complete", l2a.token(), body("outcome", "Demo done; 4 rooms want a trial"), 200);
-        post(MINE + "/" + id + "/expenses", rider.token(), body("kind", "OTHER", "description", "Tea", "reason", "Client meeting",
+        post(MINE + "/" + id + "/expenses", agent.token(), body("kind", "OTHER", "description", "Tea", "reason", "Client meeting",
                 "amount", 50), 409);
         assertThat(feed().findValuesAsText("demoReference")).doesNotContain(String.format("DEMO-%05d", id));
         JsonNode completed = data(decide(l2b, id, "APPROVED", 200));
         assertThat(completed.get("status").asText()).isEqualTo("COMPLETED");
         assertThat(completed.get("bookedTotal").decimalValue()).isEqualByComparingTo("5050.50");
-        put(DEMOS + "/" + id, l2a.token(), plan(rider.employeeId(), 2, 20000), 409);
+        put(DEMOS + "/" + id, l2a.token(), plan(agent.employeeId(), 2, 20000), 409);
 
         // Only a Super Admin (Level 2) reopens it; the corrected completion books just the difference
         post(DEMOS + "/" + id + "/reopen", l1.token(), body("reason", "Wrong hotel bill"), 403);
@@ -180,20 +204,20 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void anApprovedPlanChangesOnlyWithAReasonAndANewBudgetIsApprovedAgain() throws Exception {
-        Attendee rider = attendee();
-        long id = create(plan(rider.employeeId(), 1, 5000));
-        // A rider has no demo-management powers
-        post(DEMOS, rider.token(), plan(rider.employeeId(), 1, 5000), 403);
+        Attendee agent = attendee();
+        long id = create(plan(agent.employeeId(), 1, 5000));
+        // An agent has no demo-management powers
+        post(DEMOS, agent.token(), plan(agent.employeeId(), 1, 5000), 403);
         post(DEMOS + "/" + id + "/submit", l2a.token(), null, 200);
         decide(l2b, id, "APPROVED", 200);
 
-        Map<String, Object> later = plan(rider.employeeId(), 1, 5000);
+        Map<String, Object> later = plan(agent.employeeId(), 1, 5000);
         later.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "15:00", "16:00")));
         put(DEMOS + "/" + id, l2a.token(), later, 400);
         later.put("changeReason", "Client asked for the afternoon");
         assertThat(data(put(DEMOS + "/" + id, l2a.token(), later, 200)).get("status").asText()).isEqualTo("APPROVED");
 
-        Map<String, Object> bigger = plan(rider.employeeId(), 1, 8000);
+        Map<String, Object> bigger = plan(agent.employeeId(), 1, 8000);
         bigger.put("clients", List.of(client("Hotel Sunrise", "HOTEL", 1, "15:00", "16:00")));
         bigger.put("changeReason", "Two more staff need rooms");
         assertThat(data(put(DEMOS + "/" + id, l2a.token(), bigger, 200)).get("status").asText()).isEqualTo("QUOTATION_PENDING");
@@ -207,15 +231,15 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         assertThat(data(post(DEMOS + "/" + id + "/cancel", l2a.token(), body("reason", "Client postponed"), 200))
                 .get("status").asText()).isEqualTo("CANCELLED");
 
-        long draft = create(plan(rider.employeeId(), 1, 1000));
+        long draft = create(plan(agent.employeeId(), 1, 1000));
         delete(DEMOS + "/" + draft, l2a.token(), 200);
         get(DEMOS + "/" + draft, l2a.token(), 404);
     }
 
     @Test
     void aTripVisitsSeveralClientsInSlotsThatNeverClashAndItsDayPlanIsKeptInOneSave() throws Exception {
-        Attendee rider = attendee();
-        Map<String, Object> trip = plan(rider.employeeId(), 2, 30000);
+        Attendee agent = attendee();
+        Map<String, Object> trip = plan(agent.employeeId(), 2, 30000);
         Map<String, Object> pearl = client("Hotel Pearl", "HOTEL", 1, "14:00", "15:00");
         pearl.put("legalName", "Pearl Hospitality Pvt Ltd");
         pearl.put("gstin", "08AAAAA0000A1Z5");
@@ -286,8 +310,8 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void theSameClientIsNeverVisitedTwiceInARowOnOneDay() throws Exception {
-        Attendee rider = attendee();
-        Map<String, Object> trip = plan(rider.employeeId(), 2, 5000);
+        Attendee agent = attendee();
+        Map<String, Object> trip = plan(agent.employeeId(), 2, 5000);
         Map<String, Object> morning = client("Hotel Sunrise", "HOTEL", 1, "10:00", "12:00");
         Map<String, Object> afternoon = client("Hotel Sunrise", "HOTEL", 1, "13:00", "15:00");
         // Matched by the client's phone, however it is written, even under another name
@@ -313,8 +337,8 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void theBudgetIsTheDayByDayPlanPlusAJustifiedExtraAndStaysAndJourneysAreDated() throws Exception {
-        Attendee rider = attendee();
-        Map<String, Object> trip = plan(rider.employeeId(), 2, 6000);
+        Attendee agent = attendee();
+        Map<String, Object> trip = plan(agent.employeeId(), 2, 6000);
         trip.remove("extraBudgetReason");
         String day1 = TODAY.toString();
         String day2 = TODAY.plusDays(1).toString();
@@ -357,7 +381,7 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         post(DEMOS, l2a.token(), trip, 400);
 
         // Moving the trip moves its dated stays and journeys with it
-        Map<String, Object> later = plan(rider.employeeId(), 2, 6000);
+        Map<String, Object> later = plan(agent.employeeId(), 2, 6000);
         later.remove("extraBudgetReason");
         later.put("startDate", TODAY.plusDays(7).toString());
         JsonNode moved = data(put(DEMOS + "/" + id, l2a.token(), later, 200));
@@ -367,9 +391,9 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void productUnitsArePickedByBarcodeHandedOutOnTheDayAndAllComeBackBeforeCompletion() throws Exception {
-        Attendee rider = attendee();
+        Attendee agent = attendee();
         List<String> rudrax = insertProductUnits(77, "RudraX", 3);
-        Map<String, Object> plan = plan(rider.employeeId(), 1, 5000);
+        Map<String, Object> plan = plan(agent.employeeId(), 1, 5000);
         plan.put("products", List.of(body("productId", 77, "productName", "RudraX", "quantity", 2,
                 "barcodes", List.of(rudrax.get(0).toLowerCase(), rudrax.get(1)))));
         long id = create(plan);
@@ -401,15 +425,15 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         assertThat(data(get(DEMOS + "/units/lookup?code=" + rudrax.get(0) + "&startDate=" + TODAY + "&demoId=" + id, l2a.token(), 200))
                 .get("available").asBoolean()).isTrue();
         get(DEMOS + "/units/lookup?code=NO-SUCH-UNIT&startDate=" + TODAY, l2a.token(), 404);
-        get(DEMOS + "/units?productId=77&startDate=" + TODAY, rider.token(), 403);
+        get(DEMOS + "/units?productId=77&startDate=" + TODAY, agent.token(), 403);
 
         // Units leave stock only once the demo is approved
         post(DEMOS + "/" + id + "/units/hand-out", l2a.token(), body("barcodes", List.of(rudrax.get(0))), 409);
         post(DEMOS + "/" + id + "/submit", l2a.token(), null, 200);
         decide(l2b, id, "APPROVED", 200);
 
-        // The attending rider hands one out: the storefront's stock goes down first, then the unit is out here
-        JsonNode out = data(post(MINE + "/" + id + "/units/hand-out", rider.token(), body("barcodes", List.of(rudrax.get(0))), 200));
+        // The attending agent hands one out: the storefront's stock goes down first, then the unit is out here
+        JsonNode out = data(post(MINE + "/" + id + "/units/hand-out", agent.token(), body("barcodes", List.of(rudrax.get(0))), 200));
         verify(demoStockClient).move(anyString(), eq(DemoStockClient.Direction.OUT), eq(reference), eq(Map.of(77L, 1)), anyString());
         assertThat(barcodeStatus(rudrax.get(0))).isEqualTo("ON_DEMO");
         assertThat(unitStatus(out, rudrax.get(0))).isEqualTo("OUT");
@@ -417,7 +441,7 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         assertThat(out.get("events").findValuesAsText("type")).contains("UNITS_HANDED_OUT");
         // Handing it out again is refused before the storefront is asked
         clearInvocations(demoStockClient);
-        post(MINE + "/" + id + "/units/hand-out", rider.token(), body("barcodes", List.of(rudrax.get(0))), 409);
+        post(MINE + "/" + id + "/units/hand-out", agent.token(), body("barcodes", List.of(rudrax.get(0))), 409);
         verify(demoStockClient, never()).move(anyString(), any(), anyString(), any(), anyString());
 
         // The storefront refuses (the unit was sold online): nothing changes here
@@ -437,7 +461,7 @@ class ClientDemoIntegrationTest extends IntegrationTestSupport {
         post(DEMOS + "/" + id + "/cancel", l2a.token(), body("reason", "Client cancelled"), 409);
 
         // Handed back: in stock again on both sides
-        post(MINE + "/" + id + "/units/hand-back", rider.token(), body("barcodes", List.of(rudrax.get(0))), 200);
+        post(MINE + "/" + id + "/units/hand-back", agent.token(), body("barcodes", List.of(rudrax.get(0))), 200);
         verify(demoStockClient).move(anyString(), eq(DemoStockClient.Direction.BACK), eq(reference), eq(Map.of(77L, 1)), anyString());
         assertThat(barcodeStatus(rudrax.get(0))).isEqualTo("IN_STOCK");
 

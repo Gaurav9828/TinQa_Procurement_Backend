@@ -22,6 +22,10 @@ public enum Permission {
     EMPLOYEE_APPROVE(EMPLOYEE_APPROVAL, "Approve or reject new employee accounts"),
     EMPLOYEE_DELETE(EMPLOYEE_APPROVAL, "Finalize an employee's deletion"),
     EMPLOYEE_PROFILE_CHANGE_APPROVE(EMPLOYEE_APPROVAL, "Approve or reject employee profile changes"),
+    // /v1/access/roles: custom roles (e.g. Marketing Executive) built from permission groups, next to the built-in
+    // designations. An admin grants only groups they hold themselves
+    ROLE_VIEW(EMPLOYEE_READ, "View built-in and custom roles"),
+    ROLE_MANAGE(EMPLOYEE_MANAGEMENT, "Create and edit custom roles from the permission groups you hold"),
 
     // Dealers (/v1/admin/dealers)
     DEALER_VIEW(DEALER_READ, "View dealers and dealer categories"),
@@ -119,6 +123,10 @@ public enum Permission {
     CUSTOMER_CHANGE_REQUEST(CUSTOMER_MANAGEMENT, "Ask for a change to a customer's details"),
     CUSTOMER_UPDATE(CUSTOMER_APPROVAL, "Edit a customer's details"),
 
+    // Promo codes (Ecommerce /api/admin/promo-codes): a percentage off chosen products for all or chosen customers,
+    // between two dates, limited in units and uses. Viewers only tell customers the code; the Super Admin makes them
+    PROMO_CODE_VIEW(PROMO_CODE_READ, "View promo codes, their rules and every order that used them"),
+
     // Company profile (Ecommerce /api/admin/company)
     COMPANY_PROFILE_VIEW(COMPANY_PROFILE_READ, "View the company profile and its versions"),
     COMPANY_PROFILE_EDIT(COMPANY_PROFILE_MANAGEMENT, "Draft, submit, withdraw and delete your own company profile changes"),
@@ -153,10 +161,32 @@ public enum Permission {
     DEMO_MANAGE(CLIENT_DEMO_MANAGEMENT, "Schedule client demos, record their bills and send quotations and completions for approval"),
     DEMO_APPROVE(CLIENT_DEMO_APPROVAL, "Approve or reject demo quotations, completions and corrections (books the costs)"),
 
+    // Client outreach (/v1/outreach): businesses we contact and each call, email or WhatsApp message with them, with its
+    // response, rating, interest, follow-up date and optional proof screenshots. Executives edit only what they logged
+    OUTREACH_VIEW(CLIENT_OUTREACH_READ, "View businesses, every contact logged with them and daily outreach counts"),
+    OUTREACH_LOG(CLIENT_OUTREACH_MANAGEMENT, "Add businesses and log your calls, emails and WhatsApp messages with them"),
+
+    // Meetings (/v1/meetings): scheduled straight away, no approval. The organiser cancels, invites replacements for
+    // anyone who declined, and marks the meeting completed, which asks every attendee for feedback
+    MEETING_VIEW_ALL(MEETING_READ, "View every meeting, its attendees and their feedback"),
+    MEETING_SCHEDULE(MEETING_MANAGEMENT, "Schedule meetings, and cancel, edit and complete the ones you organise"),
+
+    // Careers (Ecommerce /api/admin/careers): openings are posted straight to the storefront; an applicant's shortlist
+    // and final selection are asked for by one admin and confirmed by another at Level 2, and the candidate is emailed
+    CAREER_OPENING_VIEW(RECRUITMENT_READ, "View job openings and their applicant counts"),
+    CAREER_APPLICATION_VIEW(RECRUITMENT_READ, "View applications, their résumés and interviews"),
+    CAREER_OPENING_MANAGE(RECRUITMENT_MANAGEMENT, "Create, edit, publish and close job openings"),
+    CAREER_APPLICATION_SCREEN(RECRUITMENT_MANAGEMENT, "Screen applicants: résumé match, shortlist, reject, schedule interviews and propose a selection"),
+    CAREER_DECISION_APPROVE(RECRUITMENT_APPROVAL, "Confirm or return shortlists and selections (emails the candidate)"),
+
     // Platform
     // Ecommerce /api/admin/settings/email: the mail server and the address customer emails are sent from
     SYSTEM_SETTINGS_MANAGE(SYSTEM_ADMINISTRATION, "Manage global settings: email delivery, payment gateways and shipping rates"),
     AUDIT_LOG_VIEW(SYSTEM_ADMINISTRATION, "View audit logs"),
+    // Ecommerce PUT /api/admin/careers/settings: hide the storefront's Careers tab and bring it back
+    STOREFRONT_FEATURE_TOGGLE(SYSTEM_ADMINISTRATION, "Hide or show parts of the website, such as the Careers tab"),
+    // Ecommerce POST/PUT/PATCH /api/admin/promo-codes and its code suggestion: create, edit and switch promo codes off
+    PROMO_CODE_MANAGE(SYSTEM_ADMINISTRATION, "Create, edit and switch off promo codes"),
     // Ecommerce DELETE /api/admin/company/profile/drafts/{id}: anyone's draft, not only your own (COMPANY_PROFILE_EDIT)
     COMPANY_PROFILE_DRAFT_DELETE_ANY(SYSTEM_ADMINISTRATION, "Delete any admin's company profile draft"),
     // /v1/admin/client-demos/{id}/reopen and the edits of a reopened demo: correcting a completed (booked) demo
@@ -168,11 +198,17 @@ public enum Permission {
 
     // Every employee (/v1/payroll/my-payslips): their own payslips of the months whose salary was confirmed
     PAYSLIP_VIEW_OWN(SELF_SERVICE, "View and download your own payslips"),
-    // /v1/client-demos/mine: the demos the employee is tagged on as attending staff, and the bills they pay on them
-    DEMO_VIEW_OWN(SELF_SERVICE, "View the client demos you attend"),
-    DEMO_EXPENSE_RECORD_OWN(SELF_SERVICE, "Record your hotel, food, travel and other bills on demos you attend"),
+    // /v1/client-demos/mine: the demos the employee is tagged on as attending staff, and the bills they pay on them.
+    // Only staff holding these can be tagged on a demo (ClientDemoService.staffOptions)
+    DEMO_VIEW_OWN(CLIENT_DEMO_ATTENDANCE, "View the client demos you attend"),
+    DEMO_EXPENSE_RECORD_OWN(CLIENT_DEMO_ATTENDANCE, "Record your hotel, food, travel and other bills on demos you attend"),
     // /v1/client-demos/mine/{id}/units: the product units taken, by barcode, out of stock on the day and back afterwards
-    DEMO_UNITS_HANDLE_OWN(SELF_SERVICE, "Hand out and hand back the product units taken on demos you attend"),
+    DEMO_UNITS_HANDLE_OWN(CLIENT_DEMO_ATTENDANCE, "Hand out and hand back the product units taken on demos you attend"),
+
+    // /v1/meetings/mine: meetings the employee is invited to; they decline within 24 hours of the invite, and give
+    // feedback once the meeting is completed
+    MEETING_VIEW_OWN(SELF_SERVICE, "View the meetings you are invited to"),
+    MEETING_RESPOND_OWN(SELF_SERVICE, "Decline a meeting invite (within 24 hours) and give feedback after a meeting"),
 
     // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
     DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),

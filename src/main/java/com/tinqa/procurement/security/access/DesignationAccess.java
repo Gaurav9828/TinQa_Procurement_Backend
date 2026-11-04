@@ -40,10 +40,17 @@ public final class DesignationAccess {
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
+                PROMO_CODE_READ,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
+                // Posts openings and screens applicants; at Level 2 confirms shortlists and selections
+                RECRUITMENT_READ, RECRUITMENT_MANAGEMENT, RECRUITMENT_APPROVAL,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT,
                 PAYMENT_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT,
+                // Pitches the product to businesses, meets clients and goes on client demos
+                CLIENT_OUTREACH_READ, CLIENT_OUTREACH_MANAGEMENT,
+                MEETING_READ, MEETING_MANAGEMENT,
+                CLIENT_DEMO_ATTENDANCE,
                 USER_GUIDE));
 
         grant(Designation.DEALER_MANAGER, EnumSet.of(
@@ -62,6 +69,8 @@ public final class DesignationAccess {
                 INVENTORY_READ,
                 // Traces barcodes only: corrections are asked for by store and warehouse staff
                 BARCODE_READ,
+                // Posts openings and screens applicants; a Store Manager or Super Admin confirms the decisions
+                RECRUITMENT_READ, RECRUITMENT_MANAGEMENT,
                 DOCUMENT_READ, DOCUMENT_MANAGEMENT));
 
         grant(Designation.FULFILLMENT_SPECIALIST, EnumSet.of(
@@ -69,7 +78,8 @@ public final class DesignationAccess {
                 INVENTORY_READ, INVENTORY_MANAGEMENT,
                 BARCODE_READ, BARCODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
-                EXPENSE_READ, EXPENSE_MANAGEMENT));
+                EXPENSE_READ, EXPENSE_MANAGEMENT,
+                MEETING_READ, MEETING_MANAGEMENT));
 
         // Riders only record what happened at the door; the rest of the lifecycle stays with the roles above
         grant(Designation.DELIVERY_RIDER, EnumSet.of(
@@ -84,6 +94,7 @@ public final class DesignationAccess {
         grant(Designation.CUSTOMER_SUPPORT, EnumSet.of(
                 CUSTOMER_SUPPORT,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
+                PROMO_CODE_READ,
                 CUSTOMER_ORDER_READ,
                 REFUND_READ, REFUND_MANAGEMENT,
                 CATALOG_READ,
@@ -92,13 +103,15 @@ public final class DesignationAccess {
         grant(Designation.FINANCIAL_AUDITOR, EnumSet.of(
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 BARCODE_READ,
+                PROMO_CODE_READ,
                 STORE_SALES_READ,
                 PAYMENT_READ,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,
                 PROCUREMENT_ORDER_READ,
                 DOCUMENT_READ,
-                EXPENSE_READ));
+                EXPENSE_READ,
+                MEETING_READ, MEETING_MANAGEMENT));
 
         // Keeps the books: approves expenses (posting them to the company account), reads every money flow, and runs
         // client demos
@@ -106,8 +119,13 @@ public final class DesignationAccess {
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
+                PROMO_CODE_READ,
                 // Schedules client demos and keeps their costs; at Level 2 approves their quotations and completions
                 CLIENT_DEMO_READ, CLIENT_DEMO_MANAGEMENT, CLIENT_DEMO_APPROVAL,
+                CLIENT_DEMO_ATTENDANCE,
+                // Sees who was contacted before a demo is planned, and meets clients
+                CLIENT_OUTREACH_READ, CLIENT_OUTREACH_MANAGEMENT,
+                MEETING_READ, MEETING_MANAGEMENT,
                 STORE_SALES_READ,
                 REFUND_READ,
                 CUSTOMER_ORDER_READ,
@@ -115,9 +133,12 @@ public final class DesignationAccess {
                 DOCUMENT_READ));
 
         // Sells at a store or in the market: registers walk-in customers and books their orders. Cash they take is
-        // booked when they record it; they see only their own sales
+        // booked when they record it; they see only their own sales. Also shows the product to clients on demos
         grant(Designation.SALES_AGENT, EnumSet.of(
-                STORE_SALES));
+                STORE_SALES,
+                // Sees the promo codes so they can tell a customer which one to use
+                PROMO_CODE_READ,
+                CLIENT_DEMO_ATTENDANCE));
 
         GROUPS_BY_EXTERNAL_ROLE.put(Role.DEALER, Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL)));
 
@@ -131,7 +152,9 @@ public final class DesignationAccess {
     private DesignationAccess() {
     }
 
-    // Every employee also gets their own records (SELF_SERVICE), whatever their designation
+    // Every employee also gets their own records (SELF_SERVICE), whatever their designation. Client demos are not part
+    // of it: only the designations above holding CLIENT_DEMO_ATTENDANCE go on demos (riders, warehouse and support
+    // staff don't)
     private static void grant(Designation designation, Set<PermissionGroup> groups) {
         Set<PermissionGroup> withSelfService = EnumSet.copyOf(groups);
         withSelfService.add(SELF_SERVICE);
@@ -173,6 +196,37 @@ public final class DesignationAccess {
             return Collections.unmodifiableSet(groups);
         }
         return role == null ? Set.of() : GROUPS_BY_EXTERNAL_ROLE.getOrDefault(role, Set.of());
+    }
+
+    /** Groups that can never be part of a custom role: the dealer portal (not an employee's) and system administration. */
+    public static final Set<PermissionGroup> NEVER_IN_CUSTOM_ROLES = Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL, SYSTEM_ADMINISTRATION));
+
+    /** Groups a custom role carries at ADMIN_L2: its own groups plus SELF_SERVICE, like every designation. */
+    public static Set<PermissionGroup> groupsOfCustomRole(CustomRoleGrant customRole) {
+        Set<PermissionGroup> groups = EnumSet.noneOf(PermissionGroup.class);
+        groups.addAll(customRole.groups());
+        groups.removeAll(NEVER_IN_CUSTOM_ROLES);
+        groups.add(SELF_SERVICE);
+        return Collections.unmodifiableSet(groups);
+    }
+
+    /** {@link #effectiveLevel(Role, Designation)} for a custom role. */
+    public static Role effectiveLevelOfCustomRole(Role requested, CustomRoleGrant customRole) {
+        boolean approvalLevel = customRole != null && customRole.groups().stream().anyMatch(PermissionGroup::approvalLevel);
+        return requested == Role.ADMIN_L2 && !approvalLevel ? Role.ADMIN_L1 : requested;
+    }
+
+    /** {@link #effectiveGroups(Role, Designation)} for an employee holding a custom role instead of a built-in designation. */
+    public static Set<PermissionGroup> effectiveGroupsOfCustomRole(Role role, CustomRoleGrant customRole) {
+        if (customRole == null || (role != Role.ADMIN_L1 && role != Role.ADMIN_L2)) {
+            return effectiveGroups(role, (Designation) null);
+        }
+        Set<PermissionGroup> groups = EnumSet.noneOf(PermissionGroup.class);
+        groups.addAll(groupsOfCustomRole(customRole));
+        if (role == Role.ADMIN_L1) {
+            groups.removeIf(PermissionGroup::approvalLevel);
+        }
+        return Collections.unmodifiableSet(groups);
     }
 
     /** Every permission of the given groups. */
