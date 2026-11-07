@@ -348,6 +348,8 @@ public abstract class IntegrationTestSupport {
         return body("dealerId", dealerId, "itemId", itemId, "orderQuantity", new BigDecimal(quantity),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
                 "orderDate", LocalDate.now().minusDays(5).toString(),
+                // 30 % advance, 30 % midterm, 40 % after testing
+                "advancePercent", new BigDecimal("30"), "midtermPercent", new BigDecimal("30"), "expectedPaymentMethod", "BANK_TRANSFER",
                 // Below the item's MRP of 1500.00, so it needs a reason
                 "additionalInfo", body("priceChangeReason", "Bulk rate agreed with the dealer"));
     }

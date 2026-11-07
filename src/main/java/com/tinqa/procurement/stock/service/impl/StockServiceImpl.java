@@ -13,6 +13,7 @@ import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
 import com.tinqa.procurement.finance.enums.PurchasePostingReason;
 import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
+import com.tinqa.procurement.order.payment.DealerPaymentService;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.order.entity.Order;
@@ -59,6 +60,7 @@ public class StockServiceImpl implements StockService {
     private final StockMapper stockMapper;
     private final ReferenceNumberGenerator referenceNumbers;
     private final PurchasePostingRecorder purchasePostings;
+    private final DealerPaymentService dealerPayments;
     private final BarcodeRegistry barcodeRegistry;
     private final Clock clock;
 
@@ -195,6 +197,8 @@ public class StockServiceImpl implements StockService {
         // Only now does finance move: the approved passed units are bought (a rejected entry buys nothing)
         purchasePostings.rebook(order, saved, decision == ApprovalStatus.REJECTED
                 ? PurchasePostingReason.STOCK_REJECTED : PurchasePostingReason.STOCK_APPROVED);
+        // Testing is done: the order is now worth what passed, and an overpaid dealer owes the difference back
+        dealerPayments.reconcile(order);
         return toResponse(saved);
     }
 
@@ -214,6 +218,7 @@ public class StockServiceImpl implements StockService {
             barcodeRegistry.approveStockUnits(stock, BarcodeRegistry.Actor.of(approver));
             Stock saved = stockRepository.save(stock);
             purchasePostings.rebook(order, saved, PurchasePostingReason.STOCK_CHANGE_APPROVED);
+            dealerPayments.reconcile(order);
             return saved;
         }
         BigDecimal takenOff = stock.getApprovedUnitsPassed().subtract(stock.getUnitsPassedTest()).max(BigDecimal.ZERO);

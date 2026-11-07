@@ -2,6 +2,7 @@ package com.tinqa.procurement.dealerportal;
 
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
+import com.tinqa.procurement.order.payment.DealerPaymentDTOs;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.access.RequiresPermission;
 import jakarta.validation.Valid;
@@ -47,6 +48,12 @@ public class DealerPortalController {
     @GetMapping("/orders/{orderId}")
     public ResponseEntity<ApiResponse<DealerPortalDTOs.Order>> order(@PathVariable Long orderId) {
         return ApiResponses.ok(dealerPortalService.order(orderId), "Order retrieved successfully");
+    }
+
+    @RequiresPermission(Permission.DEALER_PORTAL_VIEW)
+    @GetMapping("/orders/{orderId}/payments")
+    public ResponseEntity<ApiResponse<DealerPaymentDTOs.OrderPayments>> payments(@PathVariable Long orderId) {
+        return ApiResponses.ok(dealerPortalService.payments(orderId), "Order payments retrieved successfully");
     }
 
     @RequiresPermission(Permission.DEALER_ORDER_RESPOND)

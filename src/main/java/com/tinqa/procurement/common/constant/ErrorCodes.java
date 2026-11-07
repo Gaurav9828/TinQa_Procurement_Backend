@@ -143,6 +143,14 @@ public final class ErrorCodes {
     public static final String DECLINE_WINDOW_CLOSED = "DECLINE_WINDOW_CLOSED";
     public static final String FEEDBACK_ALREADY_SUBMITTED = "FEEDBACK_ALREADY_SUBMITTED";
 
+    // Dealer payments (payment plan, payments to dealers, refund claims)
+    public static final String DEALER_PAYMENT_NOT_DUE = "DEALER_PAYMENT_NOT_DUE";
+    public static final String DEALER_PAYMENT_NOT_PENDING = "DEALER_PAYMENT_NOT_PENDING";
+    public static final String DEALER_PAYMENT_SELF_DECISION = "DEALER_PAYMENT_SELF_DECISION";
+    public static final String DEALER_PAYMENT_NOT_YOURS = "DEALER_PAYMENT_NOT_YOURS";
+    public static final String DEALER_PAYMENT_ALREADY_REVERSED = "DEALER_PAYMENT_ALREADY_REVERSED";
+    public static final String DEALER_REFUND_NOT_DUE = "DEALER_REFUND_NOT_DUE";
+
     private ErrorCodes() {
     }
 }

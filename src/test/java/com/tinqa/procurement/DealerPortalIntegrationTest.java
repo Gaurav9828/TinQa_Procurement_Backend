@@ -40,7 +40,8 @@ class DealerPortalIntegrationTest extends IntegrationTestSupport {
     private Map<String, Object> quotation(long itemId) {
         return body("itemId", itemId, "orderQuantity", new BigDecimal("10"), "unitType", "PCS",
                 "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"), "note", "Ex-works Pune",
-                "priceChangeReason", "Bulk rate");
+                "priceChangeReason", "Bulk rate", "advancePercent", new BigDecimal("30"), "midtermPercent", new BigDecimal("30"),
+                "expectedPaymentMethod", "CHEQUE");
     }
 
     @Test
@@ -191,6 +192,44 @@ class DealerPortalIntegrationTest extends IntegrationTestSupport {
         moveOrder(orderId, l1, "PENDING");
         post("/v1/dealer-portal/quotations/" + orderId + "/change-requests", dealer.token(), body("orderQuantity", 20), 409);
         assertThat(data(get("/v1/dealer-portal/orders/" + orderId, dealer.token(), 200)).get("changeable").asBoolean()).isFalse();
+    }
+
+    @Test
+    void theDealerProposesTheirPaymentPlanAndSeesOnlyConfirmedPayments() throws Exception {
+        Dealer dealer = dealerWithLogin();
+        JsonNode quote = data(post("/v1/dealer-portal/quotations", dealer.token(), quotation(createItem()), 201));
+        assertThat(quote.get("finalPercent").decimalValue()).isEqualByComparingTo("40");
+        assertThat(quote.get("expectedPaymentMethod").asText()).isEqualTo("CHEQUE");
+        long orderId = quote.get("id").asLong();
+
+        // A plan over 100 % is refused; a new plan is a change any Dealer Manager approves
+        post("/v1/dealer-portal/quotations/" + orderId + "/change-requests", dealer.token(), body("advancePercent", 80), 400);
+        long changeId = data(post("/v1/dealer-portal/quotations/" + orderId + "/change-requests", dealer.token(),
+                body("advancePercent", 20, "expectedPaymentMethod", "BANK_TRANSFER"), 201)).get("id").asLong();
+        assertThat(notificationTitles(l1)).contains("Dealer quotation change awaiting approval");
+        patch("/v1/orders/change-requests/" + changeId + "/decision", l1.token(), body("decision", "APPROVED"), 200);
+        JsonNode changed = data(get("/v1/orders/" + orderId, l1.token(), 200));
+        assertThat(changed.get("advancePercent").decimalValue()).isEqualByComparingTo("20");
+        assertThat(changed.get("finalPercent").decimalValue()).isEqualByComparingTo("50");
+        assertThat(changed.get("expectedPaymentMethod").asText()).isEqualTo("BANK_TRANSFER");
+
+        moveOrder(orderId, l1, "PENDING");
+        patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+        Map<String, Object> advance = body("kind", "PAYMENT", "milestone", "ADVANCE", "amount", new BigDecimal("100.00"),
+                "method", "BANK_TRANSFER", "paidOn", java.time.LocalDate.now().toString());
+        long confirmedId = data(post("/v1/orders/" + orderId + "/payments", l1.token(), advance, 201)).get("id").asLong();
+        patch("/v1/orders/payments/" + confirmedId + "/decision", l2a.token(), body("decision", "APPROVED"), 200);
+        advance.put("amount", new BigDecimal("50.00"));
+        post("/v1/orders/" + orderId + "/payments", l1.token(), advance, 201);
+
+        JsonNode view = data(get("/v1/dealer-portal/orders/" + orderId + "/payments", dealer.token(), 200));
+        assertThat(view.get("summary").get("paid").decimalValue()).isEqualByComparingTo("100.00");
+        assertThat(view.get("entries")).hasSize(1);
+        assertThat(view.get("entries").get(0).get("recordedByUsername").isNull()).isTrue();
+        assertThat(notificationTitles(new Actor(null, null, dealer.username(), null, dealer.token())))
+                .contains("Payment recorded for order " + quote.get("orderNumber").asText());
+        // Another dealer's order is not found
+        get("/v1/dealer-portal/orders/" + orderId + "/payments", dealerWithLogin().token(), 404);
     }
 
     @Test

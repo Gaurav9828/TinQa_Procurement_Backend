@@ -25,6 +25,9 @@ public enum PermissionGroup {
     PROCUREMENT_ORDER_READ("Procurement orders - view", false),
     PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress and decide dealers' quotation changes", false),
     PROCUREMENT_ORDER_APPROVAL("Procurement orders - approve, confirm and decide returns", true),
+    // Payments to dealers against a quotation's payment plan (advance, midterm, final after testing) and their refunds
+    DEALER_PAYMENT_MANAGEMENT("Dealer payments - record payments to dealers and refunds from them", false),
+    DEALER_PAYMENT_APPROVAL("Dealer payments - confirm payments and refunds, and change refund claims", true),
 
     // Catalog (items, procurement products and storefront listings)
     CATALOG_READ("Catalog - view", false),
@@ -70,6 +73,9 @@ public enum PermissionGroup {
     // Storefront promo codes: senior staff see them so they can tell a customer which code to use. Creating and
     // changing them is the Super Admin's alone (Permission.PROMO_CODE_MANAGE, in SYSTEM_ADMINISTRATION)
     PROMO_CODE_READ("Promo codes - view codes and who used them", false),
+    // Hands codes out without seeing the chosen customers' codes: emails a code to its chosen customers, and shows an
+    // everyone code on the storefront
+    PROMO_CODE_MANAGEMENT("Promo codes - email codes to their customers and show codes on the storefront", false),
 
     // Company profile (storefront branding and legal details)
     COMPANY_PROFILE_READ("Company profile - view", false),

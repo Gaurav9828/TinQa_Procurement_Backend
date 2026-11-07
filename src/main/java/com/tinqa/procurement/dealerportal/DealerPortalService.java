@@ -13,6 +13,9 @@ import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.change.OrderChangeDTOs;
+import com.tinqa.procurement.order.payment.DealerPaymentDTOs;
+import com.tinqa.procurement.order.payment.DealerPaymentService;
+import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.change.OrderChangeStatus;
 import com.tinqa.procurement.order.change.QuotationChangeService;
 import com.tinqa.procurement.order.dto.OrderDTOs;
@@ -49,6 +52,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DealerPortalService {
 
+    private final DealerPaymentService dealerPayments;
     private final DealerLoginService dealerLoginService;
     private final DealerRepository dealerRepository;
     private final ItemRepository itemRepository;
@@ -148,6 +152,13 @@ public class DealerPortalService {
         return dto;
     }
 
+    /** What the dealer was paid for one of their orders, and any refund they owe (confirmed entries only). */
+    @Transactional(readOnly = true)
+    public DealerPaymentDTOs.OrderPayments payments(Long orderId) {
+        User user = currentUserProvider.getCurrentUser();
+        return dealerPayments.forDealer(ownOrder(orderId, currentDealer(user), false));
+    }
+
     /** A new quotation from the dealer. Like any quotation it only becomes an order once staff submit and approve it. */
     @Transactional
     public DealerPortalDTOs.Order createQuotation(DealerPortalDTOs.QuotationRequest request) {
@@ -180,6 +191,9 @@ public class DealerPortalService {
                 .shipmentPrice(request.getShipmentPrice())
                 .taxBreakup(request.getTaxBreakup())
                 .expectedDelivery(request.getExpectedDelivery())
+                .advancePercent(request.getAdvancePercent())
+                .midtermPercent(request.getMidtermPercent())
+                .expectedPaymentMethod(request.getExpectedPaymentMethod())
                 .orderDate(today)
                 .additionalInfo(info)
                 .build());
@@ -210,6 +224,9 @@ public class DealerPortalService {
                 .shipmentPrice(request.getShipmentPrice())
                 .taxBreakup(request.getTaxBreakup())
                 .expectedDelivery(request.getExpectedDelivery())
+                .advancePercent(request.getAdvancePercent())
+                .midtermPercent(request.getMidtermPercent())
+                .expectedPaymentMethod(request.getExpectedPaymentMethod())
                 .note(request.getNote())
                 .build();
         return DealerPortalDTOs.Change.of(quotationChangeService.request(order, user, proposed, request.getReason()));
@@ -282,6 +299,10 @@ public class DealerPortalService {
                 .shipmentPrice(order.getShipmentPrice())
                 .totalPrice(order.getTotalPrice())
                 .taxBreakup(order.getTaxBreakup())
+                .advancePercent(order.getAdvancePercent())
+                .midtermPercent(order.getMidtermPercent())
+                .finalPercent(PaymentPlan.finalPercent(order.getAdvancePercent(), order.getMidtermPercent()))
+                .expectedPaymentMethod(order.getExpectedPaymentMethod())
                 .orderStatus(order.getOrderStatus())
                 .orderDate(order.getOrderDate())
                 .expectedDelivery(order.getExpectedDelivery())

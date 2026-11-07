@@ -75,7 +75,7 @@ public class BarcodeRegistry {
         List<ApiResponse.ApiErrorItem> errors = new ArrayList<>();
         for (int i = 0; i < codes.size(); i++) {
             if (taken.contains(codes.get(i))) {
-                errors.add(ApiErrors.error(field + "[" + i + "]", "Barcode " + codes.get(i) + " is already in use"));
+                errors.add(ApiErrors.error(field + "[" + i + "]", inUseMessage(codes.get(i))));
             }
         }
         if (!errors.isEmpty()) {
@@ -97,7 +97,7 @@ public class BarcodeRegistry {
         for (int i = 0; i < codes.size(); i++) {
             Barcode barcode = byCode.get(codes.get(i));
             if (barcode == null) {
-                missing.add(ApiErrors.error(field + "[" + i + "]", "Barcode " + codes.get(i) + " is not registered"));
+                missing.add(ApiErrors.error(field + "[" + i + "]", notRegisteredMessage(codes.get(i))));
             } else {
                 found.add(barcode);
             }
@@ -349,6 +349,16 @@ public class BarcodeRegistry {
         return expected == 1
                 ? "Enter the barcode of the " + what + (given == 0 ? "" : " (" + given + " entered)")
                 : "Enter one barcode for each of the " + expected + " " + what + "s (" + given + " entered)";
+    }
+
+    /** Why a code can't be given to a new unit: a live unit already carries it. */
+    static String inUseMessage(String code) {
+        return "Barcode " + code + " is already in use";
+    }
+
+    /** Why a code can't be used as an existing unit: no live unit carries it. */
+    static String notRegisteredMessage(String code) {
+        return "Barcode " + code + " is not registered";
     }
 
     /** e.g. "in stock", "fitted in a product". */

@@ -4,8 +4,11 @@ import com.tinqa.procurement.common.validation.MaxAmount;
 import com.tinqa.procurement.common.validation.SafeJsonMap;
 import com.tinqa.procurement.common.validation.ValidationPatterns;
 import com.tinqa.procurement.order.change.OrderChangeDTOs;
+import com.tinqa.procurement.order.payment.PaymentMethod;
 import com.tinqa.procurement.order.change.OrderChangeStatus;
 import com.tinqa.procurement.order.enums.OrderStatus;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -106,6 +109,23 @@ public final class DealerPortalDTOs {
 
         private LocalDate expectedDelivery;
 
+        // How the dealer wants to be paid: an advance and a midterm percentage (the final part, the rest of 100, is
+        // paid after the delivered units are tested) and the method they expect
+        @NotNull(message = "Advance payment percentage is required (0 for none)")
+        @DecimalMin(value = "0", message = "Advance payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Advance payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Advance payment percentage can have at most 2 decimal places")
+        private BigDecimal advancePercent;
+
+        // Optional: left out (or 0) for a plan with only an advance and the final payment
+        @DecimalMin(value = "0", message = "Midterm payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Midterm payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Midterm payment percentage can have at most 2 decimal places")
+        private BigDecimal midtermPercent;
+
+        @NotNull(message = "Expected payment method is required")
+        private PaymentMethod expectedPaymentMethod;
+
         @Size(max = 500, message = "Remarks cannot exceed 500 characters")
         private String note;
 
@@ -144,6 +164,18 @@ public final class DealerPortalDTOs {
         private Map<String, Object> taxBreakup;
 
         private LocalDate expectedDelivery;
+
+        @DecimalMin(value = "0", message = "Advance payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Advance payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Advance payment percentage can have at most 2 decimal places")
+        private BigDecimal advancePercent;
+
+        @DecimalMin(value = "0", message = "Midterm payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Midterm payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Midterm payment percentage can have at most 2 decimal places")
+        private BigDecimal midtermPercent;
+
+        private PaymentMethod expectedPaymentMethod;
 
         @Size(max = 500, message = "Remarks cannot exceed 500 characters")
         private String note;
@@ -211,6 +243,10 @@ public final class DealerPortalDTOs {
         private BigDecimal shipmentPrice;
         private BigDecimal totalPrice;
         private Map<String, Object> taxBreakup;
+        private BigDecimal advancePercent;
+        private BigDecimal midtermPercent;
+        private BigDecimal finalPercent;
+        private PaymentMethod expectedPaymentMethod;
         private OrderStatus orderStatus;
         private LocalDate orderDate;
         private LocalDate expectedDelivery;

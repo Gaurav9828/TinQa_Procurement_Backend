@@ -27,6 +27,12 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
         moveOrder(pendingOrder, l1, "PENDING");
         createOrder(dealerId, itemId, "2");
         createStock(deliveredOrder(dealerId, itemId, "3").get("orderNumber").asText(), "3", "0");
+        // A dealer advance waiting for confirmation
+        long approvedOrder = createOrder(dealerId, itemId, "2").get("id").asLong();
+        moveOrder(approvedOrder, l1, "PENDING");
+        patch("/v1/orders/" + approvedOrder + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+        post("/v1/orders/" + approvedOrder + "/payments", l1.token(), body("kind", "PAYMENT", "milestone", "ADVANCE",
+                "amount", new java.math.BigDecimal("10.00"), "method", "CASH", "paidOn", java.time.LocalDate.now().toString()), 201);
 
         JsonNode counts = data(get(SUMMARY, l2a.token(), 200));
 
@@ -46,6 +52,7 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
         fromLists.put("QUOTATION_CHANGES", size("/v1/orders/change-requests?status=PENDING"));
         fromLists.put("BARCODES", size("/v1/barcodes/requests?status=PENDING"));
         fromLists.put("CLIENT_DEMOS", size("/v1/admin/client-demos/waiting"));
+        fromLists.put("DEALER_PAYMENTS", size("/v1/orders/payments?status=PENDING_APPROVAL"));
 
         // A Super Admin decides every queue, so every queue is there, in the same order
         assertThat(iterable(counts.fieldNames())).containsExactlyElementsOf(fromLists.keySet());
@@ -53,6 +60,7 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
                 assertThat(counts.get(queue).asInt()).as(queue).isEqualTo(listed));
         assertThat(counts.get("ORDERS").asInt()).isPositive();
         assertThat(counts.get("STOCK").asInt()).isPositive();
+        assertThat(counts.get("DEALER_PAYMENTS").asInt()).isPositive();
     }
 
     @Test

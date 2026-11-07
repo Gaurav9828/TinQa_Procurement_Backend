@@ -194,4 +194,59 @@ public class ItemStockMovementDTOs {
         private String batchNumber;
         private BigDecimal units;
     }
+
+    /**
+     * A stock entry draft of product units being built, checked before it is saved. Drafts are partly filled: blank
+     * or malformed codes, and parts whose component is not chosen yet (no item id), are allowed and skipped.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProductUnitCheckRequest {
+        @NotNull(message = "Units are required")
+        @Size(max = 1000, message = "At most 1000 product units can be checked at once")
+        private List<@Valid DraftUnit> units;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DraftUnit {
+        private String barcode;
+
+        @Size(max = 100, message = "A unit cannot list more than 100 components")
+        private List<@Valid DraftPart> parts;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DraftPart {
+        @Positive(message = "Item ID must be positive")
+        private Long itemId;
+
+        @Size(max = 1000, message = "A component cannot list more than 1000 pieces")
+        private List<String> barcodes;
+    }
+
+    /** The codes of a draft that can't be used, one entry per code, in the order they appear. Empty: all usable. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProductUnitCheckResponse {
+        private List<CodeProblem> problems;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CodeProblem {
+        private String code;
+        private String message;
+    }
 }

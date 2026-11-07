@@ -219,7 +219,10 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             JsonNode response = post("/v1/orders", l1.token(), body(), 400);
             assertThat(response.get("errorCode").asText()).isEqualTo("VALIDATION_FAILED");
             assertThat(response.get("errors").findValuesAsText("field"))
-                    .contains("dealerId", "itemId", "orderQuantity", "unitType", "unitPrice", "shipmentPrice", "orderDate");
+                    .contains("dealerId", "itemId", "orderQuantity", "unitType", "unitPrice", "shipmentPrice", "orderDate",
+                            "advancePercent", "expectedPaymentMethod")
+                    // The midterm part is optional (advance and final only)
+                    .doesNotContain("midtermPercent");
         }
 
         @Test

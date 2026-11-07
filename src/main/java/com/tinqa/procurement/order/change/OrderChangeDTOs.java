@@ -1,6 +1,7 @@
 package com.tinqa.procurement.order.change;
 
 import com.tinqa.procurement.order.enums.OrderStatus;
+import com.tinqa.procurement.order.payment.PaymentMethod;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,10 @@ public final class OrderChangeDTOs {
         /** The GST breakup as it would be stored (QuotationTax); {} when it is removed */
         private Map<String, Object> taxBreakup;
         private LocalDate expectedDelivery;
+        /** Payment plan: the advance and midterm percentages (the final part is the rest) and the expected method */
+        private BigDecimal advancePercent;
+        private BigDecimal midtermPercent;
+        private PaymentMethod expectedPaymentMethod;
         private String note;
     }
 

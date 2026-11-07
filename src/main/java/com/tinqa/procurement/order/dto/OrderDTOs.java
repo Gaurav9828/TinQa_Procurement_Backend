@@ -2,6 +2,7 @@ package com.tinqa.procurement.order.dto;
 
 import com.tinqa.procurement.common.validation.*;
 import com.tinqa.procurement.order.enums.OrderStatus;
+import com.tinqa.procurement.order.payment.PaymentMethod;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -50,6 +51,22 @@ public class OrderDTOs {
         @MaxAmount(message = "Shipment price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal shipmentPrice;
 
+        // Payment plan: advance and midterm percentages (the final part, paid after testing, is the rest of 100)
+        @NotNull(message = "Advance payment percentage is required (0 for none)")
+        @DecimalMin(value = "0", message = "Advance payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Advance payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Advance payment percentage can have at most 2 decimal places")
+        private BigDecimal advancePercent;
+
+        // Optional: left out (or 0) for a plan with only an advance and the final payment
+        @DecimalMin(value = "0", message = "Midterm payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Midterm payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Midterm payment percentage can have at most 2 decimal places")
+        private BigDecimal midtermPercent;
+
+        @NotNull(message = "Expected payment method is required")
+        private PaymentMethod expectedPaymentMethod;
+
         @SafeJsonMap
         private Map<String, Object> taxBreakup;
         private LocalDate expectedDelivery;
@@ -87,6 +104,16 @@ public class OrderDTOs {
         @PositiveOrZero(message = "Shipment price cannot be negative")
         @MaxAmount(message = "Shipment price cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal shipmentPrice;
+
+        @DecimalMin(value = "0", message = "Advance payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Advance payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Advance payment percentage can have at most 2 decimal places")
+        private BigDecimal advancePercent;
+        @DecimalMin(value = "0", message = "Midterm payment percentage cannot be negative")
+        @DecimalMax(value = "100", message = "Midterm payment percentage cannot be more than 100")
+        @Digits(integer = 3, fraction = 2, message = "Midterm payment percentage can have at most 2 decimal places")
+        private BigDecimal midtermPercent;
+        private PaymentMethod expectedPaymentMethod;
 
         @SafeJsonMap
         private Map<String, Object> taxBreakup;
@@ -145,6 +172,11 @@ public class OrderDTOs {
         private BigDecimal totalPrice;
         private BigDecimal shipmentPrice;
         private Map<String, Object> taxBreakup;
+        private BigDecimal advancePercent;
+        private BigDecimal midtermPercent;
+        /** 100 less the advance and the midterm: paid after the delivered units are tested */
+        private BigDecimal finalPercent;
+        private PaymentMethod expectedPaymentMethod;
         private OrderStatus orderStatus;
         private LocalDate expectedDelivery;
         private LocalDate actualDelivery;

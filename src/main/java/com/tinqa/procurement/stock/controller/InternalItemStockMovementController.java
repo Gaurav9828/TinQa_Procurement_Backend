@@ -1,5 +1,6 @@
 package com.tinqa.procurement.stock.controller;
 
+import com.tinqa.procurement.barcode.service.ProductUnitCheck;
 import com.tinqa.procurement.common.response.ApiResponse;
 import com.tinqa.procurement.common.response.ApiResponses;
 import com.tinqa.procurement.security.config.Authorities;
@@ -31,6 +32,7 @@ public class InternalItemStockMovementController {
     private static final String ECOMMERCE_PRODUCT = "ECOMMERCE_PRODUCT";
 
     private final ItemStockMovementService movementService;
+    private final ProductUnitCheck productUnitCheck;
 
     @PostMapping("/movements")
     public ResponseEntity<ApiResponse<ItemStockMovementDTOs.MovementResponse>> applyMovement(
@@ -54,5 +56,13 @@ public class InternalItemStockMovementController {
     @GetMapping("/products/{productId}/held")
     public ResponseEntity<ApiResponse<ItemStockMovementDTOs.ProductHoldings>> productHoldings(@PathVariable Long productId) {
         return ApiResponses.ok(movementService.productHoldings(ECOMMERCE_PRODUCT, productId), "Product holdings retrieved");
+    }
+
+    // Which codes of a product-unit stock entry draft can't be used, before it is saved; reads only, locks nothing.
+    // The binding check runs again when the movement is applied.
+    @PostMapping("/product-units/check")
+    public ResponseEntity<ApiResponse<ItemStockMovementDTOs.ProductUnitCheckResponse>> checkProductUnits(
+            @Valid @RequestBody ItemStockMovementDTOs.ProductUnitCheckRequest request) {
+        return ApiResponses.ok(productUnitCheck.check(request), "Product units checked");
     }
 }

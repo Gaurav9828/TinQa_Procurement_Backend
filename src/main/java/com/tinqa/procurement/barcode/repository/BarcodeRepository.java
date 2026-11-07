@@ -35,6 +35,26 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
         String getProductTitle();
     }
 
+    interface LiveCode {
+        String getCode();
+
+        BarcodeUnitType getUnitType();
+
+        BarcodeStatus getStatus();
+
+        Long getItemId();
+
+        String getItemName();
+    }
+
+    // Read-only, one statement: what the live units carrying the codes are, with their item's name (null for product
+    // units), for checks that must not lock (uses uq_barcodes_live_code)
+    @Query("""
+            SELECT b.code AS code, b.unitType AS unitType, b.status AS status, i.id AS itemId, i.name AS itemName
+            FROM Barcode b LEFT JOIN b.item i
+            WHERE b.code IN :codes AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID""")
+    List<LiveCode> findLiveCodeSummaries(@Param("codes") Collection<String> codes);
+
     // Read-only, no joins: the product of the live unit carrying a code (uses uq_barcodes_live_code)
     @Query("""
             SELECT b.code AS code, b.unitType AS unitType, b.status AS status,

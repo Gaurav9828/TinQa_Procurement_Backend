@@ -207,6 +207,21 @@ class AccessCatalogTest {
         assertThat(DesignationAccess.NEVER_IN_CUSTOM_ROLES).contains(Permission.PROMO_CODE_MANAGE.group());
     }
 
+    // Staff who hand codes to customers share them (email, storefront) without seeing chosen customers' codes;
+    // finance staff only look
+    @Test
+    void storeAndCustomerCareStaffSharePromoCodes() {
+        Set<Designation> sharers = EnumSet.of(Designation.SUPER_ADMIN, Designation.STORE_MANAGER, Designation.SALES_AGENT,
+                Designation.CUSTOMER_SUPPORT);
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                assertThat(UserAccess.of(level, designation).permissions().contains(Permission.PROMO_CODE_SHARE))
+                        .as(designation + " " + level + " shares").isEqualTo(sharers.contains(designation));
+            }
+        }
+        assertThat(Permission.PROMO_CODE_SHARE.group().approvalLevel()).isFalse();
+    }
+
     // Agents book store sales and see only their own; store and finance staff read every agent's sales
     @Test
     void salesAgentsSellAndSeeOnlyTheirOwnSales() {
@@ -215,7 +230,7 @@ class AccessCatalogTest {
                     .containsExactlyInAnyOrder(Permission.STORE_CUSTOMER_REGISTER, Permission.STORE_ORDER_CREATE,
                             Permission.STORE_ORDER_VIEW, Permission.PAYSLIP_VIEW_OWN, Permission.DEMO_VIEW_OWN,
                             Permission.DEMO_EXPENSE_RECORD_OWN, Permission.DEMO_UNITS_HANDLE_OWN, Permission.MEETING_VIEW_OWN,
-                            Permission.MEETING_RESPOND_OWN, Permission.PROMO_CODE_VIEW);
+                            Permission.MEETING_RESPOND_OWN, Permission.PROMO_CODE_VIEW, Permission.PROMO_CODE_SHARE);
         }
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SALES_AGENT)).isEqualTo(Role.ADMIN_L1);
         for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.FINANCE_MANAGER,

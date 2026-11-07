@@ -10,6 +10,7 @@ import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
+import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.tax.QuotationTax;
 import com.tinqa.procurement.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,15 @@ public class OrderEditor {
         if (request.getExpectedDelivery() != null) order.setExpectedDelivery(request.getExpectedDelivery());
         if (request.getOrderDate() != null) order.setOrderDate(request.getOrderDate());
         if (request.getAdditionalInfo() != null) order.setAdditionalInfo(request.getAdditionalInfo());
+        if (request.getAdvancePercent() != null || request.getMidtermPercent() != null) {
+            // Either part may change alone; together they still leave the final part 0 % or more
+            BigDecimal advance = request.getAdvancePercent() != null ? request.getAdvancePercent() : order.getAdvancePercent();
+            BigDecimal midterm = request.getMidtermPercent() != null ? request.getMidtermPercent() : order.getMidtermPercent();
+            PaymentPlan.validate(advance, midterm);
+            order.setAdvancePercent(advance);
+            order.setMidtermPercent(midterm);
+        }
+        if (request.getExpectedPaymentMethod() != null) order.setExpectedPaymentMethod(request.getExpectedPaymentMethod());
         order.recalculateTotalPrice();
         // A breakup sent is checked against the new total; a stored one follows the new total at its rate
         order.setTaxBreakup(request.getTaxBreakup() != null

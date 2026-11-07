@@ -2,6 +2,7 @@ package com.tinqa.procurement.order.mapper;
 
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
+import com.tinqa.procurement.order.payment.PaymentPlan;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +22,10 @@ public class OrderMapper {
                 .totalPrice(order.getTotalPrice())
                 .shipmentPrice(order.getShipmentPrice())
                 .taxBreakup(order.getTaxBreakup())
+                .advancePercent(order.getAdvancePercent())
+                .midtermPercent(order.getMidtermPercent())
+                .finalPercent(PaymentPlan.finalPercent(order.getAdvancePercent(), order.getMidtermPercent()))
+                .expectedPaymentMethod(order.getExpectedPaymentMethod())
                 .orderStatus(order.getOrderStatus())
                 .expectedDelivery(order.getExpectedDelivery())
                 .actualDelivery(order.getActualDelivery())

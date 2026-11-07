@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -178,14 +179,11 @@ public class ProductUnitMovements {
                 Barcode part = byCode.get(partCodes.get(i).get(k));
                 Long itemId = partItems.get(i).get(k);
                 String field = FIELD + ".added[" + i + "].parts";
-                if (part.getUnitType() != BarcodeUnitType.ITEM_UNIT) {
-                    errors.add(ApiErrors.error(field, "Barcode " + part.getCode() + " is a product unit, not a component piece"));
-                } else if (!part.getItem().getId().equals(itemId)) {
-                    errors.add(ApiErrors.error(field, "Barcode " + part.getCode() + " is a piece of " + part.getItem().getName()
-                            + ", not of the component it is listed under"));
-                } else if (part.getStatus() != BarcodeStatus.IN_STOCK) {
-                    errors.add(ApiErrors.error(field, "Barcode " + part.getCode() + " (" + part.getItem().getName() + ") is not in stock: it is "
-                            + BarcodeRegistry.describe(part.getStatus())));
+                String problem = pieceProblem(part.getCode(), part.getUnitType(), part.getStatus(),
+                        part.getItem() == null ? null : part.getItem().getId(), itemId,
+                        () -> part.getItem().getName());
+                if (problem != null) {
+                    errors.add(ApiErrors.error(field, problem));
                 }
                 parts.add(part);
             }
@@ -194,6 +192,25 @@ public class ProductUnitMovements {
         if (!errors.isEmpty()) {
             throw new ApiException(ApiErrors.joinMessages(errors), ErrorCodes.BARCODE_NOT_AVAILABLE, HttpStatus.CONFLICT, errors);
         }
+    }
+
+    /**
+     * Why a live unit can't be fitted into a new product unit as a piece of the item it is listed under, or null when
+     * it can: it must be an item unit (a component piece) of that item, in stock. {@code listedItemId} null skips the
+     * item check (a draft whose component is not chosen yet). {@code itemName} is read only when a message needs it.
+     */
+    static String pieceProblem(String code, BarcodeUnitType unitType, BarcodeStatus status, Long pieceItemId, Long listedItemId,
+                               Supplier<String> itemName) {
+        if (unitType != BarcodeUnitType.ITEM_UNIT) {
+            return "Barcode " + code + " is a product unit, not a component piece";
+        }
+        if (listedItemId != null && !listedItemId.equals(pieceItemId)) {
+            return "Barcode " + code + " is a piece of " + itemName.get() + ", not of the component it is listed under";
+        }
+        if (status != BarcodeStatus.IN_STOCK) {
+            return "Barcode " + code + " (" + itemName.get() + ") is not in stock: it is " + BarcodeRegistry.describe(status);
+        }
+        return null;
     }
 
     // Units taken out must be this product's units in stock; units without a barcode (built before barcodes were

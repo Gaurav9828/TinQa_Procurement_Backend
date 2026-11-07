@@ -15,6 +15,7 @@ import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.service.OrderEditor;
+import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.tax.QuotationTax;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.User;
@@ -107,6 +108,23 @@ public class QuotationChangeService {
             changes.setExpectedDelivery(proposed.getExpectedDelivery());
             previous.setExpectedDelivery(current.getExpectedDelivery());
         }
+        if (differs(proposed.getAdvancePercent(), current.getAdvancePercent())) {
+            changes.setAdvancePercent(proposed.getAdvancePercent());
+            previous.setAdvancePercent(current.getAdvancePercent());
+        }
+        if (differs(proposed.getMidtermPercent(), current.getMidtermPercent())) {
+            changes.setMidtermPercent(proposed.getMidtermPercent());
+            previous.setMidtermPercent(current.getMidtermPercent());
+        }
+        if (changes.getAdvancePercent() != null || changes.getMidtermPercent() != null) {
+            // The plan as it would be once this change is applied
+            PaymentPlan.validate(Objects.requireNonNullElse(changes.getAdvancePercent(), current.getAdvancePercent()),
+                    Objects.requireNonNullElse(changes.getMidtermPercent(), current.getMidtermPercent()));
+        }
+        if (proposed.getExpectedPaymentMethod() != null && proposed.getExpectedPaymentMethod() != current.getExpectedPaymentMethod()) {
+            changes.setExpectedPaymentMethod(proposed.getExpectedPaymentMethod());
+            previous.setExpectedPaymentMethod(current.getExpectedPaymentMethod());
+        }
         String proposedNote = proposed.getNote() == null ? null : proposed.getNote().trim();
         if (proposedNote != null && !proposedNote.equals(Objects.requireNonNullElse(current.getNote(), ""))) {
             changes.setNote(proposedNote);
@@ -197,6 +215,9 @@ public class QuotationChangeService {
                     .shipmentPrice(changes.getShipmentPrice())
                     .taxBreakup(changes.getTaxBreakup())
                     .expectedDelivery(changes.getExpectedDelivery())
+                    .advancePercent(changes.getAdvancePercent())
+                    .midtermPercent(changes.getMidtermPercent())
+                    .expectedPaymentMethod(changes.getExpectedPaymentMethod())
                     .build());
             if (changes.getNote() != null) {
                 Map<String, Object> info = new LinkedHashMap<>(Objects.requireNonNullElse(order.getAdditionalInfo(), Map.of()));
@@ -299,6 +320,9 @@ public class QuotationChangeService {
                 .shipmentPrice(order.getShipmentPrice())
                 .taxBreakup(order.getTaxBreakup())
                 .expectedDelivery(order.getExpectedDelivery())
+                .advancePercent(order.getAdvancePercent())
+                .midtermPercent(order.getMidtermPercent())
+                .expectedPaymentMethod(order.getExpectedPaymentMethod())
                 .note(note instanceof String text ? text : null)
                 .build();
     }
@@ -370,6 +394,8 @@ public class QuotationChangeService {
         if (changes.getShipmentPrice() != null) fields.add("shipment price");
         if (changes.getTaxBreakup() != null) fields.add("GST breakup");
         if (changes.getExpectedDelivery() != null) fields.add("expected delivery");
+        if (changes.getAdvancePercent() != null || changes.getMidtermPercent() != null) fields.add("payment plan");
+        if (changes.getExpectedPaymentMethod() != null) fields.add("payment method");
         if (changes.getNote() != null) fields.add("remarks");
         return fields.build().collect(Collectors.joining(", "));
     }

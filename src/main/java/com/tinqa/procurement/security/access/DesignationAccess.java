@@ -40,7 +40,7 @@ public final class DesignationAccess {
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
-                PROMO_CODE_READ,
+                PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
                 // Posts openings and screens applicants; at Level 2 confirms shortlists and selections
                 RECRUITMENT_READ, RECRUITMENT_MANAGEMENT, RECRUITMENT_APPROVAL,
@@ -56,6 +56,8 @@ public final class DesignationAccess {
         grant(Designation.DEALER_MANAGER, EnumSet.of(
                 DEALER_READ, DEALER_MANAGEMENT, DEALER_APPROVAL,
                 PROCUREMENT_ORDER_READ, PROCUREMENT_ORDER_MANAGEMENT, PROCUREMENT_ORDER_APPROVAL,
+                // Records what the dealers were paid against each order's plan; at Level 2 confirms it
+                DEALER_PAYMENT_MANAGEMENT, DEALER_PAYMENT_APPROVAL,
                 CATALOG_READ,
                 INVENTORY_READ,
                 BARCODE_READ,
@@ -94,7 +96,7 @@ public final class DesignationAccess {
         grant(Designation.CUSTOMER_SUPPORT, EnumSet.of(
                 CUSTOMER_SUPPORT,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
-                PROMO_CODE_READ,
+                PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ,
                 REFUND_READ, REFUND_MANAGEMENT,
                 CATALOG_READ,
@@ -119,6 +121,8 @@ public final class DesignationAccess {
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
+                // Pays the dealers (advance, midterm, final after testing) and collects their refunds
+                DEALER_PAYMENT_MANAGEMENT, DEALER_PAYMENT_APPROVAL,
                 PROMO_CODE_READ,
                 // Schedules client demos and keeps their costs; at Level 2 approves their quotations and completions
                 CLIENT_DEMO_READ, CLIENT_DEMO_MANAGEMENT, CLIENT_DEMO_APPROVAL,
@@ -136,8 +140,8 @@ public final class DesignationAccess {
         // booked when they record it; they see only their own sales. Also shows the product to clients on demos
         grant(Designation.SALES_AGENT, EnumSet.of(
                 STORE_SALES,
-                // Sees the promo codes so they can tell a customer which one to use
-                PROMO_CODE_READ,
+                // Sees the promo codes so they can tell a customer which one to use, and emails them to their customers
+                PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 CLIENT_DEMO_ATTENDANCE));
 
         GROUPS_BY_EXTERNAL_ROLE.put(Role.DEALER, Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL)));

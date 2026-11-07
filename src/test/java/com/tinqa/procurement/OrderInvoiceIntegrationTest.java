@@ -162,7 +162,8 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
 
         JsonNode quotation = data(post("/v1/dealer-portal/quotations", dealer, body("itemId", itemId, "orderQuantity", new BigDecimal("10"),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
-                "priceChangeReason", "Bulk rate", "taxBreakup", Map.of("supplyType", "INTER_STATE", "gstRate", 5)), 201));
+                "priceChangeReason", "Bulk rate", "taxBreakup", Map.of("supplyType", "INTER_STATE", "gstRate", 5),
+                "advancePercent", new BigDecimal("20"), "midtermPercent", new BigDecimal("30"), "expectedPaymentMethod", "ONLINE"), 201));
         assertThat(quotation.get("taxBreakup").get("igst").decimalValue()).isEqualByComparingTo("52.50");
         long orderId = quotation.get("id").asLong();
 

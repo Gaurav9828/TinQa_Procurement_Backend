@@ -3,6 +3,7 @@ package com.tinqa.procurement.order.entity;
 import com.tinqa.procurement.dealer.entity.Dealer;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.order.enums.OrderStatus;
+import com.tinqa.procurement.order.payment.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -62,6 +63,19 @@ public class Order {
     @Column(name = "order_status", nullable = false, length = 30)
     @Builder.Default
     private OrderStatus orderStatus = OrderStatus.QUOTATION;
+
+    // Payment plan: the advance and midterm percentages; the final part (the rest) is paid after testing. Null on
+    // orders made before plans existed
+    @Column(name = "advance_percent", precision = 5, scale = 2)
+    private BigDecimal advancePercent;
+
+    @Column(name = "midterm_percent", precision = 5, scale = 2)
+    private BigDecimal midtermPercent;
+
+    // How the dealer expects to be paid
+    @Enumerated(EnumType.STRING)
+    @Column(name = "expected_payment_method", length = 20)
+    private PaymentMethod expectedPaymentMethod;
 
     @Column(name = "expected_delivery")
     private LocalDate expectedDelivery;

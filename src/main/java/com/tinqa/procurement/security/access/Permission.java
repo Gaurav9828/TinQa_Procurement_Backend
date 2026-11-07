@@ -48,6 +48,10 @@ public enum Permission {
     // /v1/orders/change-requests: a dealer's edit to a quotation only applies once approved. The dealer is the maker,
     // so any Dealer Manager (either level) is the checker
     DEALER_QUOTATION_CHANGE_APPROVE(PROCUREMENT_ORDER_MANAGEMENT, "Approve or reject dealers' changes to their quotations"),
+    // /v1/orders/{id}/payments: what was paid to the dealer and refunded by them, recorded by one person and confirmed
+    // by another. Seen by everyone with PROCUREMENT_ORDER_VIEW
+    DEALER_PAYMENT_RECORD(DEALER_PAYMENT_MANAGEMENT, "Record payments made to dealers and refunds they paid back, and reverse them"),
+    DEALER_PAYMENT_APPROVE(DEALER_PAYMENT_APPROVAL, "Confirm or reject recorded dealer payments and refunds, and change a refund claim"),
 
     // Catalog: items (/v1/admin/items), procurement products (/v1/admin/products), product approvals
     // (/v1/product-approvals) and storefront products (Ecommerce /api/products)
@@ -126,6 +130,8 @@ public enum Permission {
     // Promo codes (Ecommerce /api/admin/promo-codes): a percentage off chosen products for all or chosen customers,
     // between two dates, limited in units and uses. Viewers only tell customers the code; the Super Admin makes them
     PROMO_CODE_VIEW(PROMO_CODE_READ, "View promo codes, their rules and every order that used them"),
+    // A code for chosen customers is shown in full only to PROMO_CODE_MANAGE; sharers email it without seeing it
+    PROMO_CODE_SHARE(PROMO_CODE_MANAGEMENT, "Email a promo code to its customers and show an everyone code on the storefront"),
 
     // Company profile (Ecommerce /api/admin/company)
     COMPANY_PROFILE_VIEW(COMPANY_PROFILE_READ, "View the company profile and its versions"),

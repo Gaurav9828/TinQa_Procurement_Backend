@@ -20,6 +20,8 @@ import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.invoice.OrderInvoiceService;
 import com.tinqa.procurement.order.mapper.OrderMapper;
 import com.tinqa.procurement.order.notification.OrderStatusNotifier;
+import com.tinqa.procurement.order.payment.DealerPaymentService;
+import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.repository.OrderStatusHistoryRepository;
 import com.tinqa.procurement.order.service.OrderEditor;
@@ -61,6 +63,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderInvoiceService orderInvoiceService;
     private final OrderStatusHistoryRepository statusHistoryRepository;
     private final PurchasePostingRecorder purchasePostings;
+    private final DealerPaymentService dealerPayments;
     private final CurrentUserProvider currentUserProvider;
     private final CurrentAccess currentAccess;
     private final OrderStatusNotifier statusNotifier;
@@ -75,6 +78,9 @@ public class OrderServiceImpl implements OrderService {
         Dealer dealer = orderEditor.findDealer(request.getDealerId());
         Item item = orderEditor.findItem(request.getItemId());
         OrderEditor.ensureExpectedDeliveryNotBeforeOrder(request.getOrderDate(), request.getExpectedDelivery());
+        // No midterm part: only an advance and the final payment
+        BigDecimal midtermPercent = request.getMidtermPercent() != null ? request.getMidtermPercent() : BigDecimal.ZERO;
+        PaymentPlan.validate(request.getAdvancePercent(), midtermPercent);
 
         Order order = Order.builder()
                 .orderNumber(referenceNumbers.orderNumber())
@@ -84,6 +90,9 @@ public class OrderServiceImpl implements OrderService {
                 .unitType(request.getUnitType())
                 .unitPrice(request.getUnitPrice())
                 .shipmentPrice(request.getShipmentPrice())
+                .advancePercent(request.getAdvancePercent())
+                .midtermPercent(midtermPercent)
+                .expectedPaymentMethod(request.getExpectedPaymentMethod())
                 // Optional JSON details are stored as {} when not sent (the columns are NOT NULL)
                 .orderStatus(OrderStatus.QUOTATION)
                 .expectedDelivery(request.getExpectedDelivery())
@@ -263,6 +272,10 @@ public class OrderServiceImpl implements OrderService {
         // Purchases are booked from stock, not on delivery; a refund gives back whatever was booked
         if (to == OrderStatus.REFUND_COMPLETED) {
             purchasePostings.refund(saved);
+        }
+        // Whatever was paid to the dealer for a cancelled or returned order is due back from them
+        if (to == OrderStatus.CANCELLED || to == OrderStatus.REFUND_COMPLETED) {
+            dealerPayments.reconcile(saved);
         }
         return respond(saved);
     }
