@@ -30,6 +30,8 @@ public final class OrderChangeDTOs {
     public static class Terms {
         private Long itemId;
         private String itemName;
+        /** Display-only: the MRP of the item the change switches to */
+        private BigDecimal itemMrp;
         private BigDecimal orderQuantity;
         private String unitType;
         private BigDecimal unitPrice;
@@ -78,6 +80,9 @@ public final class OrderChangeDTOs {
         /** Order total if the change is approved */
         private BigDecimal proposedTotalPrice;
         private BigDecimal currentTotalPrice;
+        /** The MRP of the item the quotation would have once the change is applied, to compare the unit price with */
+        private BigDecimal itemPrice;
+        /** The supplier's reason; required when the change sets a new unit price */
         private String note;
         private OrderChangeStatus status;
         private String requestedByUsername;

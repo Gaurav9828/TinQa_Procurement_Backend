@@ -286,6 +286,31 @@
     <build>
 
         <plugins>
+            <!-- Flyway commands for scripts/dev/db.sh (status, repair, reset). No version: Spring Boot manages it, so
+                 these commands run the same Flyway as the app. Reads the source folder, so no build is needed first;
+                 clean stays off unless db.sh reset turns it on for one run. -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <configuration>
+                    <locations>
+                        <location>filesystem:src/main/resources/db/migration</location>
+                    </locations>
+                    <cleanDisabled>true</cleanDisabled>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-database-postgresql</artifactId>
+                        <version>${flyway.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>${postgresql.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
 
             <plugin>
                 <groupId>org.springframework.boot</groupId>

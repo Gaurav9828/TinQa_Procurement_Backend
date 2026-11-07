@@ -333,6 +333,29 @@ public abstract class IntegrationTestSupport {
         return data(post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(fixtureCategory())), 201)).get("id").asLong();
     }
 
+    protected static final String SUPPLIER_PASSWORD = "Supplier!Passw0rd#2026";
+
+    /** A supplier and their signed-in login. A supplier can be paid only with one: they confirm each payment's receipt. */
+    public record SupplierLogin(long supplierId, String username, String token) {
+        public Actor actor() {
+            return new Actor(null, null, username, null, token);
+        }
+    }
+
+    // A new supplier with an approved login whose first password is already set, signed in
+    protected SupplierLogin supplierWithLogin() throws Exception {
+        return supplierWithLogin(createSupplier());
+    }
+
+    protected SupplierLogin supplierWithLogin(long supplierId) throws Exception {
+        String username = uniq("supplier");
+        post("/v1/admin/suppliers/" + supplierId + "/login", l1.token(), body("username", username, "email", username + "@supplier.test"), 201);
+        patch("/v1/admin/suppliers/" + supplierId + "/login/approval", l2a.token(), body("decision", "APPROVED"), 200);
+        String first = login(username, DEFAULT_EMPLOYEE_PASSWORD);
+        post("/auth/first-login/password", first, body("newPassword", SUPPLIER_PASSWORD, "confirmNewPassword", SUPPLIER_PASSWORD), 200);
+        return new SupplierLogin(supplierId, username, login(username, SUPPLIER_PASSWORD));
+    }
+
     protected Map<String, Object> itemBody(long... categoryIds) {
         return body("categoryIds", Arrays.stream(categoryIds).boxed().toList(), "name", "Item " + next(), "unitOfMeasure", "PCS",
                 "mrp", new BigDecimal("1500.00"), "countryOfOrigin", "India",
@@ -348,8 +371,8 @@ public abstract class IntegrationTestSupport {
         return body("supplierId", supplierId, "itemId", itemId, "orderQuantity", new BigDecimal(quantity),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
                 "orderDate", LocalDate.now().minusDays(5).toString(),
-                // 30 % advance, 30 % midterm, 40 % after testing
-                "advancePercent", new BigDecimal("30"), "midtermPercent", new BigDecimal("30"), "expectedPaymentMethod", "BANK_TRANSFER",
+                // 30 % advance, 20 % midterm, 50 % after testing (at least half is always paid after testing)
+                "advancePercent", new BigDecimal("30"), "midtermPercent", new BigDecimal("20"), "expectedPaymentMethod", "BANK_TRANSFER",
                 // Below the item's MRP of 1500.00, so it needs a reason
                 "additionalInfo", body("priceChangeReason", "Bulk rate agreed with the supplier"));
     }

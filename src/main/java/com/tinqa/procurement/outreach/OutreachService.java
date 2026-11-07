@@ -146,7 +146,7 @@ public class OutreachService {
         } catch (DataIntegrityViolationException exception) {
             // Added by someone else between the check and the insert
             OutreachBusiness existing = duplicateOf(business.getPhone(), business.getEmail(),
-                    business.getId() == null ? -1L : business.getId());
+                    Objects.requireNonNullElse(business.getId(), -1L));
             if (existing != null) {
                 throw exists(existing);
             }

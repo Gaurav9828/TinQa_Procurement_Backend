@@ -56,6 +56,8 @@ public final class ErrorCodes {
     // Orders
     public static final String INVALID_STATUS_TRANSITION = "INVALID_STATUS_TRANSITION";
     public static final String ORDER_NOT_EDITABLE = "ORDER_NOT_EDITABLE";
+    /** TinQa changed the supplier's quotation: only the supplier can accept the order, after seeing the changes */
+    public static final String ORDER_NEEDS_SUPPLIER_CONSENT = "ORDER_NEEDS_SUPPLIER_CONSENT";
     public static final String ORDER_STOCKED = "ORDER_STOCKED";
     public static final String ORDER_CHANGE_PENDING = "ORDER_CHANGE_PENDING";
     public static final String ORDER_CHANGE_NOT_PENDING = "ORDER_CHANGE_NOT_PENDING";
@@ -149,7 +151,15 @@ public final class ErrorCodes {
     public static final String SUPPLIER_PAYMENT_SELF_DECISION = "SUPPLIER_PAYMENT_SELF_DECISION";
     public static final String SUPPLIER_PAYMENT_NOT_YOURS = "SUPPLIER_PAYMENT_NOT_YOURS";
     public static final String SUPPLIER_PAYMENT_ALREADY_REVERSED = "SUPPLIER_PAYMENT_ALREADY_REVERSED";
+    // The order is delivered, tested and fully paid, every payment received by the supplier: nothing is reversed any more
+    public static final String SUPPLIER_PAYMENT_REVERSAL_CLOSED = "SUPPLIER_PAYMENT_REVERSAL_CLOSED";
     public static final String SUPPLIER_REFUND_NOT_DUE = "SUPPLIER_REFUND_NOT_DUE";
+    public static final String SUPPLIER_PAYMENT_NEEDS_LOGIN = "SUPPLIER_PAYMENT_NEEDS_LOGIN";
+    // A later part of the plan is approved or paid only after the earlier ones
+    public static final String SUPPLIER_PAYMENT_OUT_OF_ORDER = "SUPPLIER_PAYMENT_OUT_OF_ORDER";
+    public static final String SUPPLIER_RETURN_NOT_ALLOWED = "SUPPLIER_RETURN_NOT_ALLOWED";
+    public static final String SUPPLIER_RETURN_WRONG_STATUS = "SUPPLIER_RETURN_WRONG_STATUS";
+    public static final String SUPPLIER_RETURN_SELF_DECISION = "SUPPLIER_RETURN_SELF_DECISION";
 
     private ErrorCodes() {
     }

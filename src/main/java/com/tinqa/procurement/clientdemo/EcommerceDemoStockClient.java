@@ -54,13 +54,17 @@ public class EcommerceDemoStockClient implements DemoStockClient {
             client.post().uri(PATH).contentType(MediaType.APPLICATION_JSON).header(InternalApiKeyFilter.HEADER, apiKey)
                     .body(body).retrieve().toBodilessEntity();
         } catch (RestClientResponseException exception) {
-            log.warn("Demo stock move {} refused ({}): {}", key, exception.getStatusCode().value(), exception.getResponseBodyAsString());
+            if (log.isWarnEnabled()) {
+                log.warn("Demo stock move {} refused ({}): {}", key, exception.getStatusCode().value(), exception.getResponseBodyAsString());
+            }
             if (exception.getStatusCode().is4xxClientError()) {
                 throw new ApiException(messageOf(exception), ErrorCodes.DEMO_STOCK_REFUSED, HttpStatus.CONFLICT);
             }
             throw unavailable("The storefront could not update its stock. Try again in a moment.");
         } catch (RestClientException exception) {
-            log.warn("Demo stock move {} failed: {}", key, exception.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("Demo stock move {} failed: {}", key, exception.getMessage());
+            }
             // The move may have been applied before the answer was lost: undo it, so the caller can simply try again
             reverse(key);
             throw unavailable("The storefront could not be reached to update its stock. Try again in a moment.");
@@ -75,7 +79,9 @@ public class EcommerceDemoStockClient implements DemoStockClient {
         try {
             client.post().uri(PATH + "/{key}/reverse", key).header(InternalApiKeyFilter.HEADER, apiKey).retrieve().toBodilessEntity();
         } catch (RestClientException exception) {
-            log.error("Demo stock move {} could not be reversed; check the storefront's stock: {}", key, exception.getMessage());
+            if (log.isErrorEnabled()) {
+                log.error("Demo stock move {} could not be reversed; check the storefront's stock: {}", key, exception.getMessage());
+            }
         }
     }
 

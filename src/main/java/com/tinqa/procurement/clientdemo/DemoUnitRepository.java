@@ -22,7 +22,7 @@ public interface DemoUnitRepository extends JpaRepository<DemoUnit, Long> {
     }
 
     // Units of other demos that hold the barcodes: out on a demo now, or reserved by a demo still planned or running
-    // whose days overlap [start, end]. Uses idx_client_demo_unit_barcode_active (V18)
+    // whose days overlap [start, end]. Uses idx_client_demo_unit_barcode_active (V12__client_demos.sql)
     @Query(value = """
             SELECT u.barcode_id AS barcodeId, d.id AS demoId, d.start_date AS startDate, d.number_of_days AS numberOfDays
             FROM client_demo_unit u JOIN client_demo d ON d.id = u.demo_id

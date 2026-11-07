@@ -29,6 +29,8 @@ file:
   upload-dir: target/test-uploads
 
 tinqa:
+  employee:
+    default-password: TinQa
   internal-api:
     key: test-internal-api-key
 

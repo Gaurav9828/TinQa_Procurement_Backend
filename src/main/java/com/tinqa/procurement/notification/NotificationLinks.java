@@ -9,7 +9,7 @@ public final class NotificationLinks {
     public static final String APPROVALS = "/approvals";
     public static final String ORDERS = "/orders";
     public static final String PRODUCTS = "/products";
-    public static final String STOCKS = "/item/stocks";
+    public static final String STOCKS = "/stocks";
     /** Barcode tracking: trace a unit, ask for corrections */
     public static final String BARCODES = "/barcodes";
     public static final String EMPLOYEES = "/employees";

@@ -16,7 +16,9 @@ optimization work is tracked in `Tinqa-Procurement-Web-UI/docs/optimization-road
 ### Schema and migrations
 1. The schema changes only through Flyway migrations named `V{n}__snake_case.sql` (Procurement:
    `src/main/resources/db/migration`, Ecommerce: the same path). Never edit a migration that has run anywhere; add
-   a new one.
+   a new one. Each file owns one business area and its tables (Procurement V2–V13, Ecommerce V2–V11, squashed on
+   2026-11-07); a later change to an area is a new `V{next}__area_what_changed.sql`. Locally, both backends apply
+   them with `scripts/dev/db.sh` (one identical script; it stops when an applied migration was edited).
 2. `ddl-auto` stays `validate`. JPA `@Index` annotations create nothing; every index is created in a migration.
 
 ### Indexes
@@ -42,7 +44,7 @@ optimization work is tracked in `Tinqa-Procurement-Web-UI/docs/optimization-road
 
 ### Stored functions and views
 11. Use a PostgreSQL function or view when a screen needs one read model built from several tables or queues
-    (badges, dashboards, summaries, reports). Example: `approval_queue_counts`, Procurement V15 and Ecommerce V30.
+    (badges, dashboards, summaries, reports). Example: `approval_queue_counts`, Procurement V14 and Ecommerce V12.
 12. Business writes stay in Java services: state transitions, maker-checker and permission checks. Each rule lives
     in exactly one place. Triggers are used only as integrity guards, such as the append-only ledger.
 13. Every function:

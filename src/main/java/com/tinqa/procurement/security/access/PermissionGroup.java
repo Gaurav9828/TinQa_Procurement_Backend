@@ -23,11 +23,11 @@ public enum PermissionGroup {
 
     // Procurement orders (RFQs / quotations placed with suppliers)
     PROCUREMENT_ORDER_READ("Procurement orders - view", false),
-    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress and decide suppliers' quotation changes", false),
+    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress, decide suppliers' quotation changes and return failed pieces", false),
     PROCUREMENT_ORDER_APPROVAL("Procurement orders - approve, confirm and decide returns", true),
     // Payments to suppliers against a quotation's payment plan (advance, midterm, final after testing) and their refunds
-    SUPPLIER_PAYMENT_MANAGEMENT("Supplier payments - record payments to suppliers and refunds from them", false),
-    SUPPLIER_PAYMENT_APPROVAL("Supplier payments - confirm payments and refunds, and change refund claims", true),
+    SUPPLIER_PAYMENT_MANAGEMENT("Supplier payments - request and make payments to suppliers, and check the money they pay back", false),
+    SUPPLIER_PAYMENT_APPROVAL("Supplier payments - approve payment requests and returns of failed pieces, and change refund claims (Super Admin only)", true),
 
     // Catalog (items, procurement products and storefront listings)
     CATALOG_READ("Catalog - view", false),

@@ -7,16 +7,19 @@ import java.math.RoundingMode;
 
 /**
  * A quotation's payment plan: the advance and midterm percentages are chosen, the final part is whatever is left
- * (30 % + 30 % leaves 40 % for after testing). Orders made before plans existed have none (both null).
+ * (30 % + 20 % leaves 50 % for after testing). At least half is always paid after delivery and testing, so advance and
+ * midterm together are at most 50 %. Orders made before plans existed have none (both null).
  */
 public final class PaymentPlan {
 
     public static final BigDecimal HUNDRED = new BigDecimal("100");
+    /** The least share of the order paid after the units are delivered and tested (the final part). */
+    public static final BigDecimal MIN_FINAL_PERCENT = new BigDecimal("50");
 
     private PaymentPlan() {
     }
 
-    /** Both percentages given, neither negative, and together at most 100 %. */
+    /** Both percentages given, neither negative, and together leaving at least {@link #MIN_FINAL_PERCENT} for the end. */
     public static void validate(BigDecimal advancePercent, BigDecimal midtermPercent) {
         if (advancePercent == null) {
             throw ApiErrors.fieldError("advancePercent", "Give the advance payment percentage (0 for none).");
@@ -28,9 +31,11 @@ public final class PaymentPlan {
             throw ApiErrors.fieldError(advancePercent.signum() < 0 ? "advancePercent" : "midtermPercent", "A payment percentage cannot be negative.");
         }
         BigDecimal both = advancePercent.add(midtermPercent);
-        if (both.compareTo(HUNDRED) > 0) {
-            throw ApiErrors.fieldError("midtermPercent", "Advance and midterm together cannot be more than 100% (they are "
-                    + both.stripTrailingZeros().toPlainString() + "%). The final payment is what is left of 100%.");
+        if (HUNDRED.subtract(both).compareTo(MIN_FINAL_PERCENT) < 0) {
+            // Named on the midterm when there is one (it was typed last), else on the advance
+            throw ApiErrors.fieldError(midtermPercent.signum() > 0 ? "midtermPercent" : "advancePercent",
+                    "At least 50% is paid after delivery and testing, so advance and midterm together can be at most 50% (they are "
+                            + both.stripTrailingZeros().toPlainString() + "%).");
         }
     }
 

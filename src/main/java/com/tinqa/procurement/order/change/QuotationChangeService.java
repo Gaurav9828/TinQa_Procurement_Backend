@@ -83,6 +83,7 @@ public class QuotationChangeService {
             }
             changes.setItemId(item.getId());
             changes.setItemName(item.getName());
+            changes.setItemMrp(item.getMrp());
             previous.setItemId(current.getItemId());
             previous.setItemName(current.getItemName());
         }
@@ -148,6 +149,7 @@ public class QuotationChangeService {
         if (changeMap.isEmpty()) {
             throw ApiErrors.conflict(ErrorCodes.ORDER_CHANGE_EMPTY, "Nothing would change: the values you sent are the quotation's current ones.");
         }
+        requirePriceReason(order, changes, current, OptionalText.blankToNull(note));
 
         OrderChangeRequest saved;
         try {
@@ -207,7 +209,14 @@ public class QuotationChangeService {
                         + order.getOrderStatus().label() + ", so the supplier's change can no longer be applied. Reject it instead.");
             }
             OrderChangeDTOs.Terms changes = terms(request.getChanges());
+            // The supplier's reason becomes the quotation's price reason, so whoever approves the order sees it
+            Map<String, Object> priceInfo = null;
+            if ((changes.getUnitPrice() != null || changes.getItemId() != null) && request.getNote() != null) {
+                priceInfo = new LinkedHashMap<>(Objects.requireNonNullElse(order.getAdditionalInfo(), Map.of()));
+                priceInfo.put(OrderDTOs.PRICE_CHANGE_REASON, request.getNote());
+            }
             orderEditor.apply(order, OrderDTOs.UpdateRequest.builder()
+                    .additionalInfo(priceInfo)
                     .itemId(changes.getItemId())
                     .orderQuantity(changes.getOrderQuantity())
                     .unitType(changes.getUnitType())
@@ -224,6 +233,8 @@ public class QuotationChangeService {
                 info.put(SUPPLIER_NOTE, changes.getNote());
                 order.setAdditionalInfo(info);
             }
+            // What the supplier asked for is now their word on those terms; a later staff edit shows up as TinQa's change
+            order.setSupplierQuotedTerms(SupplierQuotedTerms.afterSupplierChange(order, changes));
             order.setUpdatedBy(approver.getId());
             orderRepository.save(order);
         }
@@ -348,6 +359,7 @@ public class QuotationChangeService {
                 .previous(previous)
                 .proposedTotalPrice(proposedTotal)
                 .currentTotalPrice(order != null ? order.getTotalPrice() : null)
+                .itemPrice(changes.getItemId() != null ? changes.getItemMrp() : order != null ? order.getItem().getMrp() : null)
                 .note(request.getNote())
                 .status(request.getStatus())
                 .requestedByUsername(usernameOf(users, request.getRequestedBy()))
@@ -378,6 +390,26 @@ public class QuotationChangeService {
 
     private OrderChangeDTOs.Terms terms(Map<String, Object> map) {
         return objectMapper.convertValue(Objects.requireNonNullElse(map, Map.of()), OrderChangeDTOs.Terms.class);
+    }
+
+    /**
+     * A new unit price always needs the supplier's reason, and so does another item whose MRP differs from the price
+     * the quotation would have (the same rule as a new quotation, see OrderEditor.justifyPrice).
+     */
+    private static void requirePriceReason(Order order, OrderChangeDTOs.Terms changes, OrderChangeDTOs.Terms current, String reason) {
+        if (reason != null) {
+            return;
+        }
+        BigDecimal price = Objects.requireNonNullElse(changes.getUnitPrice(), current.getUnitPrice());
+        if (changes.getUnitPrice() != null) {
+            throw ApiErrors.fieldError("reason", "Give the reason for changing the unit price of quotation " + order.getOrderNumber()
+                    + " from " + current.getUnitPrice().toPlainString() + " to " + price.toPlainString() + ".");
+        }
+        BigDecimal mrp = changes.getItemMrp();
+        if (changes.getItemId() != null && mrp != null && mrp.signum() > 0 && mrp.compareTo(price) != 0) {
+            throw ApiErrors.fieldError("reason", "Give the reason for quoting " + price.toPlainString() + " for "
+                    + changes.getItemName() + " instead of its existing price " + mrp.toPlainString() + ".");
+        }
     }
 
     private static boolean differs(BigDecimal proposed, BigDecimal current) {

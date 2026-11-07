@@ -21,6 +21,6 @@ public enum PurchasePostingReason {
     LEGACY_REFUND,
     /** Migration row truing an already-received order up to its passed units. */
     STOCK_TRUE_UP,
-    /** Migration row truing an order up to its L2-approved units and their GST (V10). */
+    /** Migration row truing an order up to its L2-approved units and their GST, written once by a 2026 data migration. */
     APPROVAL_TRUE_UP
 }

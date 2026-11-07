@@ -53,6 +53,9 @@ class CustomRoleIntegrationTest extends IntegrationTestSupport {
         assertThat(refused.get("errorCode").asText()).isEqualTo("ROLE_GROUP_NOT_GRANTABLE");
         post(ROLES, l2a.token(), roleBody(label, List.of("SYSTEM_ADMINISTRATION")), 400);
         post(ROLES, l2a.token(), roleBody(label, List.of("SELF_SERVICE")), 400);
+        // Approving supplier payments stays with the Super Admin
+        post(ROLES, l2a.token(), roleBody(label, List.of("SUPPLIER_PAYMENT_APPROVAL")), 400);
+        assertThat(data(get(ROLES + "/grantable-groups", l2a.token(), 200)).findValuesAsText("code")).doesNotContain("SUPPLIER_PAYMENT_APPROVAL");
         assertThat(post(ROLES, l2a.token(), roleBody("Store Manager", groups), 409).get("errorCode").asText()).isEqualTo("ROLE_EXISTS");
 
         JsonNode role = data(post(ROLES, l2a.token(), roleBody(label, groups), 201));

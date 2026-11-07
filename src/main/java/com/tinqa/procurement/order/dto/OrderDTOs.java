@@ -17,6 +17,8 @@ public class OrderDTOs {
     public static final String PRICE_CHANGE_REASON = "priceChangeReason";
     /** additionalInfo key: the item's MRP when the quotation was created at another price, for approvers. */
     public static final String QUOTED_MRP = "mrp";
+    /** additionalInfo key: the unit price quoted before the latest price change (a staff edit or an approved supplier change). */
+    public static final String PREVIOUS_UNIT_PRICE = "previousUnitPrice";
 
     @Data
     @Builder

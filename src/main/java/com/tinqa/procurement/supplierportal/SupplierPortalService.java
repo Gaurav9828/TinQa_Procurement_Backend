@@ -15,14 +15,21 @@ import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.change.OrderChangeDTOs;
 import com.tinqa.procurement.order.payment.SupplierPaymentDTOs;
 import com.tinqa.procurement.order.payment.SupplierPaymentService;
+import com.tinqa.procurement.order.supplierreturn.SupplierReturnDTOs;
+import com.tinqa.procurement.order.supplierreturn.SupplierReturnService;
+import org.springframework.web.multipart.MultipartFile;
 import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.change.OrderChangeStatus;
 import com.tinqa.procurement.order.change.QuotationChangeService;
+import com.tinqa.procurement.order.change.SupplierQuotedTerms;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.repository.OrderStatusHistoryRepository;
+import com.tinqa.procurement.order.timeline.OrderTimelineDTOs;
+import com.tinqa.procurement.order.timeline.OrderTimelineService;
+import com.tinqa.procurement.document.dto.DocumentDownload;
 import com.tinqa.procurement.order.service.OrderService;
 import com.tinqa.procurement.security.access.Permission;
 import com.tinqa.procurement.security.model.User;
@@ -53,11 +60,13 @@ import java.util.stream.Collectors;
 public class SupplierPortalService {
 
     private final SupplierPaymentService supplierPayments;
+    private final SupplierReturnService supplierReturns;
     private final SupplierLoginService supplierLoginService;
     private final SupplierRepository supplierRepository;
     private final ItemRepository itemRepository;
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository statusHistoryRepository;
+    private final OrderTimelineService timelineService;
     private final OrderService orderService;
     private final QuotationChangeService quotationChangeService;
     private final NotificationService notificationService;
@@ -129,7 +138,17 @@ public class SupplierPortalService {
                         .thenComparing(Order::getId, Comparator.reverseOrder()))
                 .toList();
         Map<Long, OrderChangeDTOs.Response> pending = quotationChangeService.pendingByOrder(orders);
-        return orders.stream().map(order -> toDto(order, user, pending.get(order.getId()))).toList();
+        List<Long> orderIds = orders.stream().map(Order::getId).toList();
+        Map<Long, Long> toConfirm = supplierPayments.paymentsAwaitingSupplier(orderIds);
+        Map<Long, Long> repaymentsDue = supplierPayments.repaymentsDue(orderIds);
+        Map<Long, Long> returnsToAnswer = supplierReturns.toAnswer(orderIds);
+        return orders.stream().map(order -> {
+            SupplierPortalDTOs.Order dto = toDto(order, user, pending.get(order.getId()));
+            dto.setPaymentsToConfirm(toConfirm.getOrDefault(order.getId(), 0L).intValue());
+            dto.setRepaymentsDue(repaymentsDue.getOrDefault(order.getId(), 0L).intValue());
+            dto.setReturnsToAnswer(returnsToAnswer.getOrDefault(order.getId(), 0L).intValue());
+            return dto;
+        }).toList();
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +159,9 @@ public class SupplierPortalService {
         OrderChangeDTOs.Response pending = changes.stream()
                 .filter(change -> change.getStatus() == OrderChangeStatus.PENDING).findFirst().orElse(null);
         SupplierPortalDTOs.Order dto = toDto(order, user, pending);
+        dto.setPaymentsToConfirm(supplierPayments.paymentsAwaitingSupplier(List.of(order.getId())).getOrDefault(order.getId(), 0L).intValue());
+        dto.setRepaymentsDue(supplierPayments.repaymentsDue(List.of(order.getId())).getOrDefault(order.getId(), 0L).intValue());
+        dto.setReturnsToAnswer(supplierReturns.toAnswer(List.of(order.getId())).getOrDefault(order.getId(), 0L).intValue());
         dto.setChanges(changes.stream().map(SupplierPortalDTOs.Change::of).toList());
         dto.setHistory(statusHistoryRepository.findByOrderIdOrderByChangedAtAscIdAsc(order.getId()).stream()
                 .map(step -> SupplierPortalDTOs.StatusStep.builder()
@@ -152,11 +174,73 @@ public class SupplierPortalService {
         return dto;
     }
 
-    /** What the supplier was paid for one of their orders, and any refund they owe (confirmed entries only). */
+    /** What the supplier was paid for one of their orders, any refund they owe, and payments waiting for their receipt. */
     @Transactional(readOnly = true)
     public SupplierPaymentDTOs.OrderPayments payments(Long orderId) {
         User user = currentUserProvider.getCurrentUser();
         return supplierPayments.forSupplier(ownOrder(orderId, currentSupplier(user), false));
+    }
+
+    /** The supplier says whether a payment for one of their orders reached them. */
+    @Transactional
+    public SupplierPaymentDTOs.Entry confirmReceipt(Long paymentId, SupplierPaymentDTOs.ReceiptRequest request) {
+        User user = currentUserProvider.getCurrentUser();
+        // The order's lock first, as every writer of an order's money takes it; another supplier's payment is not found
+        Order order = ownOrder(supplierPayments.orderIdOfPayment(paymentId), currentSupplier(user), true);
+        return supplierPayments.supplierReceipt(order, paymentId, request, user);
+    }
+
+    /** The supplier pays back what is asked of them for one of their orders (or pays it again), with an optional receipt. */
+    @Transactional
+    public SupplierPaymentDTOs.Entry repay(Long paymentId, SupplierPaymentDTOs.RepaymentRequest request, MultipartFile receipt) {
+        User user = currentUserProvider.getCurrentUser();
+        Order order = ownOrder(supplierPayments.orderIdOfPayment(paymentId), currentSupplier(user), true);
+        return supplierPayments.supplierRepay(order, paymentId, request, receipt, user);
+    }
+
+    /** The supplier pays back (part of) the refund they owe on one of their orders, on their own. */
+    @Transactional
+    public SupplierPaymentDTOs.Entry refund(Long orderId, SupplierPaymentDTOs.RepaymentRequest request, MultipartFile receipt) {
+        User user = currentUserProvider.getCurrentUser();
+        Order order = ownOrder(orderId, currentSupplier(user), true);
+        return supplierPayments.supplierRefund(order, request, receipt, user);
+    }
+
+    /** Returns of failed pieces of one of the supplier's orders, from the Super Admin's approval on. */
+    @Transactional(readOnly = true)
+    public SupplierReturnDTOs.OrderReturns returns(Long orderId) {
+        User user = currentUserProvider.getCurrentUser();
+        return supplierReturns.forSupplier(ownOrder(orderId, currentSupplier(user), false));
+    }
+
+    @Transactional
+    public SupplierReturnDTOs.Return respondToReturn(Long returnId, SupplierReturnDTOs.ResponseRequest request) {
+        User user = currentUserProvider.getCurrentUser();
+        Order order = ownOrder(supplierReturns.orderIdOfReturn(returnId), currentSupplier(user), true);
+        return supplierReturns.supplierResponse(order, returnId, request, user);
+    }
+
+    @Transactional
+    public SupplierReturnDTOs.Return returnArrived(Long returnId, SupplierReturnDTOs.ArrivedRequest request) {
+        User user = currentUserProvider.getCurrentUser();
+        Order order = ownOrder(supplierReturns.orderIdOfReturn(returnId), currentSupplier(user), true);
+        return supplierReturns.supplierArrived(order, returnId, request, user);
+    }
+
+    /** A proof file TinQa sent with a payment for one of the supplier's orders. */
+    @Transactional(readOnly = true)
+    public DocumentDownload paymentProof(Long paymentId, Long documentId) {
+        User user = currentUserProvider.getCurrentUser();
+        // Another supplier's payment is not found
+        ownOrder(supplierPayments.orderIdOfPayment(paymentId), currentSupplier(user), false);
+        return supplierPayments.proofFile(paymentId, documentId);
+    }
+
+    /** The flow history of one of the supplier's orders: roles only, no staff names, no internal payment approvals. */
+    @Transactional(readOnly = true)
+    public OrderTimelineDTOs.Timeline timeline(Long orderId) {
+        User user = currentUserProvider.getCurrentUser();
+        return timelineService.forSupplier(ownOrder(orderId, currentSupplier(user), false));
     }
 
     /** A new quotation from the supplier. Like any quotation it only becomes an order once staff submit and approve it. */
@@ -199,6 +283,9 @@ public class SupplierPortalService {
                 .build());
 
         Order order = orderRepository.findById(created.getId()).orElseThrow();
+        // The supplier's own word, so they later see what TinQa changed before accepting the order
+        order.setSupplierQuotedTerms(SupplierQuotedTerms.of(order));
+        orderRepository.save(order);
         notificationService.createForPermission(Permission.PROCUREMENT_ORDER_UPDATE_STATUS, user.getId(), "New quotation from a supplier",
                 "Supplier " + order.getSupplier().getName() + " raised quotation " + order.getOrderNumber() + " for "
                         + item.getName() + ". Review it and submit it for approval when it is ready.", NotificationLinks.ORDERS);
@@ -238,13 +325,27 @@ public class SupplierPortalService {
         return SupplierPortalDTOs.Change.of(quotationChangeService.withdraw(requestId, currentSupplier(user)::owns, user));
     }
 
-    /** The supplier accepts (confirms) or rejects an order that was approved and is waiting for them. */
+    /**
+     * The supplier accepts (confirms) or rejects an order that was approved and is waiting for them. When TinQa changed
+     * any term they quoted, accepting needs their explicit agreement to those changes, which the order's history keeps.
+     */
     @Transactional
     public SupplierPortalDTOs.Order respond(Long orderId, SupplierPortalDTOs.OrderResponseRequest request) {
         User user = currentUserProvider.getCurrentUser();
         Order order = ownOrder(orderId, currentSupplier(user), true);
         boolean accepted = request.getDecision() == SupplierPortalDTOs.OrderDecision.ACCEPT;
-        orderService.processSupplierResponse(order, accepted, request.getReason());
+        String reason = request.getReason();
+        if (accepted && order.getOrderStatus() == OrderStatus.SUPPLIER_LEVEL_PENDING) {
+            List<SupplierQuotedTerms.TermChange> changed = SupplierQuotedTerms.changes(order);
+            if (!changed.isEmpty()) {
+                if (!Boolean.TRUE.equals(request.getChangesAccepted())) {
+                    throw ApiErrors.fieldError("changesAccepted", "TinQa changed your quotation (" + SupplierQuotedTerms.labels(changed)
+                            + "). Check what you quoted against what it is now, and confirm you agree, before accepting.");
+                }
+                reason = "Agreed to TinQa's changes: " + SupplierQuotedTerms.summary(changed);
+            }
+        }
+        orderService.processSupplierResponse(order, accepted, reason);
         return toDto(orderRepository.findById(orderId).orElseThrow(), user, null);
     }
 
@@ -314,6 +415,7 @@ public class SupplierPortalService {
                 .awaitingYourResponse(order.getOrderStatus() == OrderStatus.SUPPLIER_LEVEL_PENDING)
                 .shippable(order.getOrderStatus() == OrderStatus.CONFIRMED)
                 .pendingChange(pending != null ? SupplierPortalDTOs.Change.of(pending) : null)
+                .changedByTinqa(SupplierQuotedTerms.changes(order))
                 .build();
     }
 

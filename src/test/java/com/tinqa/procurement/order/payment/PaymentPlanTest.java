@@ -19,11 +19,16 @@ class PaymentPlanTest {
     }
 
     @Test
-    void advanceAndMidtermTogetherAreAtMostOneHundred() {
-        assertThatCode(() -> PaymentPlan.validate(new BigDecimal("50"), new BigDecimal("50"))).doesNotThrowAnyException();
+    void atLeastHalfIsAlwaysPaidAfterDeliveryAndTesting() {
+        assertThatCode(() -> PaymentPlan.validate(new BigDecimal("30"), new BigDecimal("20"))).doesNotThrowAnyException();
+        assertThatCode(() -> PaymentPlan.validate(new BigDecimal("50"), BigDecimal.ZERO)).doesNotThrowAnyException();
         assertThatCode(() -> PaymentPlan.validate(BigDecimal.ZERO, BigDecimal.ZERO)).doesNotThrowAnyException();
-        assertThatThrownBy(() -> PaymentPlan.validate(new BigDecimal("60"), new BigDecimal("40.01")))
-                .isInstanceOf(ApiException.class).hasMessageContaining("100.01%");
+        // 80 % up front leaves only 20 % for after delivery
+        assertThatThrownBy(() -> PaymentPlan.validate(new BigDecimal("80"), BigDecimal.ZERO))
+                .isInstanceOf(ApiException.class).hasMessageContaining("at most 50%").hasMessageContaining("80%");
+        assertThatThrownBy(() -> PaymentPlan.validate(new BigDecimal("30"), new BigDecimal("20.01")))
+                .isInstanceOf(ApiException.class).hasMessageContaining("50.01%");
+        assertThatThrownBy(() -> PaymentPlan.validate(new BigDecimal("30"), new BigDecimal("30"))).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> PaymentPlan.validate(new BigDecimal("-1"), BigDecimal.ZERO)).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> PaymentPlan.validate(null, BigDecimal.ZERO)).isInstanceOf(ApiException.class);
     }

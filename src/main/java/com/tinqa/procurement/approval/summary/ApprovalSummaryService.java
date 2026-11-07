@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  * How many requests wait in each Approvals Hub queue the caller may decide, in one SQL statement (the
- * approval_queue_counts function, V15) instead of one list download per queue.
+ * approval_queue_counts function, V14__approval_queue_counts.sql, last replaced in V16) instead of one list download per queue.
  */
 @Service
 @RequiredArgsConstructor

@@ -4,6 +4,7 @@ import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.supplier.login.SupplierLoginService;
 import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
+import com.tinqa.procurement.order.change.SupplierQuotedTerms;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.security.model.Role;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Tells the previous updater of an order what the current user changed, and the order's supplier when they have a
@@ -53,7 +55,8 @@ public class OrderStatusNotifier {
             }
             case CONFIRMED -> {
                 title = "Order Confirmed";
-                message = orderLabel + " was confirmed" + by + ".";
+                // reasonSuffix: what the supplier agreed to, when TinQa changed their quotation
+                message = orderLabel + " was confirmed" + by + reasonSuffix + ".";
             }
             case SHIPPED -> {
                 title = "Order Shipped";
@@ -89,7 +92,10 @@ public class OrderStatusNotifier {
             }
             case SUPPLIER_LEVEL_PENDING -> {
                 title = "Order approved";
-                message = "Order " + number + " was approved and is awaiting final confirmation.";
+                List<SupplierQuotedTerms.TermChange> changed = SupplierQuotedTerms.changes(order);
+                message = "Order " + number + " was approved and is awaiting final confirmation." + (changed.isEmpty() ? ""
+                        : " TinQa changed your quotation (" + SupplierQuotedTerms.labels(changed)
+                        + "): check what changed in My Orders before you accept it.");
             }
             case CONFIRMED -> {
                 title = "Order confirmed";

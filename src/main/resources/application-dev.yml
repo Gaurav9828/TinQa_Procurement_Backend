@@ -38,6 +38,9 @@ logging:
     org.hibernate.SQL: DEBUG
 
 tinqa:
+  employee:
+    # Local development only; UAT/PROD must set TINQA_EMPLOYEE_DEFAULT_PASSWORD
+    default-password: ${TINQA_EMPLOYEE_DEFAULT_PASSWORD:TinQa}
   internal-api:
     # Local development only; UAT/PROD must set TINQA_INTERNAL_API_KEY
     key: ${TINQA_INTERNAL_API_KEY:dev-internal-api-key-change-me}

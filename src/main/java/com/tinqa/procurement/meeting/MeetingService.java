@@ -562,7 +562,7 @@ public class MeetingService {
     }
 
     private List<MeetingClash> clashes(Collection<Long> employeeIds, Instant from, Instant to, Long excludeMeetingId) {
-        return attendeeRepository.findClashes(employeeIds, from, to, from.minus(MAX_LENGTH), excludeMeetingId == null ? 0L : excludeMeetingId);
+        return attendeeRepository.findClashes(employeeIds, from, to, from.minus(MAX_LENGTH), Objects.requireNonNullElse(excludeMeetingId, 0L));
     }
 
     private MeetingAttendee newAttendee(Meeting meeting, Employee employee, boolean organizer, Instant now) {

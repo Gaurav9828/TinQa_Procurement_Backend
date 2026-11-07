@@ -19,7 +19,13 @@ public final class SupplierPaymentDTOs {
     private SupplierPaymentDTOs() {
     }
 
-    /** A payment to the supplier (PAYMENT, against a milestone) or a refund the supplier paid back (REFUND). */
+    /**
+     * A request to pay the supplier (PAYMENT, against a milestone) or a refund the supplier paid back (REFUND). A
+     * payment's amount is set by the plan (what is still owed on its part, see Milestone.left): left out, it is filled
+     * in; given, it must be exactly that. A payment request has no reference or date yet (given when it is paid, see
+     * PaidRequest; any sent are ignored). A refund's amount, reference and date are given (the supplier may pay back
+     * in parts).
+     */
     @Data
     @Builder
     @NoArgsConstructor
@@ -31,7 +37,6 @@ public final class SupplierPaymentDTOs {
         // Required for a payment, left out for a refund (checked in the service)
         private PaymentMilestone milestone;
 
-        @NotNull(message = "Amount is required")
         @Positive(message = "Amount must be more than zero")
         @MaxAmount(message = "Amount cannot exceed " + ValidationPatterns.MAX_AMOUNT_LABEL + " and can have at most 2 decimal places")
         private BigDecimal amount;
@@ -39,6 +44,25 @@ public final class SupplierPaymentDTOs {
         @NotNull(message = "Payment method is required")
         private PaymentMethod method;
 
+        // Refunds: required unless paid in cash (transaction ID, UTR or cheque number; checked in the service)
+        @Size(max = 100, message = "Reference cannot exceed 100 characters")
+        private String reference;
+
+        // Refunds: required (checked in the service). Payment requests: given when paid
+        @PastOrPresent(message = "Payment date cannot be in the future")
+        private LocalDate paidOn;
+
+        @Size(max = 500, message = "Note cannot exceed 500 characters")
+        private String note;
+    }
+
+    /** The Finance Manager made an approved payment: its reference (unless cash) and date. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PaidRequest {
+        // Required unless paid in cash: transaction ID, UTR or cheque number (checked in the service)
         @Size(max = 100, message = "Reference cannot exceed 100 characters")
         private String reference;
 
@@ -78,6 +102,83 @@ public final class SupplierPaymentDTOs {
         private String reason;
     }
 
+    /** The supplier's answer to a payment waiting for them: received it, or not (with a reason). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReceiptRequest {
+        @NotNull(message = "Say whether you received this payment")
+        private Boolean received;
+
+        // Required when it was not received (checked in the service)
+        @Size(max = 500, message = "Reason cannot exceed 500 characters")
+        private String reason;
+    }
+
+    /**
+     * The supplier pays money back: how, its reference (required unless cash, checked in the service), the date, and a
+     * note. {@code amount} is given only for a refund they pay on their own; an ask's amount is set by TinQa. Sent as a
+     * multipart form with an optional receipt file.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RepaymentRequest {
+        private BigDecimal amount;
+        private PaymentMethod method;
+        private String reference;
+        private LocalDate paidOn;
+        private String note;
+    }
+
+    /** A Finance Manager's check of money the supplier says they paid back: it arrived, or not (with a reason). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RepaymentCheckRequest {
+        @NotNull(message = "Say whether the money arrived")
+        private Boolean received;
+
+        // Required when it did not arrive (checked in the service)
+        @Size(max = 500, message = "Reason cannot exceed 500 characters")
+        private String reason;
+    }
+
+    /** One confirmed repayment for the company account's supplier money (see docs/supplier-returns-and-repayments.md §8). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Receipt {
+        private Long receiptId;
+        private String postingKey;
+        private SupplierPaymentKind kind;
+        /** IN: the supplier paid TinQa. OUT: a confirmed refund was reversed (paid back to them) */
+        private String direction;
+        /** FAILED_PIECES_RETURN, REFUND_CLAIM, PAYMENT_REVERSAL or REFUND_REVERSAL */
+        private String reason;
+        private String claimCause;
+        private String orderNumber;
+        private String supplierName;
+        private Long returnId;
+        private PaymentMilestone milestone;
+        private BigDecimal amount;
+        private BigDecimal chargeAmount;
+        private PaymentMethod method;
+        private String reference;
+        private LocalDate paidOn;
+        private String note;
+        private String receiptFileName;
+        private String confirmedBy;
+        private Instant confirmedAt;
+    }
+
+    public record ReceiptPage(List<Receipt> receipts, boolean hasMore) {
+    }
+
     /** A Level 2 changes what the supplier must pay back, e.g. after agreeing a deduction with them. */
     @Data
     @Builder
@@ -106,6 +207,12 @@ public final class SupplierPaymentDTOs {
         private SupplierPaymentKind kind;
         private PaymentMilestone milestone;
         private BigDecimal amount;
+        /** A return's repayment: the return shipping charge, paid on top of amount (0 otherwise) */
+        private BigDecimal chargeAmount;
+        /** The return of failed pieces this repayment is for */
+        private Long returnId;
+        /** A payment request waiting for approval: the earlier part of the plan to approve first (null: can be approved) */
+        private PaymentMilestone waitsFor;
         private PaymentMethod method;
         private String reference;
         private LocalDate paidOn;
@@ -121,6 +228,36 @@ public final class SupplierPaymentDTOs {
         private String decidedByUsername;
         private Instant decidedAt;
         private String decisionReason;
+        /** Payments: when the supplier answered, and why they said they did not receive it */
+        private Instant supplierRespondedAt;
+        private String supplierResponseReason;
+        /** Payments: who made the payment (gave its reference), and when */
+        private String paidByUsername;
+        private Instant paidAt;
+        /** Payments: how many times it was sent to the supplier (paid, then each re-send) */
+        private int sendCount;
+        /** Every step, oldest first (the supplier sees only those from the payment on, without staff names) */
+        private List<Event> events;
+    }
+
+    /** One step of an entry (supplier_payment_event). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Event {
+        private Long id;
+        private SupplierPaymentEventType type;
+        private Instant at;
+        /** The designation ("Finance & Accounts Manager"), "Supplier", or null for the system */
+        private String actorRole;
+        /** Staff view only */
+        private String actorName;
+        private String reference;
+        private LocalDate paidOn;
+        private String note;
+        private Long proofDocumentId;
+        private String proofFileName;
     }
 
     /** One part of the plan: what it is worth, what was paid and confirmed, and what waits for confirmation. */
@@ -136,6 +273,11 @@ public final class SupplierPaymentDTOs {
         private BigDecimal pending;
         /** The order has reached the point where this part is due (approved, shipped, tested) */
         private boolean due;
+        /**
+         * What a payment against this part is now: its planned amount less what was paid or waits for confirmation,
+         * within what may be paid in all before (or after) testing. 0 when it isn't due or nothing is left.
+         */
+        private BigDecimal left;
     }
 
     @Data
@@ -186,6 +328,8 @@ public final class SupplierPaymentDTOs {
         /** Confirmed payments to the supplier, less confirmed reversals */
         private BigDecimal paid;
         private BigDecimal pendingPayments;
+        /** Of the waiting payments: those confirmed by staff, waiting for the supplier to confirm receipt */
+        private BigDecimal awaitingSupplier;
         /** Confirmed refunds from the supplier, less confirmed reversals */
         private BigDecimal refunded;
         private BigDecimal pendingRefunds;
@@ -195,8 +339,59 @@ public final class SupplierPaymentDTOs {
         private BigDecimal payableNow;
         /** The milestones a payment can be recorded against now */
         private List<PaymentMilestone> openMilestones;
+        /**
+         * Delivered, tested, fully paid and every payment received by the supplier: no entry of the order can be
+         * reversed any more (reverse answers 409 SUPPLIER_PAYMENT_REVERSAL_CLOSED)
+         */
+        private boolean reversalClosed;
         private List<Milestone> milestones;
         private Claim claim;
+        /** Why the order is worth what it is after testing; null until the stock entry is approved (or once closed) */
+        private Settlement settlement;
+    }
+
+    /**
+     * The breakdown from the quoted value to the worth after testing (see PaymentSettlement). Money is in rupees with
+     * GST where named; {@code orderValue - failedValue - shortValue - shipmentDropped - gstReduction = payable}.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Settlement {
+        private String unitType;
+        private BigDecimal unitPrice;
+        private BigDecimal orderedUnits;
+        private BigDecimal passedUnits;
+        private BigDecimal failedUnits;
+        /** Neither passed nor failed: not delivered (negative when more than ordered was tested) */
+        private BigDecimal shortUnits;
+        private BigDecimal shipment;
+        /** The quotation's GST rate, null without a GST breakup */
+        private BigDecimal gstRate;
+        /** Unit price x ordered units */
+        private BigDecimal quotedGoods;
+        /** Goods plus shipment, before GST */
+        private BigDecimal quotedTaxable;
+        private BigDecimal quotedGst;
+        /** The quoted total, GST included */
+        private BigDecimal orderValue;
+        /** Unit price x failed units, before GST */
+        private BigDecimal failedValue;
+        /** Unit price x units not delivered, before GST */
+        private BigDecimal shortValue;
+        /** The shipment, taken off only when no unit passed */
+        private BigDecimal shipmentDropped;
+        /** The quoted GST less the GST on what passed */
+        private BigDecimal gstReduction;
+        /** The quoted total less the worth after testing */
+        private BigDecimal reduction;
+        /** Unit price x passed units */
+        private BigDecimal passedGoods;
+        private BigDecimal passedTaxable;
+        private BigDecimal passedGst;
+        /** The worth after testing, GST included (Summary.payable) */
+        private BigDecimal payable;
     }
 
     @Data

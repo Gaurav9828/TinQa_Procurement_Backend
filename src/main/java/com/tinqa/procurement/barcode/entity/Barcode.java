@@ -12,7 +12,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * One accountable unit and its barcode: a piece of item stock, or a unit of an Ecommerce product. See V13.
+ * One accountable unit and its barcode: a piece of item stock, or a unit of an Ecommerce product. See V10__barcodes.sql.
  */
 @Entity
 @Table(name = "barcodes")

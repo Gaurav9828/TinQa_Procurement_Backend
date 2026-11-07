@@ -48,10 +48,13 @@ public enum Permission {
     // /v1/orders/change-requests: a supplier's edit to a quotation only applies once approved. The supplier is the maker,
     // so any Supplier Manager (either level) is the checker
     SUPPLIER_QUOTATION_CHANGE_APPROVE(PROCUREMENT_ORDER_MANAGEMENT, "Approve or reject suppliers' changes to their quotations"),
+    // Returns of pieces that failed testing: raised and dispatched by a Supplier Manager, approved by a Super Admin
+    SUPPLIER_RETURN_REQUEST(PROCUREMENT_ORDER_MANAGEMENT, "Raise returns of failed pieces to the supplier, send them again, record their dispatch, and cancel them"),
     // /v1/orders/{id}/payments: what was paid to the supplier and refunded by them, recorded by one person and confirmed
     // by another. Seen by everyone with PROCUREMENT_ORDER_VIEW
-    SUPPLIER_PAYMENT_RECORD(SUPPLIER_PAYMENT_MANAGEMENT, "Record payments made to suppliers and refunds they paid back, and reverse them"),
-    SUPPLIER_PAYMENT_APPROVE(SUPPLIER_PAYMENT_APPROVAL, "Confirm or reject recorded supplier payments and refunds, and change a refund claim"),
+    SUPPLIER_PAYMENT_RECORD(SUPPLIER_PAYMENT_MANAGEMENT, "Request payments to suppliers, pay approved ones and send them again, ask suppliers to pay back a payment, and check the money they pay back"),
+    SUPPLIER_PAYMENT_APPROVE(SUPPLIER_PAYMENT_APPROVAL, "Approve or reject supplier payment requests (in plan order), decide reversals of refunds, and change a refund claim"),
+    SUPPLIER_RETURN_APPROVE(SUPPLIER_PAYMENT_APPROVAL, "Approve or reject returns of failed pieces before they go to the supplier"),
 
     // Catalog: items (/v1/admin/items), procurement products (/v1/admin/products), product approvals
     // (/v1/product-approvals) and storefront products (Ecommerce /api/products)
@@ -221,7 +224,13 @@ public enum Permission {
     SUPPLIER_QUOTATION_SUBMIT(SUPPLIER_PORTAL, "Create quotations"),
     SUPPLIER_QUOTATION_CHANGE_REQUEST(SUPPLIER_PORTAL, "Request changes to your quotations (a Supplier Manager approves them)"),
     SUPPLIER_ORDER_RESPOND(SUPPLIER_PORTAL, "Accept or reject orders awaiting your confirmation"),
-    SUPPLIER_ORDER_SHIP(SUPPLIER_PORTAL, "Mark your confirmed orders as shipped");
+    SUPPLIER_ORDER_SHIP(SUPPLIER_PORTAL, "Mark your confirmed orders as shipped"),
+    // /v1/supplier-portal/payments/{id}/receipt: a payment counts only once the supplier confirms they received it
+    SUPPLIER_PAYMENT_CONFIRM(SUPPLIER_PORTAL, "Confirm whether you received the payments recorded for your orders"),
+    // A return of failed pieces: the supplier accepts or declines it, and confirms the pieces arrived
+    SUPPLIER_RETURN_RESPOND(SUPPLIER_PORTAL, "Accept or decline returns of failed pieces, and confirm the pieces arrived"),
+    // Money back to TinQa: a reversal asked of the supplier, a return's repayment, or a refund due on a claim
+    SUPPLIER_REPAYMENT_SUBMIT(SUPPLIER_PORTAL, "Pay back money owed to TinQa, with its reference and receipt");
 
     /** Prefix of the Spring Security authority each permission is granted as. */
     public static final String AUTHORITY_PREFIX = "PERM_";

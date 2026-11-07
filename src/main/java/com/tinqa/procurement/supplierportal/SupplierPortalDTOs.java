@@ -1,5 +1,6 @@
 package com.tinqa.procurement.supplierportal;
 
+import com.tinqa.procurement.order.change.SupplierQuotedTerms;
 import com.tinqa.procurement.common.validation.MaxAmount;
 import com.tinqa.procurement.common.validation.SafeJsonMap;
 import com.tinqa.procurement.common.validation.ValidationPatterns;
@@ -262,7 +263,18 @@ public final class SupplierPortalDTOs {
         private boolean awaitingYourResponse;
         /** Confirmed and not yet shipped: the supplier can mark it as shipped */
         private boolean shippable;
+        /** Payments for this order waiting for the supplier to confirm they received them (list and single view) */
+        private int paymentsToConfirm;
+        /** Money the supplier is asked to pay back for this order (or must send again) */
+        private int repaymentsDue;
+        /** Returns of failed pieces waiting for the supplier: to accept, or to confirm the pieces arrived */
+        private int returnsToAnswer;
         private Change pendingChange;
+        /**
+         * Every term TinQa changed from what the supplier quoted (what they quoted next to what it is now); empty when
+         * nothing changed or staff prepared the quotation. Accepting an order with changes needs changesAccepted.
+         */
+        private List<SupplierQuotedTerms.TermChange> changedByTinqa;
         /** Only on the single-order view */
         private List<StatusStep> history;
         private List<Change> changes;
@@ -283,5 +295,8 @@ public final class SupplierPortalDTOs {
 
         @Size(max = 500, message = "Reason cannot exceed 500 characters")
         private String reason;
+
+        /** Accepting an order whose terms TinQa changed (Order.changedByTinqa) needs the supplier's agreement: true */
+        private Boolean changesAccepted;
     }
 }

@@ -207,6 +207,36 @@ class AccessCatalogTest {
         assertThat(DesignationAccess.NEVER_IN_CUSTOM_ROLES).contains(Permission.PROMO_CODE_MANAGE.group());
     }
 
+    // Finance Managers request and pay suppliers; only a Super Admin (Level 2) approves the requests, and no custom role can
+    @Test
+    void onlyASuperAdminApprovesSupplierPayments() {
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                Set<Permission> permissions = UserAccess.of(level, designation).permissions();
+                assertThat(permissions.contains(Permission.SUPPLIER_PAYMENT_APPROVE)).as(designation + " " + level + " approves")
+                        .isEqualTo(designation == Designation.SUPER_ADMIN && level == Role.ADMIN_L2);
+                assertThat(permissions.contains(Permission.SUPPLIER_PAYMENT_RECORD)).as(designation + " " + level + " requests")
+                        .isEqualTo(designation == Designation.SUPER_ADMIN || designation == Designation.FINANCE_MANAGER);
+            }
+        }
+        assertThat(DesignationAccess.NEVER_IN_CUSTOM_ROLES).contains(PermissionGroup.SUPPLIER_PAYMENT_APPROVAL);
+    }
+
+    // Supplier Managers (either level) raise returns of failed pieces; only a Super Admin (Level 2) approves them
+    @Test
+    void supplierManagersRaiseReturnsOfFailedPiecesAndOnlyASuperAdminApprovesThem() {
+        for (Designation designation : Designation.values()) {
+            for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+                Set<Permission> permissions = UserAccess.of(level, designation).permissions();
+                assertThat(permissions.contains(Permission.SUPPLIER_RETURN_APPROVE)).as(designation + " " + level + " approves returns")
+                        .isEqualTo(designation == Designation.SUPER_ADMIN && level == Role.ADMIN_L2);
+                assertThat(permissions.contains(Permission.SUPPLIER_RETURN_REQUEST)).as(designation + " " + level + " raises returns")
+                        .isEqualTo(designation == Designation.SUPER_ADMIN || designation == Designation.SUPPLIER_MANAGER);
+            }
+        }
+        assertThat(DesignationAccess.NEVER_IN_CUSTOM_ROLES).contains(Permission.SUPPLIER_RETURN_APPROVE.group());
+    }
+
     // Staff who hand codes to customers share them (email, storefront) without seeing chosen customers' codes;
     // finance staff only look
     @Test
@@ -249,7 +279,8 @@ class AccessCatalogTest {
         assertThat(UserAccess.of(Role.SUPPLIER, null).permissions()).containsExactlyInAnyOrder(
                 Permission.SUPPLIER_PORTAL_VIEW, Permission.SUPPLIER_QUOTATION_SUBMIT,
                 Permission.SUPPLIER_QUOTATION_CHANGE_REQUEST, Permission.SUPPLIER_ORDER_RESPOND,
-                Permission.SUPPLIER_ORDER_SHIP);
+                Permission.SUPPLIER_ORDER_SHIP, Permission.SUPPLIER_PAYMENT_CONFIRM, Permission.SUPPLIER_RETURN_RESPOND,
+                Permission.SUPPLIER_REPAYMENT_SUBMIT);
         assertThat(UserAccess.of(Role.SUPPLIER, Designation.SUPER_ADMIN).permissions())
                 .isEqualTo(UserAccess.of(Role.SUPPLIER, null).permissions());
         assertThat(AccessDTOs.MyAccess.of(UserAccess.of(Role.SUPPLIER, null)).designationLabel()).isEqualTo("Supplier");

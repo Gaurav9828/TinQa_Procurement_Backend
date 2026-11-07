@@ -27,11 +27,20 @@ import java.time.Instant;
 public class InternalPurchaseEventController {
 
     private final PurchaseEventService purchaseEventService;
+    private final com.tinqa.procurement.order.payment.SupplierPaymentService supplierPaymentService;
 
     @GetMapping("/purchase-events")
     public ResponseEntity<ApiResponse<PurchaseEventDTOs.PurchaseEventPage>> purchaseEvents(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant since,
             @RequestParam(defaultValue = "200") int limit) {
         return ApiResponses.ok(purchaseEventService.eventsSince(since, limit), "Purchase events retrieved");
+    }
+
+    // Repayments a Finance Manager confirmed (refunds, a return's pieces and shipping, reversals), oldest first
+    @GetMapping("/supplier-receipts")
+    public ResponseEntity<ApiResponse<com.tinqa.procurement.order.payment.SupplierPaymentDTOs.ReceiptPage>> supplierReceipts(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant since,
+            @RequestParam(defaultValue = "200") int limit) {
+        return ApiResponses.ok(supplierPaymentService.receiptsSince(since, limit), "Supplier receipts retrieved");
     }
 }

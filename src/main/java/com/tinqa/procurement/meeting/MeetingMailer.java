@@ -143,7 +143,9 @@ public class MeetingMailer {
                 results.add(new Result(item, false, exception.isNotConfigured()
                         ? "Email is not set up yet (Company Profile › Email)." : exception.getMessage()));
             } catch (RuntimeException exception) {
-                log.error("Meeting email to attendee {} failed", item.attendeeId(), exception);
+                if (log.isErrorEnabled()) {
+                    log.error("Meeting email to attendee {} failed", item.attendeeId(), exception);
+                }
                 results.add(new Result(item, false, "The email could not be sent."));
             }
         }

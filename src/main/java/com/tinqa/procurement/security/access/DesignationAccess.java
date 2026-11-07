@@ -56,8 +56,7 @@ public final class DesignationAccess {
         grant(Designation.SUPPLIER_MANAGER, EnumSet.of(
                 SUPPLIER_READ, SUPPLIER_MANAGEMENT, SUPPLIER_APPROVAL,
                 PROCUREMENT_ORDER_READ, PROCUREMENT_ORDER_MANAGEMENT, PROCUREMENT_ORDER_APPROVAL,
-                // Records what the suppliers were paid against each order's plan; at Level 2 confirms it
-                SUPPLIER_PAYMENT_MANAGEMENT, SUPPLIER_PAYMENT_APPROVAL,
+                // Sees each order's payments (PROCUREMENT_ORDER_READ); paying suppliers is the Finance Manager's
                 CATALOG_READ,
                 INVENTORY_READ,
                 BARCODE_READ,
@@ -121,8 +120,9 @@ public final class DesignationAccess {
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
-                // Pays the suppliers (advance, midterm, final after testing) and collects their refunds
-                SUPPLIER_PAYMENT_MANAGEMENT, SUPPLIER_PAYMENT_APPROVAL,
+                // Requests the suppliers' payments (advance, midterm, final after testing), pays them once a Super Admin
+                // approves, and collects their refunds. Only a Super Admin approves (SUPPLIER_PAYMENT_APPROVAL)
+                SUPPLIER_PAYMENT_MANAGEMENT,
                 PROMO_CODE_READ,
                 // Schedules client demos and keeps their costs; at Level 2 approves their quotations and completions
                 CLIENT_DEMO_READ, CLIENT_DEMO_MANAGEMENT, CLIENT_DEMO_APPROVAL,
@@ -203,7 +203,9 @@ public final class DesignationAccess {
     }
 
     /** Groups that can never be part of a custom role: the supplier portal (not an employee's) and system administration. */
-    public static final Set<PermissionGroup> NEVER_IN_CUSTOM_ROLES = Collections.unmodifiableSet(EnumSet.of(SUPPLIER_PORTAL, SYSTEM_ADMINISTRATION));
+    public static final Set<PermissionGroup> NEVER_IN_CUSTOM_ROLES = Collections.unmodifiableSet(EnumSet.of(SUPPLIER_PORTAL, SYSTEM_ADMINISTRATION,
+            // Approving payments to suppliers is the Super Admin's alone (V16 removed it from existing custom roles)
+            SUPPLIER_PAYMENT_APPROVAL));
 
     /** Groups a custom role carries at ADMIN_L2: its own groups plus SELF_SERVICE, like every designation. */
     public static Set<PermissionGroup> groupsOfCustomRole(CustomRoleGrant customRole) {

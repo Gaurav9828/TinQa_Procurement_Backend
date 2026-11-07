@@ -13,6 +13,7 @@ import com.tinqa.procurement.supplier.repository.SupplierRepository;
 import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.order.change.QuotationChangeService;
+import com.tinqa.procurement.order.change.SupplierQuotedTerms;
 import com.tinqa.procurement.order.dto.OrderDTOs;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.entity.OrderStatusHistory;
@@ -97,7 +98,7 @@ public class OrderServiceImpl implements OrderService {
                 .orderStatus(OrderStatus.QUOTATION)
                 .expectedDelivery(request.getExpectedDelivery())
                 .orderDate(request.getOrderDate())
-                .additionalInfo(withPriceJustification(item, request.getUnitPrice(), orEmpty(request.getAdditionalInfo())))
+                .additionalInfo(OrderEditor.justifyPrice(item, request.getUnitPrice(), orEmpty(request.getAdditionalInfo()), null))
                 .createdBy(currentUserId)
                 .updatedBy(currentUserId)
                 .build();
@@ -142,6 +143,15 @@ public class OrderServiceImpl implements OrderService {
         // Submitting or cancelling a quotation would leave a supplier's waiting change undecided
         if (from == OrderStatus.QUOTATION) {
             quotationChangeService.ensureNotPending(order);
+        }
+        // Staff may confirm for a supplier, but not agree on their behalf to changes TinQa made to what they quoted
+        if (from == OrderStatus.SUPPLIER_LEVEL_PENDING && to == OrderStatus.CONFIRMED) {
+            List<SupplierQuotedTerms.TermChange> changed = SupplierQuotedTerms.changes(order);
+            if (!changed.isEmpty()) {
+                throw ApiErrors.conflict(ErrorCodes.ORDER_NEEDS_SUPPLIER_CONSENT, "TinQa changed what the supplier quoted on order "
+                        + order.getOrderNumber() + " (" + SupplierQuotedTerms.labels(changed)
+                        + "), so only the supplier can accept it, in their login, after seeing the changes.");
+            }
         }
 
         String reason = OptionalText.blankToNull(request.getReason());
@@ -209,7 +219,8 @@ public class OrderServiceImpl implements OrderService {
         if (!accepted && rejectionReason == null) {
             throw ApiErrors.fieldError("reason", "A reason is required to reject an order.");
         }
-        return changeStatus(order, OrderStatus.SUPPLIER_LEVEL_PENDING, to, actor, accepted ? null : rejectionReason, null);
+        // On accepting, the reason is what the supplier agreed to (TinQa's changes to their quotation), if anything
+        return changeStatus(order, OrderStatus.SUPPLIER_LEVEL_PENDING, to, actor, accepted ? OptionalText.blankToNull(reason) : rejectionReason, null);
     }
 
     @Override
@@ -340,27 +351,6 @@ public class OrderServiceImpl implements OrderService {
 
     private Order lockOrder(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> orderNotFound(orderId));
-    }
-
-    /**
-     * A unit price other than the item's MRP needs a reason; the MRP it was compared with is kept beside it so approvers
-     * see both. At the MRP (or for an item without one) neither key is kept.
-     */
-    private static Map<String, Object> withPriceJustification(Item item, BigDecimal unitPrice, Map<String, Object> info) {
-        Map<String, Object> result = new LinkedHashMap<>(info);
-        result.remove(OrderDTOs.PRICE_CHANGE_REASON);
-        result.remove(OrderDTOs.QUOTED_MRP);
-        BigDecimal mrp = item.getMrp();
-        if (mrp == null || mrp.signum() <= 0 || mrp.compareTo(unitPrice) == 0) {
-            return result;
-        }
-        if (!(info.get(OrderDTOs.PRICE_CHANGE_REASON) instanceof String reason) || reason.isBlank()) {
-            throw ApiErrors.fieldError(OrderDTOs.PRICE_CHANGE_REASON, "Give the reason for quoting " + unitPrice.toPlainString()
-                    + " instead of the item's existing price " + mrp.toPlainString() + ".");
-        }
-        result.put(OrderDTOs.PRICE_CHANGE_REASON, reason.trim());
-        result.put(OrderDTOs.QUOTED_MRP, mrp);
-        return result;
     }
 
     private static Map<String, Object> orEmpty(Map<String, Object> value) {

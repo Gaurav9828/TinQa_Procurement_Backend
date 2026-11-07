@@ -18,6 +18,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Applies an edit to an order's terms with the rules every edit follows, whether an admin makes it directly or it is
@@ -36,6 +39,8 @@ public class OrderEditor {
 
     /** Copies every non-null field of the request onto the order, then recalculates its total and GST. */
     public void apply(Order order, OrderDTOs.UpdateRequest request) {
+        Long itemBefore = order.getItem().getId();
+        BigDecimal priceBefore = order.getUnitPrice();
         if (request.getSupplierId() != null && !request.getSupplierId().equals(order.getSupplier().getId())) {
             order.setSupplier(findSupplier(request.getSupplierId()));
         }
@@ -65,12 +70,50 @@ public class OrderEditor {
             order.setMidtermPercent(midterm);
         }
         if (request.getExpectedPaymentMethod() != null) order.setExpectedPaymentMethod(request.getExpectedPaymentMethod());
+        boolean priceChanged = priceBefore.compareTo(order.getUnitPrice()) != 0;
+        if (priceChanged || !itemBefore.equals(order.getItem().getId())) {
+            // A new price (or another item with its own MRP) is justified again, and approvers see the price it replaced
+            Map<String, Object> info = Objects.requireNonNullElse(order.getAdditionalInfo(), Map.of());
+            BigDecimal previous = priceChanged ? priceBefore : previousUnitPrice(info);
+            order.setAdditionalInfo(justifyPrice(order.getItem(), order.getUnitPrice(), info, previous));
+        }
         order.recalculateTotalPrice();
         // A breakup sent is checked against the new total; a stored one follows the new total at its rate
         order.setTaxBreakup(request.getTaxBreakup() != null
                 ? QuotationTax.normalise(request.getTaxBreakup(), order.getTotalPrice())
                 : QuotationTax.recalculate(order.getTaxBreakup(), order.getTotalPrice()));
         ensureExpectedDeliveryNotBeforeOrder(order.getOrderDate(), order.getExpectedDelivery());
+    }
+
+    /**
+     * A unit price other than the item's MRP needs a reason ({@code priceChangeReason} in {@code info}); the MRP it was
+     * compared with is kept beside it so approvers see both. At the MRP (or for an item without one) neither key is
+     * kept. {@code previousPrice} is the unit price quoted before this one, kept for approvers; null clears it.
+     */
+    public static Map<String, Object> justifyPrice(Item item, BigDecimal unitPrice, Map<String, Object> info, BigDecimal previousPrice) {
+        Map<String, Object> result = new LinkedHashMap<>(info);
+        result.remove(OrderDTOs.PRICE_CHANGE_REASON);
+        result.remove(OrderDTOs.QUOTED_MRP);
+        result.remove(OrderDTOs.PREVIOUS_UNIT_PRICE);
+        if (previousPrice != null && previousPrice.compareTo(unitPrice) != 0) {
+            result.put(OrderDTOs.PREVIOUS_UNIT_PRICE, previousPrice);
+        }
+        BigDecimal mrp = item.getMrp();
+        if (mrp == null || mrp.signum() <= 0 || mrp.compareTo(unitPrice) == 0) {
+            return result;
+        }
+        if (!(info.get(OrderDTOs.PRICE_CHANGE_REASON) instanceof String reason) || reason.isBlank()) {
+            throw ApiErrors.fieldError(OrderDTOs.PRICE_CHANGE_REASON, "Give the reason for quoting " + unitPrice.toPlainString()
+                    + " instead of the item's existing price " + mrp.toPlainString() + ".");
+        }
+        result.put(OrderDTOs.PRICE_CHANGE_REASON, reason.trim());
+        result.put(OrderDTOs.QUOTED_MRP, mrp);
+        return result;
+    }
+
+    private static BigDecimal previousUnitPrice(Map<String, Object> info) {
+        Object value = info.get(OrderDTOs.PREVIOUS_UNIT_PRICE);
+        return value == null ? null : new BigDecimal(value.toString());
     }
 
     public static void ensureExpectedDeliveryNotBeforeOrder(LocalDate orderDate, LocalDate expectedDelivery) {

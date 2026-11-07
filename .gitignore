@@ -38,3 +38,5 @@ uploads
 
 ### Mac OS ###
 .DS_Store
+# Local DB backups from scripts/dev/update.sh
+backups/

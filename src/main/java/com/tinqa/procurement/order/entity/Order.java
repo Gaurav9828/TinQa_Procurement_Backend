@@ -90,6 +90,11 @@ public class Order {
     @Column(name = "additional_info", columnDefinition = "jsonb")
     private Map<String, Object> additionalInfo;
 
+    // The terms as the supplier last quoted them (SupplierQuotedTerms); null when staff prepared the quotation
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "supplier_quoted_terms", columnDefinition = "jsonb")
+    private Map<String, Object> supplierQuotedTerms;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

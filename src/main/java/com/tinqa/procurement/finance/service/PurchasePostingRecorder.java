@@ -65,7 +65,7 @@ public class PurchasePostingRecorder {
         return order.getUnitPrice().multiply(approved).setScale(2, RoundingMode.HALF_UP).add(shipment);
     }
 
-    /** The GST on {@code taxable} under the order's quotation (same rule as the V10 migration's true-up). */
+    /** The GST on {@code taxable} under the order's quotation (same rule as the one-time true-up migration of 2026). */
     public static Gst gstOn(Order order, BigDecimal taxable) {
         Map<String, Object> breakup = order.getTaxBreakup();
         if (!QuotationTax.present(breakup)) {

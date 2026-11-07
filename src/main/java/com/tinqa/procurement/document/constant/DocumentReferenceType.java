@@ -14,5 +14,7 @@ public enum DocumentReferenceType {
     // A client demo's hotel, food or travel invoice (client_demo_expense.document_id)
     CLIENT_DEMO,
     // A screenshot or PDF proving a client outreach contact (a call log, an email, a WhatsApp chat)
-    OUTREACH_CONTACT
+    OUTREACH_CONTACT,
+    // A proof (bank statement, screenshot) sent with a supplier payment, or the supplier's receipt for money paid back
+    SUPPLIER_PAYMENT
 }
