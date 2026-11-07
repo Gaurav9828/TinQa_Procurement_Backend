@@ -88,7 +88,7 @@ optimization work is tracked in `Tinqa-Procurement-Web-UI/docs/optimization-road
 27. After a change, refresh only what it affects: the summary and the list it changed. Never reload every queue.
 28. Server-side search uses `useSearchTerm` (2 s debounce, Enter searches at once) together with
     `createSearchResultCache`.
-29. Shared lookups (dealers, items, categories, company profile) come from one cached hook or store. Components never
+29. Shared lookups (suppliers, items, categories, company profile) come from one cached hook or store. Components never
     fetch them on their own.
 30. No polling without an agreed reason. When there is one, poll only while the page is visible, at least every 30 s,
     and against a delta or ETag endpoint.

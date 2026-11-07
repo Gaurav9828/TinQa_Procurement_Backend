@@ -23,9 +23,9 @@ public class OrderDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateRequest {
-        @NotNull(message = "Dealer ID is required")
-        @Positive(message = "Dealer ID must be a valid ID")
-        private Long dealerId;
+        @NotNull(message = "Supplier ID is required")
+        @Positive(message = "Supplier ID must be a valid ID")
+        private Long supplierId;
 
         @NotNull(message = "Item ID is required")
         @Positive(message = "Item ID must be a valid ID")
@@ -84,8 +84,8 @@ public class OrderDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateRequest {
-        @Positive(message = "Dealer ID must be a valid ID")
-        private Long dealerId;
+        @Positive(message = "Supplier ID must be a valid ID")
+        private Long supplierId;
         @Positive(message = "Item ID must be a valid ID")
         private Long itemId;
 
@@ -139,7 +139,7 @@ public class OrderDTOs {
         @Size(max = 500, message = "Reason cannot exceed 500 characters")
         private String reason;
 
-        // DELIVERED only: a Level 2 approver accepting a dealer's invoice that didn't match the quotation (checked in the service)
+        // DELIVERED only: a Level 2 approver accepting a supplier's invoice that didn't match the quotation (checked in the service)
         @Size(max = 400, message = "Reason for accepting the invoice cannot exceed 400 characters")
         private String invoiceOverrideReason;
     }
@@ -162,8 +162,8 @@ public class OrderDTOs {
     public static class Response {
         private Long id;
         private String orderNumber;
-        private Long dealerId;
-        private String dealerName;
+        private Long supplierId;
+        private String supplierName;
         private Long itemId;
         private String itemName;
         private BigDecimal orderQuantity;
@@ -184,9 +184,9 @@ public class OrderDTOs {
         private Map<String, Object> additionalInfo;
         private LocalDateTime createdAt;
         private Long createdBy;
-        /** The dealer raised this quotation themselves from their dealer login */
-        private boolean raisedByDealer;
-        /** A dealer's change to this quotation waits for approval; until then it can't be edited, submitted or cancelled */
-        private boolean dealerChangePending;
+        /** The supplier raised this quotation themselves from their supplier login */
+        private boolean raisedBySupplier;
+        /** A supplier's change to this quotation waits for approval; until then it can't be edited, submitted or cancelled */
+        private boolean supplierChangePending;
     }
 }

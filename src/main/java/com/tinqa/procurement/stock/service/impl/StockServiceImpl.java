@@ -13,7 +13,7 @@ import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
 import com.tinqa.procurement.finance.enums.PurchasePostingReason;
 import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
-import com.tinqa.procurement.order.payment.DealerPaymentService;
+import com.tinqa.procurement.order.payment.SupplierPaymentService;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.order.entity.Order;
@@ -60,7 +60,7 @@ public class StockServiceImpl implements StockService {
     private final StockMapper stockMapper;
     private final ReferenceNumberGenerator referenceNumbers;
     private final PurchasePostingRecorder purchasePostings;
-    private final DealerPaymentService dealerPayments;
+    private final SupplierPaymentService supplierPayments;
     private final BarcodeRegistry barcodeRegistry;
     private final Clock clock;
 
@@ -88,7 +88,7 @@ public class StockServiceImpl implements StockService {
 
         ensureArrivalNotBeforeOrder(order, request.getDateOfArrival());
         ensureWithinOrderQuantity(order, null, request.getUnitsPassedTest().add(request.getDefectedUnits()), "unitsPassedTest");
-        // Every passed piece is labelled: one barcode each (defected units go back to the dealer and get none)
+        // Every passed piece is labelled: one barcode each (defected units go back to the supplier and get none)
         List<String> barcodes = barcodeRegistry.requireCodes(request.getBarcodes(),
                 wholeUnits(request.getUnitsPassedTest(), "unitsPassedTest"), "barcodes", "passed unit");
 
@@ -96,7 +96,7 @@ public class StockServiceImpl implements StockService {
                 .stockIdentityNumber(referenceNumbers.stockIdentityNumber())
                 .batchNumber(referenceNumbers.batchNumber(order.getId()))
                 .order(order)
-                .dealer(order.getDealer())
+                .supplier(order.getSupplier())
                 .item(order.getItem())
                 .unitsPassedTest(request.getUnitsPassedTest())
                 .defectedUnits(request.getDefectedUnits())
@@ -197,8 +197,8 @@ public class StockServiceImpl implements StockService {
         // Only now does finance move: the approved passed units are bought (a rejected entry buys nothing)
         purchasePostings.rebook(order, saved, decision == ApprovalStatus.REJECTED
                 ? PurchasePostingReason.STOCK_REJECTED : PurchasePostingReason.STOCK_APPROVED);
-        // Testing is done: the order is now worth what passed, and an overpaid dealer owes the difference back
-        dealerPayments.reconcile(order);
+        // Testing is done: the order is now worth what passed, and an overpaid supplier owes the difference back
+        supplierPayments.reconcile(order);
         return toResponse(saved);
     }
 
@@ -218,7 +218,7 @@ public class StockServiceImpl implements StockService {
             barcodeRegistry.approveStockUnits(stock, BarcodeRegistry.Actor.of(approver));
             Stock saved = stockRepository.save(stock);
             purchasePostings.rebook(order, saved, PurchasePostingReason.STOCK_CHANGE_APPROVED);
-            dealerPayments.reconcile(order);
+            supplierPayments.reconcile(order);
             return saved;
         }
         BigDecimal takenOff = stock.getApprovedUnitsPassed().subtract(stock.getUnitsPassedTest()).max(BigDecimal.ZERO);
@@ -237,10 +237,10 @@ public class StockServiceImpl implements StockService {
         Long currentUserId = submitter.getId();
         Stock stock = findStock(id);
 
-        // Every stock entry comes from one order: it must keep that order's dealer and item
+        // Every stock entry comes from one order: it must keep that order's supplier and item
         Order order = lockOrder(stock);
-        if (!order.getDealer().getId().equals(request.getDealerId())) {
-            throw ApiErrors.fieldError("dealerId", "Stock dealer must match its order's dealer (" + order.getDealer().getName() + ")");
+        if (!order.getSupplier().getId().equals(request.getSupplierId())) {
+            throw ApiErrors.fieldError("supplierId", "Stock supplier must match its order's supplier (" + order.getSupplier().getName() + ")");
         }
         if (!order.getItem().getId().equals(request.getItemId())) {
             throw ApiErrors.fieldError("itemId", "Stock item must match its order's item (" + order.getItem().getName() + ")");

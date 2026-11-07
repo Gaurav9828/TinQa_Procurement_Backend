@@ -20,17 +20,17 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void everyCountMatchesItsListEndpoint() throws Exception {
-        // Something in a few queues: an order waiting for L2, a staff quotation (not a dealer's, so not counted), stock
-        long dealerId = createDealer();
+        // Something in a few queues: an order waiting for L2, a staff quotation (not a supplier's, so not counted), stock
+        long supplierId = createSupplier();
         long itemId = createItem();
-        long pendingOrder = createOrder(dealerId, itemId, "4").get("id").asLong();
+        long pendingOrder = createOrder(supplierId, itemId, "4").get("id").asLong();
         moveOrder(pendingOrder, l1, "PENDING");
-        createOrder(dealerId, itemId, "2");
-        createStock(deliveredOrder(dealerId, itemId, "3").get("orderNumber").asText(), "3", "0");
-        // A dealer advance waiting for confirmation
-        long approvedOrder = createOrder(dealerId, itemId, "2").get("id").asLong();
+        createOrder(supplierId, itemId, "2");
+        createStock(deliveredOrder(supplierId, itemId, "3").get("orderNumber").asText(), "3", "0");
+        // A supplier advance waiting for confirmation
+        long approvedOrder = createOrder(supplierId, itemId, "2").get("id").asLong();
         moveOrder(approvedOrder, l1, "PENDING");
-        patch("/v1/orders/" + approvedOrder + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+        patch("/v1/orders/" + approvedOrder + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200);
         post("/v1/orders/" + approvedOrder + "/payments", l1.token(), body("kind", "PAYMENT", "milestone", "ADVANCE",
                 "amount", new java.math.BigDecimal("10.00"), "method", "CASH", "paidOn", java.time.LocalDate.now().toString()), 201);
 
@@ -42,17 +42,17 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
         fromLists.put("STOCK", size("/v1/stocks?status=PENDING"));
         JsonNode quotations = data(get("/v1/orders?status=QUOTATION", l2a.token(), 200));
         fromLists.put("QUOTATIONS", (int) StreamSupport.stream(quotations.spliterator(), false)
-                .filter(order -> order.get("raisedByDealer").asBoolean() && !order.get("dealerChangePending").asBoolean())
+                .filter(order -> order.get("raisedBySupplier").asBoolean() && !order.get("supplierChangePending").asBoolean())
                 .count());
         fromLists.put("ORDERS", size("/v1/orders?status=PENDING"));
         fromLists.put("RETURNS", size("/v1/orders?status=RETURN_REQUESTED"));
         fromLists.put("PRODUCTS", size("/v1/product-approvals?status=PENDING"));
         fromLists.put("EMPLOYEES", size("/v1/admin/employees/pending-approvals"));
-        fromLists.put("DEALER_LOGINS", size("/v1/admin/dealer-logins?status=APPROVAL_PENDING"));
+        fromLists.put("SUPPLIER_LOGINS", size("/v1/admin/supplier-logins?status=APPROVAL_PENDING"));
         fromLists.put("QUOTATION_CHANGES", size("/v1/orders/change-requests?status=PENDING"));
         fromLists.put("BARCODES", size("/v1/barcodes/requests?status=PENDING"));
         fromLists.put("CLIENT_DEMOS", size("/v1/admin/client-demos/waiting"));
-        fromLists.put("DEALER_PAYMENTS", size("/v1/orders/payments?status=PENDING_APPROVAL"));
+        fromLists.put("SUPPLIER_PAYMENTS", size("/v1/orders/payments?status=PENDING_APPROVAL"));
 
         // A Super Admin decides every queue, so every queue is there, in the same order
         assertThat(iterable(counts.fieldNames())).containsExactlyElementsOf(fromLists.keySet());
@@ -60,7 +60,7 @@ class ApprovalSummaryIntegrationTest extends IntegrationTestSupport {
                 assertThat(counts.get(queue).asInt()).as(queue).isEqualTo(listed));
         assertThat(counts.get("ORDERS").asInt()).isPositive();
         assertThat(counts.get("STOCK").asInt()).isPositive();
-        assertThat(counts.get("DEALER_PAYMENTS").asInt()).isPositive();
+        assertThat(counts.get("SUPPLIER_PAYMENTS").asInt()).isPositive();
     }
 
     @Test

@@ -20,7 +20,7 @@ public final class OrderChangeDTOs {
     }
 
     /**
-     * The quotation terms a dealer may change. In a request's {@code changes} only the proposed fields are set;
+     * The quotation terms a supplier may change. In a request's {@code changes} only the proposed fields are set;
      * {@code previous} has the same fields as they were. Names are display-only and never applied.
      */
     @Data
@@ -71,8 +71,8 @@ public final class OrderChangeDTOs {
         private Long orderId;
         private String orderNumber;
         private OrderStatus orderStatus;
-        private Long dealerId;
-        private String dealerName;
+        private Long supplierId;
+        private String supplierName;
         private Terms changes;
         private Terms previous;
         /** Order total if the change is approved */

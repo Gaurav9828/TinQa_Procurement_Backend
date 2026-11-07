@@ -7,7 +7,7 @@ import java.util.Optional;
 /**
  * The job an internal employee does. It decides which {@link PermissionGroup}s they hold (see {@link DesignationAccess});
  * the account's admin level (ADMIN_L1 / ADMIN_L2) then decides whether they may also approve within those groups.
- * External partners (registered dealers) are not employees and have no designation: their access comes from Role.DEALER.
+ * External partners (registered suppliers) are not employees and have no designation: their access comes from Role.SUPPLIER.
  *
  * <p>Each designation also fixes the employee's department, so the two can never disagree: the department is always
  * derived from the designation, never chosen.
@@ -20,9 +20,9 @@ public enum Designation {
     STORE_MANAGER("Store Manager",
             "Store Operations",
             "Business and operations lead: sales analytics, banners, coupons, pricing, order and delivery overrides."),
-    DEALER_MANAGER("Dealer Manager",
+    SUPPLIER_MANAGER("Supplier Manager",
             "Procurement",
-            "Procurement / B2B lead: dealer applications, RFQs, dealer quotes, negotiation and final dealer confirmations."),
+            "Procurement / B2B lead: supplier applications, RFQs, supplier quotes, negotiation and final supplier confirmations."),
     CATALOG_SPECIALIST("Catalog Specialist",
             "Catalog & Content",
             "Storefront content: product listings, descriptions, images, variants and SEO keywords."),
@@ -40,7 +40,7 @@ public enum Designation {
             "Help desk: searches order history, resolves complaints, updates delivery details, initiates returns."),
     FINANCIAL_AUDITOR("Financial Auditor",
             "Finance & Accounts",
-            "Bookkeeping and tax review: sales, tax and revenue reports, COD collections and dealer payouts."),
+            "Bookkeeping and tax review: sales, tax and revenue reports, COD collections and supplier payouts."),
     FINANCE_MANAGER("Finance & Accounts Manager",
             "Finance & Accounts",
             "Keeps the company account: approves expenses, shipping and raw material costs, and reviews profit and cash flow."),

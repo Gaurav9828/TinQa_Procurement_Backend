@@ -84,7 +84,7 @@ export default function (auth) {
   group('lists', () => {
     check(get('/v1/admin/items?page=0&size=20', 'GET /v1/admin/items'), ok('items'));
     check(get('/v1/admin/products?page=0&size=20', 'GET /v1/admin/products'), ok('products'));
-    check(get('/v1/admin/dealers?page=0&size=20', 'GET /v1/admin/dealers'), ok('dealers'));
+    check(get('/v1/admin/suppliers?page=0&size=20', 'GET /v1/admin/suppliers'), ok('suppliers'));
     check(get('/v1/orders', 'GET /v1/orders'), ok('orders'));
   });
 

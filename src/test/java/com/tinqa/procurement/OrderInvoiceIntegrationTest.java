@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The quotation-to-delivery GST trail: a quotation may carry its GST breakup, which follows every change to the order,
- * and the order is delivered only against a dealer's invoice that matches it (or that a Level 2 approver accepts).
+ * and the order is delivered only against a supplier's invoice that matches it (or that a Level 2 approver accepts).
  */
 @DisplayName("Quotation GST and invoice verification")
 class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
@@ -25,14 +25,14 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
 
     // 10 x 100 + 50 shipment = 1050 taxable; 18% in state = 94.50 + 94.50; 1239 in all
     private long taxedOrder() throws Exception {
-        Map<String, Object> order = orderBody(createDealer(), createItem(), "10");
+        Map<String, Object> order = orderBody(createSupplier(), createItem(), "10");
         order.put("taxBreakup", INTRA_18);
         return data(post("/v1/orders", l1.token(), order, 201)).get("id").asLong();
     }
 
     private long shipped(long orderId) throws Exception {
         moveOrder(orderId, l1, "PENDING");
-        patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+        patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200);
         moveOrder(orderId, l2a, "CONFIRMED");
         moveOrder(orderId, l1, "SHIPPED");
         return orderId;
@@ -101,7 +101,7 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
         assertThat(invoice.get("status").asText()).isEqualTo("MISMATCH");
         assertThat(invoice.get("matched").asBoolean()).isFalse();
         assertThat(invoice.get("checks").findValuesAsText("key")).contains("igst", "cgst", "sgst");
-        assertThat(notificationTitles(l2a)).contains("Dealer invoice needs a check");
+        assertThat(notificationTitles(l2a)).contains("Supplier invoice needs a check");
 
         JsonNode refused = patch("/v1/orders/" + id + "/status", l1.token(), deliver("Looks fine to me"), 409);
         assertThat(refused.get("errorCode").asText()).isEqualTo("ORDER_INVOICE_MISMATCH");
@@ -109,9 +109,9 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
         JsonNode noReason = patch("/v1/orders/" + id + "/status", l2a.token(), deliver(" "), 400);
         assertThat(noReason.get("errors").get(0).get("field").asText()).isEqualTo("invoiceOverrideReason");
 
-        patch("/v1/orders/" + id + "/status", l2a.token(), deliver("Dealer billed IGST by mistake; credit note promised"), 200);
+        patch("/v1/orders/" + id + "/status", l2a.token(), deliver("Supplier billed IGST by mistake; credit note promised"), 200);
         JsonNode accepted = data(get("/v1/orders/" + id + "/invoice", l1.token(), 200));
-        assertThat(accepted.get("overrideReason").asText()).startsWith("Dealer billed IGST");
+        assertThat(accepted.get("overrideReason").asText()).startsWith("Supplier billed IGST");
         assertThat(accepted.get("overrideByUsername").asText()).isEqualTo(l2a.username());
         String historyReason = jdbc.queryForObject("SELECT reason FROM order_status_history WHERE order_id = ? AND to_status = 'DELIVERED'",
                 String.class, id);
@@ -133,7 +133,7 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void withoutQuotedGstTheInvoiceMustShowNone() throws Exception {
-        long id = shipped(createOrder(createDealer(), createItem(), "10").get("id").asLong());
+        long id = shipped(createOrder(createSupplier(), createItem(), "10").get("id").asLong());
         byte[] taxed = InvoicePdfs.withLines("CGST 94.50", "SGST 94.50", "Grand Total 1239.00");
         assertThat(data(uploadInvoice(id, l1, taxed, 200)).get("status").asText()).isEqualTo("MISMATCH");
         assertThat(data(uploadInvoice(id, l1, InvoicePdfs.withLines("Invoice No 12", "Total 1050.00"), 200)).get("status").asText())
@@ -149,18 +149,18 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    void dealersQuoteGstAndChangeItThroughApproval() throws Exception {
-        long dealerId = createDealer();
+    void suppliersQuoteGstAndChangeItThroughApproval() throws Exception {
+        long supplierId = createSupplier();
         long itemId = createItem();
-        String username = uniq("dealer");
-        post("/v1/admin/dealers/" + dealerId + "/login", l1.token(), body("username", username, "email", username + "@dealer.test"), 201);
-        patch("/v1/admin/dealers/" + dealerId + "/login/approval", l2a.token(), body("decision", "APPROVED"), 200);
+        String username = uniq("supplier");
+        post("/v1/admin/suppliers/" + supplierId + "/login", l1.token(), body("username", username, "email", username + "@supplier.test"), 201);
+        patch("/v1/admin/suppliers/" + supplierId + "/login/approval", l2a.token(), body("decision", "APPROVED"), 200);
         String first = login(username, DEFAULT_EMPLOYEE_PASSWORD);
-        String password = "Dealer!Passw0rd#2026";
+        String password = "Supplier!Passw0rd#2026";
         post("/auth/first-login/password", first, body("newPassword", password, "confirmNewPassword", password), 200);
-        String dealer = login(username, password);
+        String supplier = login(username, password);
 
-        JsonNode quotation = data(post("/v1/dealer-portal/quotations", dealer, body("itemId", itemId, "orderQuantity", new BigDecimal("10"),
+        JsonNode quotation = data(post("/v1/supplier-portal/quotations", supplier, body("itemId", itemId, "orderQuantity", new BigDecimal("10"),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
                 "priceChangeReason", "Bulk rate", "taxBreakup", Map.of("supplyType", "INTER_STATE", "gstRate", 5),
                 "advancePercent", new BigDecimal("20"), "midtermPercent", new BigDecimal("30"), "expectedPaymentMethod", "ONLINE"), 201));
@@ -168,9 +168,9 @@ class OrderInvoiceIntegrationTest extends IntegrationTestSupport {
         long orderId = quotation.get("id").asLong();
 
         // Same terms again is no change; a new rate is
-        post("/v1/dealer-portal/quotations/" + orderId + "/change-requests", dealer,
+        post("/v1/supplier-portal/quotations/" + orderId + "/change-requests", supplier,
                 body("taxBreakup", Map.of("supplyType", "INTER_STATE", "gstRate", "5.0")), 409);
-        JsonNode change = data(post("/v1/dealer-portal/quotations/" + orderId + "/change-requests", dealer,
+        JsonNode change = data(post("/v1/supplier-portal/quotations/" + orderId + "/change-requests", supplier,
                 body("taxBreakup", Map.of("supplyType", "INTER_STATE", "gstRate", 18), "reason", "Wrong rate"), 201));
         assertThat(change.get("changes").get("taxBreakup").get("igst").decimalValue()).isEqualByComparingTo("189.00");
         assertThat(change.get("previous").get("taxBreakup").get("igst").decimalValue()).isEqualByComparingTo("52.50");

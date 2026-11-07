@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Dealers' quotation changes, as the staff who review them see them
+// Suppliers' quotation changes, as the staff who review them see them
 @RestController
 @RequestMapping("/v1/orders")
 @RequiredArgsConstructor
@@ -28,7 +28,7 @@ public class QuotationChangeController {
     private final CurrentUserProvider currentUserProvider;
 
     // The approval queue (status=PENDING), or every request
-    @RequiresPermission(Permission.DEALER_QUOTATION_CHANGE_APPROVE)
+    @RequiresPermission(Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE)
     @GetMapping("/change-requests")
     public ResponseEntity<ApiResponse<List<OrderChangeDTOs.Response>>> getChangeRequests(
             @RequestParam(required = false) OrderChangeStatus status) {
@@ -41,7 +41,7 @@ public class QuotationChangeController {
         return ApiResponses.ok(quotationChangeService.forOrder(orderId), "Quotation changes retrieved successfully");
     }
 
-    @RequiresPermission(Permission.DEALER_QUOTATION_CHANGE_APPROVE)
+    @RequiresPermission(Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE)
     @PatchMapping("/change-requests/{requestId}/decision")
     public ResponseEntity<ApiResponse<OrderChangeDTOs.Response>> decide(@PathVariable Long requestId,
                                                                         @Valid @RequestBody OrderChangeDTOs.DecisionRequest request) {

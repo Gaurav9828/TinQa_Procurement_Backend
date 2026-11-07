@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Categories are typed per module. ITEM categories are shared: items belong to them and dealers are assigned them.
+ * Categories are typed per module. ITEM categories are shared: items belong to them and suppliers are assigned them.
  */
 public final class CategoryDTOs {
 

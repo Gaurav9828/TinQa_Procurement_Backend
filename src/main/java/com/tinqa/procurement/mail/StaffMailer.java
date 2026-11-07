@@ -1,7 +1,7 @@
 package com.tinqa.procurement.mail;
 
 /**
- * Sends account emails to staff and dealers. The message wording, branding and the link's page belong to the sender;
+ * Sends account emails to staff and suppliers. The message wording, branding and the link's page belong to the sender;
  * callers pass only the secret (a code or a link token) and who it is for, or the document an email carries.
  */
 public interface StaffMailer {

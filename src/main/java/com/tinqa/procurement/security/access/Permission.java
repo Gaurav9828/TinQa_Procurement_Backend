@@ -27,31 +27,31 @@ public enum Permission {
     ROLE_VIEW(EMPLOYEE_READ, "View built-in and custom roles"),
     ROLE_MANAGE(EMPLOYEE_MANAGEMENT, "Create and edit custom roles from the permission groups you hold"),
 
-    // Dealers (/v1/admin/dealers)
-    DEALER_VIEW(DEALER_READ, "View dealers and dealer categories"),
-    DEALER_CREATE(DEALER_MANAGEMENT, "Onboard dealers"),
-    DEALER_UPDATE(DEALER_MANAGEMENT, "Edit dealers"),
-    DEALER_TOGGLE_STATUS(DEALER_MANAGEMENT, "Activate or deactivate dealers"),
-    DEALER_CATEGORY_MANAGE(DEALER_MANAGEMENT, "Assign item categories to dealers"),
-    DEALER_DELETE(DEALER_APPROVAL, "Remove dealers"),
-    // Dealer logins (/v1/admin/dealers/{id}/login, /v1/admin/dealer-logins): a Dealer Manager creates one, and it can
+    // Suppliers (/v1/admin/suppliers)
+    SUPPLIER_VIEW(SUPPLIER_READ, "View suppliers and supplier categories"),
+    SUPPLIER_CREATE(SUPPLIER_MANAGEMENT, "Onboard suppliers"),
+    SUPPLIER_UPDATE(SUPPLIER_MANAGEMENT, "Edit suppliers"),
+    SUPPLIER_TOGGLE_STATUS(SUPPLIER_MANAGEMENT, "Activate or deactivate suppliers"),
+    SUPPLIER_CATEGORY_MANAGE(SUPPLIER_MANAGEMENT, "Assign item categories to suppliers"),
+    SUPPLIER_DELETE(SUPPLIER_APPROVAL, "Remove suppliers"),
+    // Supplier logins (/v1/admin/suppliers/{id}/login, /v1/admin/supplier-logins): a Supplier Manager creates one, and it can
     // sign in once someone else approves it
-    DEALER_LOGIN_MANAGE(DEALER_MANAGEMENT, "Create dealer logins, disable them and reset their passwords"),
-    DEALER_LOGIN_APPROVE(DEALER_APPROVAL, "Approve or reject dealer logins"),
+    SUPPLIER_LOGIN_MANAGE(SUPPLIER_MANAGEMENT, "Create supplier logins, disable them and reset their passwords"),
+    SUPPLIER_LOGIN_APPROVE(SUPPLIER_APPROVAL, "Approve or reject supplier logins"),
 
     // Procurement orders (/v1/orders)
     PROCUREMENT_ORDER_VIEW(PROCUREMENT_ORDER_READ, "View procurement orders"),
     PROCUREMENT_ORDER_CREATE(PROCUREMENT_ORDER_MANAGEMENT, "Create quotations / RFQs"),
     PROCUREMENT_ORDER_UPDATE(PROCUREMENT_ORDER_MANAGEMENT, "Edit quotations"),
     PROCUREMENT_ORDER_UPDATE_STATUS(PROCUREMENT_ORDER_MANAGEMENT, "Progress orders (submit, ship, deliver, returns, refunds)"),
-    PROCUREMENT_ORDER_APPROVE(PROCUREMENT_ORDER_APPROVAL, "Approve orders, confirm with dealers and decide returns"),
-    // /v1/orders/change-requests: a dealer's edit to a quotation only applies once approved. The dealer is the maker,
-    // so any Dealer Manager (either level) is the checker
-    DEALER_QUOTATION_CHANGE_APPROVE(PROCUREMENT_ORDER_MANAGEMENT, "Approve or reject dealers' changes to their quotations"),
-    // /v1/orders/{id}/payments: what was paid to the dealer and refunded by them, recorded by one person and confirmed
+    PROCUREMENT_ORDER_APPROVE(PROCUREMENT_ORDER_APPROVAL, "Approve orders, confirm with suppliers and decide returns"),
+    // /v1/orders/change-requests: a supplier's edit to a quotation only applies once approved. The supplier is the maker,
+    // so any Supplier Manager (either level) is the checker
+    SUPPLIER_QUOTATION_CHANGE_APPROVE(PROCUREMENT_ORDER_MANAGEMENT, "Approve or reject suppliers' changes to their quotations"),
+    // /v1/orders/{id}/payments: what was paid to the supplier and refunded by them, recorded by one person and confirmed
     // by another. Seen by everyone with PROCUREMENT_ORDER_VIEW
-    DEALER_PAYMENT_RECORD(DEALER_PAYMENT_MANAGEMENT, "Record payments made to dealers and refunds they paid back, and reverse them"),
-    DEALER_PAYMENT_APPROVE(DEALER_PAYMENT_APPROVAL, "Confirm or reject recorded dealer payments and refunds, and change a refund claim"),
+    SUPPLIER_PAYMENT_RECORD(SUPPLIER_PAYMENT_MANAGEMENT, "Record payments made to suppliers and refunds they paid back, and reverse them"),
+    SUPPLIER_PAYMENT_APPROVE(SUPPLIER_PAYMENT_APPROVAL, "Confirm or reject recorded supplier payments and refunds, and change a refund claim"),
 
     // Catalog: items (/v1/admin/items), procurement products (/v1/admin/products), product approvals
     // (/v1/product-approvals) and storefront products (Ecommerce /api/products)
@@ -85,7 +85,7 @@ public enum Permission {
     // Barcodes (/v1/barcodes): one on every piece of item stock and every product unit, entered when stock is received
     // (STOCK_CREATE / STOCK_ADJUST) or a product unit is built (PRODUCT_CREATE / PRODUCT_UPDATE), and locked once that
     // is approved. Afterwards only a Super Admin changes them; anyone else asks
-    BARCODE_VIEW(BARCODE_READ, "View barcodes and trace a unit to its batch, purchase order, dealer and product"),
+    BARCODE_VIEW(BARCODE_READ, "View barcodes and trace a unit to its batch, purchase order, supplier and product"),
     BARCODE_REQUEST(BARCODE_MANAGEMENT, "Ask for a barcode correction, or for barcodes on stock received without them"),
     BARCODE_APPROVE(BARCODE_APPROVAL, "Correct locked barcodes and decide barcode requests"),
 
@@ -216,12 +216,12 @@ public enum Permission {
     MEETING_VIEW_OWN(SELF_SERVICE, "View the meetings you are invited to"),
     MEETING_RESPOND_OWN(SELF_SERVICE, "Decline a meeting invite (within 24 hours) and give feedback after a meeting"),
 
-    // Dealer portal (/v1/dealer-portal), held only by dealer logins and always limited to the dealer's own records
-    DEALER_PORTAL_VIEW(DEALER_PORTAL, "View your own quotations, orders and bills"),
-    DEALER_QUOTATION_SUBMIT(DEALER_PORTAL, "Create quotations"),
-    DEALER_QUOTATION_CHANGE_REQUEST(DEALER_PORTAL, "Request changes to your quotations (a Dealer Manager approves them)"),
-    DEALER_ORDER_RESPOND(DEALER_PORTAL, "Accept or reject orders awaiting your confirmation"),
-    DEALER_ORDER_SHIP(DEALER_PORTAL, "Mark your confirmed orders as shipped");
+    // Supplier portal (/v1/supplier-portal), held only by supplier logins and always limited to the supplier's own records
+    SUPPLIER_PORTAL_VIEW(SUPPLIER_PORTAL, "View your own quotations, orders and bills"),
+    SUPPLIER_QUOTATION_SUBMIT(SUPPLIER_PORTAL, "Create quotations"),
+    SUPPLIER_QUOTATION_CHANGE_REQUEST(SUPPLIER_PORTAL, "Request changes to your quotations (a Supplier Manager approves them)"),
+    SUPPLIER_ORDER_RESPOND(SUPPLIER_PORTAL, "Accept or reject orders awaiting your confirmation"),
+    SUPPLIER_ORDER_SHIP(SUPPLIER_PORTAL, "Mark your confirmed orders as shipped");
 
     /** Prefix of the Spring Security authority each permission is granted as. */
     public static final String AUTHORITY_PREFIX = "PERM_";

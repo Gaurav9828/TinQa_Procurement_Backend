@@ -5,6 +5,6 @@ public enum OrderChangeStatus {
     PENDING,
     APPROVED,
     REJECTED,
-    /** Taken back by the dealer before anyone decided */
+    /** Taken back by the supplier before anyone decided */
     WITHDRAWN
 }

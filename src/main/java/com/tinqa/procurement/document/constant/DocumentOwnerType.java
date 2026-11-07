@@ -2,7 +2,7 @@ package com.tinqa.procurement.document.constant;
 
 public enum DocumentOwnerType {
     ADMIN,
-    DEALER,
+    SUPPLIER,
     INSPECTOR,
     WORKSHOP,
     EMPLOYEE,

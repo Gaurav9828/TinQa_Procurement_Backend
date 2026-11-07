@@ -30,7 +30,7 @@ public class Item {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // An item can sit in several categories; dealers see the items of the categories they are assigned
+    // An item can sit in several categories; suppliers see the items of the categories they are assigned
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "item_category_mappings",

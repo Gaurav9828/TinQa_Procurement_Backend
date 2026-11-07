@@ -11,7 +11,7 @@
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/approval/profile/ApprovalControlledFields.java|ca20bed756fc
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/approval/profile/ApprovalControlledFields.java|d5a3811f63e9
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/approval/profile/ApprovalControlledFields.java|fac536962595
-1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/dealer/service/impl/DealerServiceImpl.java|099a718f6966
+1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/supplier/service/impl/SupplierServiceImpl.java|099a718f6966
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java|0b676db8112c
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java|7ff3874b2f3d
 1	pmd/ControlStatementBraces|src/main/java/com/tinqa/procurement/document/service/impl/DocumentServiceImpl.java|83045e5e87ca
@@ -77,13 +77,13 @@
 1	pmd/LiteralsFirstInComparisons|src/main/java/com/tinqa/procurement/order/invoice/InvoiceVerifier.java|cdded2681d81
 1	pmd/LooseCoupling|src/main/java/com/tinqa/procurement/order/invoice/InvoiceFigureExtractor.java|337f671951c0
 1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/category/dto/CategoryDTOs.java|73cbfefae9f4
-1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/dealer/login/DealerLoginDTOs.java|67fa041be022
-1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/dealerportal/DealerPortalDTOs.java|a1c4960439e2
+1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/supplier/login/SupplierLoginDTOs.java|67fa041be022
+1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/supplierportal/SupplierPortalDTOs.java|a1c4960439e2
 1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/finance/dto/PurchaseEventDTOs.java|0435bda958b5
 1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/order/change/OrderChangeDTOs.java|7716395bd309
 1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/order/invoice/OrderInvoiceDTOs.java|2321d9bd06e6
 1	pmd/MissingStaticMethodInNonInstantiatableClass|src/main/java/com/tinqa/procurement/security/access/AccessDTOs.java|c40a92d006a2
-1	pmd/PreserveStackTrace|src/main/java/com/tinqa/procurement/dealer/login/DealerLoginService.java|6cb8eab9da9b
+1	pmd/PreserveStackTrace|src/main/java/com/tinqa/procurement/supplier/login/SupplierLoginService.java|6cb8eab9da9b
 1	pmd/PreserveStackTrace|src/main/java/com/tinqa/procurement/document/service/UploadedFileValidator.java|d1e18380851f
 1	pmd/PreserveStackTrace|src/main/java/com/tinqa/procurement/document/service/impl/LocalFileStorageService.java|9995ca9555fd
 1	pmd/PreserveStackTrace|src/main/java/com/tinqa/procurement/employee/service/impl/EmployeeServiceImpl.java|6cb8eab9da9b

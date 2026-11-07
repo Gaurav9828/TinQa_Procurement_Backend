@@ -16,18 +16,18 @@ public enum PermissionGroup {
     EMPLOYEE_MANAGEMENT("Employees - create and edit", false),
     EMPLOYEE_APPROVAL("Employees - approve accounts, deletions and profile changes", true),
 
-    // Dealers (B2B partners)
-    DEALER_READ("Dealers - view", false),
-    DEALER_MANAGEMENT("Dealers - create and edit", false),
-    DEALER_APPROVAL("Dealers - approve dealer logins and remove dealers", true),
+    // Suppliers (B2B partners)
+    SUPPLIER_READ("Suppliers - view", false),
+    SUPPLIER_MANAGEMENT("Suppliers - create and edit", false),
+    SUPPLIER_APPROVAL("Suppliers - approve supplier logins and remove suppliers", true),
 
-    // Procurement orders (RFQs / quotations placed with dealers)
+    // Procurement orders (RFQs / quotations placed with suppliers)
     PROCUREMENT_ORDER_READ("Procurement orders - view", false),
-    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress and decide dealers' quotation changes", false),
+    PROCUREMENT_ORDER_MANAGEMENT("Procurement orders - create, progress and decide suppliers' quotation changes", false),
     PROCUREMENT_ORDER_APPROVAL("Procurement orders - approve, confirm and decide returns", true),
-    // Payments to dealers against a quotation's payment plan (advance, midterm, final after testing) and their refunds
-    DEALER_PAYMENT_MANAGEMENT("Dealer payments - record payments to dealers and refunds from them", false),
-    DEALER_PAYMENT_APPROVAL("Dealer payments - confirm payments and refunds, and change refund claims", true),
+    // Payments to suppliers against a quotation's payment plan (advance, midterm, final after testing) and their refunds
+    SUPPLIER_PAYMENT_MANAGEMENT("Supplier payments - record payments to suppliers and refunds from them", false),
+    SUPPLIER_PAYMENT_APPROVAL("Supplier payments - confirm payments and refunds, and change refund claims", true),
 
     // Catalog (items, procurement products and storefront listings)
     CATALOG_READ("Catalog - view", false),
@@ -43,7 +43,7 @@ public enum PermissionGroup {
     INVENTORY_MANAGEMENT("Inventory - receive and adjust stock", false),
     INVENTORY_APPROVAL("Inventory - approve stock entries", true),
 
-    // Barcodes: every piece of stock and every product unit, traceable to its batch, purchase order, dealer and product
+    // Barcodes: every piece of stock and every product unit, traceable to its batch, purchase order, supplier and product
     BARCODE_READ("Barcodes - view and trace units", false),
     BARCODE_MANAGEMENT("Barcodes - request corrections", false),
     BARCODE_APPROVAL("Barcodes - correct barcodes and decide requests", true),
@@ -126,9 +126,9 @@ public enum PermissionGroup {
     // Every employee, whatever their designation: their own records (payslips, the meetings they are invited to)
     SELF_SERVICE("Self service - own payslips and meetings", false),
 
-    // External: dealers signed in to this web app with a dealer login. Everything in it is limited to the dealer's own
+    // External: suppliers signed in to this web app with a supplier login. Everything in it is limited to the supplier's own
     // records on the server, whatever is asked for
-    DEALER_PORTAL("Dealer portal - own quotations, orders and bills", false);
+    SUPPLIER_PORTAL("Supplier portal - own quotations, orders and bills", false);
 
     private final String label;
     private final boolean approvalLevel;

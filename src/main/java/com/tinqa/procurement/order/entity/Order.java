@@ -1,6 +1,6 @@
 package com.tinqa.procurement.order.entity;
 
-import com.tinqa.procurement.dealer.entity.Dealer;
+import com.tinqa.procurement.supplier.entity.Supplier;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.payment.PaymentMethod;
@@ -33,8 +33,8 @@ public class Order {
     private String orderNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dealer_id", nullable = false)
-    private Dealer dealer;
+    @JoinColumn(name = "supplier_id", nullable = false)
+    private Supplier supplier;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)
@@ -72,7 +72,7 @@ public class Order {
     @Column(name = "midterm_percent", precision = 5, scale = 2)
     private BigDecimal midtermPercent;
 
-    // How the dealer expects to be paid
+    // How the supplier expects to be paid
     @Enumerated(EnumType.STRING)
     @Column(name = "expected_payment_method", length = 20)
     private PaymentMethod expectedPaymentMethod;

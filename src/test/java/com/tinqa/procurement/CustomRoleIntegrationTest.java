@@ -40,11 +40,11 @@ class CustomRoleIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void aCustomRoleWorksLikeADesignation() throws Exception {
-        // Only groups the creator holds, never the dealer portal or system administration
+        // Only groups the creator holds, never the supplier portal or system administration
         JsonNode grantable = data(get(ROLES + "/grantable-groups", l1.token(), 200));
         List<String> codes = grantable.findValues("code").stream().map(JsonNode::asText).toList();
         assertThat(codes).contains("CLIENT_OUTREACH_READ", "MEETING_MANAGEMENT")
-                .doesNotContain("DEALER_PORTAL", "SYSTEM_ADMINISTRATION", "SELF_SERVICE", "CLIENT_DEMO_APPROVAL");
+                .doesNotContain("SUPPLIER_PORTAL", "SYSTEM_ADMINISTRATION", "SELF_SERVICE", "CLIENT_DEMO_APPROVAL");
 
         String label = "Marketing Executive " + letters();
         List<String> groups = List.of("CLIENT_OUTREACH_READ", "CLIENT_OUTREACH_MANAGEMENT", "MEETING_READ", "MEETING_MANAGEMENT");

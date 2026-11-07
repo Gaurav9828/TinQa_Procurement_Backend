@@ -13,12 +13,12 @@ public final class NotificationLinks {
     /** Barcode tracking: trace a unit, ask for corrections */
     public static final String BARCODES = "/barcodes";
     public static final String EMPLOYEES = "/employees";
-    public static final String DEALERS = "/dealers";
+    public static final String SUPPLIERS = "/suppliers";
     /** Customer Management; a customer's own page is CUSTOMERS + "/" + their Ecommerce customer id */
     public static final String CUSTOMERS = "/customers";
-    /** Dealer logins: their own quotations, and their orders once confirmed */
-    public static final String DEALER_QUOTATIONS = "/dealer/quotations";
-    public static final String DEALER_ORDERS = "/dealer/orders";
+    /** Supplier logins: their own quotations, and their orders once confirmed */
+    public static final String SUPPLIER_QUOTATIONS = "/supplier/quotations";
+    public static final String SUPPLIER_ORDERS = "/supplier/orders";
     /** The recipient's own profile: documents and profile change requests */
     public static final String PROFILE = "/profile";
     /** Salary payments by month (Payments & Chalans), and an employee's own payslips */

@@ -5,19 +5,19 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Money moves of dealer purchases, read by the Ecommerce service's company account. */
+/** Money moves of supplier purchases, read by the Ecommerce service's company account. */
 public final class PurchaseEventDTOs {
 
     private PurchaseEventDTOs() {
     }
 
     /**
-     * One change to what is booked as bought from a dealer: stock received / corrected / rejected (only units that
-     * passed testing are bought) or an order refunded. {@code amount} is signed: positive = paid to the dealer
+     * One change to what is booked as bought from a supplier: stock received / corrected / rejected (only units that
+     * passed testing are bought) or an order refunded. {@code amount} is signed: positive = paid to the supplier
      * (money out), negative = money back. {@code postingKey} never repeats, so the reader posts each event once.
      *
-     * <p>{@code amount} is before GST. The GST on it (input tax: what the dealer charges us) is signed the same way, in
-     * {@code cgst}/{@code sgst} (dealer in our state) or {@code igst} (another state), plus {@code cess}; all zero when
+     * <p>{@code amount} is before GST. The GST on it (input tax: what the supplier charges us) is signed the same way, in
+     * {@code cgst}/{@code sgst} (supplier in our state) or {@code igst} (another state), plus {@code cess}; all zero when
      * the quotation had no GST breakup. An event may move only GST (amount 0) when the quotation's GST terms changed.
      */
     public record PurchaseEvent(
@@ -27,7 +27,7 @@ public final class PurchaseEventDTOs {
             String orderNumber,
             String stockIdentityNumber,
             BigDecimal amount,
-            String dealerName,
+            String supplierName,
             String itemName,
             BigDecimal quantity,
             String unitType,
@@ -40,10 +40,10 @@ public final class PurchaseEventDTOs {
             BigDecimal gstRate,
             String supplyType,
             String hsnSac,
-            String dealerGstin,
-            String dealerState,
-            String dealerInvoiceNumber,
-            Instant dealerInvoiceUploadedAt) {
+            String supplierGstin,
+            String supplierState,
+            String supplierInvoiceNumber,
+            Instant supplierInvoiceUploadedAt) {
     }
 
     public record PurchaseEventPage(List<PurchaseEvent> events, boolean hasMore) {

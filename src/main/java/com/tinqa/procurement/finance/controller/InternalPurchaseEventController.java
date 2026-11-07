@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 
 /**
- * Service-to-service API (authenticated by InternalApiKeyFilter): the Ecommerce service posts dealer purchases and
- * dealer refunds to the company account from these events.
+ * Service-to-service API (authenticated by InternalApiKeyFilter): the Ecommerce service posts supplier purchases and
+ * supplier refunds to the company account from these events.
  */
 @RestController
 @RequestMapping("/v1/internal/finance")

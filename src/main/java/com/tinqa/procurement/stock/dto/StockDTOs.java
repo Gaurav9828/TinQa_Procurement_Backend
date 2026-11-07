@@ -92,8 +92,8 @@ public class StockDTOs {
         private String stockIdentityNumber;
         private String batchNumber;
         private String orderNumber;
-        private Long dealerId;
-        private String dealerName;
+        private Long supplierId;
+        private String supplierName;
         private Long itemId;
         private String itemName;
         private BigDecimal totalOrderQuantity; // Pulled dynamically from Order
@@ -120,7 +120,7 @@ public class StockDTOs {
         private Boolean changeAwaitingApproval;
         // Passed units added since L2's approval, not usable until L2 approves them
         private BigDecimal heldUnits;
-        // Value of the approved passed units booked as bought from the dealer (before GST)
+        // Value of the approved passed units booked as bought from the supplier (before GST)
         private BigDecimal bookedPurchaseValue;
         // Available units without a barcode (received before barcodes were recorded): a Super Admin assigns them
         private BigDecimal unitsWithoutBarcode;
@@ -136,9 +136,9 @@ public class StockDTOs {
         @Pattern(regexp = ValidationPatterns.CODE, message = "Batch number " + ValidationPatterns.CODE_MESSAGE)
         private String batchNumber;
 
-        @NotNull(message = "Dealer ID is required")
-        @Positive(message = "Dealer ID must be a valid ID")
-        private Long dealerId;
+        @NotNull(message = "Supplier ID is required")
+        @Positive(message = "Supplier ID must be a valid ID")
+        private Long supplierId;
 
         @NotNull(message = "Item ID is required")
         @Positive(message = "Item ID must be a valid ID")

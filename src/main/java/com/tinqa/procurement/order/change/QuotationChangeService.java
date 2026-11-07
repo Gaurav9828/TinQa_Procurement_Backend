@@ -39,16 +39,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Dealers' changes to their own quotations. A dealer never edits a quotation directly: each change is a request that a
- * Dealer Manager of either level (DEALER_QUOTATION_CHANGE_APPROVE) approves or rejects. While a request is open the
+ * Suppliers' changes to their own quotations. A supplier never edits a quotation directly: each change is a request that a
+ * Supplier Manager of either level (SUPPLIER_QUOTATION_CHANGE_APPROVE) approves or rejects. While a request is open the
  * quotation is frozen for everyone, so what the approver sees is exactly what will change.
  */
 @Service
 @RequiredArgsConstructor
 public class QuotationChangeService {
 
-    /** additionalInfo key holding the dealer's own remarks on a quotation */
-    public static final String DEALER_NOTE = "dealerNote";
+    /** additionalInfo key holding the supplier's own remarks on a quotation */
+    public static final String SUPPLIER_NOTE = "supplierNote";
 
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {
     };
@@ -62,11 +62,11 @@ public class QuotationChangeService {
     private final Clock clock;
 
     /**
-     * Records a dealer's proposed change to a quotation. The caller has locked the order and checked it is the
-     * dealer's own.
+     * Records a supplier's proposed change to a quotation. The caller has locked the order and checked it is the
+     * supplier's own.
      */
     @Transactional
-    public OrderChangeDTOs.Response request(Order order, User dealerUser, OrderChangeDTOs.Terms proposed, String note) {
+    public OrderChangeDTOs.Response request(Order order, User supplierUser, OrderChangeDTOs.Terms proposed, String note) {
         if (order.getOrderStatus() != OrderStatus.QUOTATION) {
             throw ApiErrors.conflict(ErrorCodes.ORDER_NOT_EDITABLE, "Order " + order.getOrderNumber() + " is "
                     + order.getOrderStatus().label() + ", so it can no longer be changed. Only quotations can be changed.");
@@ -153,7 +153,7 @@ public class QuotationChangeService {
         try {
             saved = changeRequestRepository.saveAndFlush(OrderChangeRequest.builder()
                     .orderId(order.getId())
-                    .requestedBy(dealerUser.getId())
+                    .requestedBy(supplierUser.getId())
                     .requestedAt(clock.instant())
                     .changes(changeMap)
                     .previous(toMap(previous))
@@ -165,26 +165,26 @@ public class QuotationChangeService {
             throw pendingConflict(order);
         }
 
-        notificationService.createForPermission(Permission.DEALER_QUOTATION_CHANGE_APPROVE, dealerUser.getId(),
-                "Dealer quotation change awaiting approval",
-                "Dealer " + order.getDealer().getName() + " asked to change quotation " + order.getOrderNumber() + " ("
+        notificationService.createForPermission(Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE, supplierUser.getId(),
+                "Supplier quotation change awaiting approval",
+                "Supplier " + order.getSupplier().getName() + " asked to change quotation " + order.getOrderNumber() + " ("
                         + describe(changes) + "). The quotation stays as it is until someone approves the change.",
                 NotificationLinks.APPROVALS);
         return toResponse(saved, order, users(List.of(saved)));
     }
 
-    /** The dealer takes back their own open request. */
+    /** The supplier takes back their own open request. */
     @Transactional
-    public OrderChangeDTOs.Response withdraw(Long requestId, Predicate<Order> ownedByDealer, User dealerUser) {
+    public OrderChangeDTOs.Response withdraw(Long requestId, Predicate<Order> ownedBySupplier, User supplierUser) {
         OrderChangeRequest request = changeRequestRepository.findByIdForUpdate(requestId).orElseThrow(() -> requestNotFound(requestId));
         Order order = orderRepository.findById(request.getOrderId()).orElseThrow(() -> requestNotFound(requestId));
         // Someone else's request looks the same as one that doesn't exist
-        if (!ownedByDealer.test(order)) {
+        if (!ownedBySupplier.test(order)) {
             throw requestNotFound(requestId);
         }
         ensureStillPending(request);
         request.setStatus(OrderChangeStatus.WITHDRAWN);
-        request.setDecidedBy(dealerUser.getId());
+        request.setDecidedBy(supplierUser.getId());
         request.setDecidedAt(clock.instant());
         OrderChangeRequest saved = changeRequestRepository.save(request);
         return toResponse(saved, order, users(List.of(saved)));
@@ -198,13 +198,13 @@ public class QuotationChangeService {
         boolean approved = decision.getDecision() == OrderChangeDTOs.Decision.APPROVED;
         String reason = OptionalText.blankToNull(decision.getReason());
         if (!approved && reason == null) {
-            throw ApiErrors.fieldError("reason", "A reason is required to reject a dealer's change.");
+            throw ApiErrors.fieldError("reason", "A reason is required to reject a supplier's change.");
         }
 
         if (approved) {
             if (order.getOrderStatus() != OrderStatus.QUOTATION) {
                 throw ApiErrors.conflict(ErrorCodes.ORDER_NOT_EDITABLE, "Order " + order.getOrderNumber() + " is "
-                        + order.getOrderStatus().label() + ", so the dealer's change can no longer be applied. Reject it instead.");
+                        + order.getOrderStatus().label() + ", so the supplier's change can no longer be applied. Reject it instead.");
             }
             OrderChangeDTOs.Terms changes = terms(request.getChanges());
             orderEditor.apply(order, OrderDTOs.UpdateRequest.builder()
@@ -221,7 +221,7 @@ public class QuotationChangeService {
                     .build());
             if (changes.getNote() != null) {
                 Map<String, Object> info = new LinkedHashMap<>(Objects.requireNonNullElse(order.getAdditionalInfo(), Map.of()));
-                info.put(DEALER_NOTE, changes.getNote());
+                info.put(SUPPLIER_NOTE, changes.getNote());
                 order.setAdditionalInfo(info);
             }
             order.setUpdatedBy(approver.getId());
@@ -237,7 +237,7 @@ public class QuotationChangeService {
         notificationService.createForUser(request.getRequestedBy(),
                 approved ? "Quotation change approved" : "Quotation change rejected",
                 "Your change to quotation " + order.getOrderNumber() + " was " + (approved ? "approved and applied." : "rejected.")
-                        + (reason != null ? " Reason: " + reason : ""), NotificationLinks.DEALER_QUOTATIONS);
+                        + (reason != null ? " Reason: " + reason : ""), NotificationLinks.SUPPLIER_QUOTATIONS);
         return toResponse(saved, order, users(List.of(saved)));
     }
 
@@ -290,7 +290,7 @@ public class QuotationChangeService {
                 .map(OrderChangeRequest::getOrderId).collect(Collectors.toSet());
     }
 
-    /** Refuses to touch a quotation while a dealer's change to it waits for a decision. */
+    /** Refuses to touch a quotation while a supplier's change to it waits for a decision. */
     public void ensureNotPending(Order order) {
         if (changeRequestRepository.existsByOrderIdAndStatus(order.getId(), OrderChangeStatus.PENDING)) {
             throw pendingConflict(order);
@@ -299,7 +299,7 @@ public class QuotationChangeService {
 
     private static ApiException pendingConflict(Order order) {
         return ApiErrors.conflict(ErrorCodes.ORDER_CHANGE_PENDING, "Quotation " + order.getOrderNumber()
-                + " has a dealer's change waiting for approval. It can't be changed until that change is approved, rejected or withdrawn.");
+                + " has a supplier's change waiting for approval. It can't be changed until that change is approved, rejected or withdrawn.");
     }
 
     private static void ensureStillPending(OrderChangeRequest request) {
@@ -310,7 +310,7 @@ public class QuotationChangeService {
     }
 
     private OrderChangeDTOs.Terms currentTerms(Order order) {
-        Object note = order.getAdditionalInfo() == null ? null : order.getAdditionalInfo().get(DEALER_NOTE);
+        Object note = order.getAdditionalInfo() == null ? null : order.getAdditionalInfo().get(SUPPLIER_NOTE);
         return OrderChangeDTOs.Terms.builder()
                 .itemId(order.getItem().getId())
                 .itemName(order.getItem().getName())
@@ -342,8 +342,8 @@ public class QuotationChangeService {
                 .orderId(request.getOrderId())
                 .orderNumber(order != null ? order.getOrderNumber() : null)
                 .orderStatus(order != null ? order.getOrderStatus() : null)
-                .dealerId(order != null ? order.getDealer().getId() : null)
-                .dealerName(order != null ? order.getDealer().getName() : null)
+                .supplierId(order != null ? order.getSupplier().getId() : null)
+                .supplierName(order != null ? order.getSupplier().getName() : null)
                 .changes(changes)
                 .previous(previous)
                 .proposedTotalPrice(proposedTotal)

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * goods is taxed at the goods' rate as a composite supply, CGST Act s.8), and GST is added on top of it.
  *
  * <p>The law decides the shape: one rate per item, and either CGST + SGST (each half the rate, supplier and us in the
- * same state) or IGST (different states), never both (IGST Act s.7-8). Amounts may be typed to match the dealer's own
+ * same state) or IGST (different states), never both (IGST Act s.7-8). Amounts may be typed to match the supplier's own
  * rounding, but must be within {@link #TOLERANCE} of the rate; when the order's taxable value later changes they are
  * worked out again from the rate.
  *
@@ -39,7 +39,7 @@ public final class QuotationTax {
     public static final String INTRA_STATE = "INTRA_STATE";
     public static final String INTER_STATE = "INTER_STATE";
 
-    /** Rounding a dealer may apply to each tax amount, and an invoice to its total. */
+    /** Rounding a supplier may apply to each tax amount, and an invoice to its total. */
     public static final BigDecimal TOLERANCE = new BigDecimal("1.00");
 
     /** Rates in force since 22 Sep 2025, as in the Web UI's productTax.ts and Ecommerce BE GstRates; change all three together. */
@@ -67,7 +67,7 @@ public final class QuotationTax {
         }
         String supplyType = text(sent.get(SUPPLY_TYPE));
         if (!INTRA_STATE.equals(supplyType) && !INTER_STATE.equals(supplyType)) {
-            throw field(SUPPLY_TYPE, "Choose how GST applies: CGST + SGST (dealer in our state) or IGST (dealer in another state).");
+            throw field(SUPPLY_TYPE, "Choose how GST applies: CGST + SGST (supplier in our state) or IGST (supplier in another state).");
         }
         BigDecimal rate = amount(sent, GST_RATE);
         if (rate == null) {
@@ -86,7 +86,7 @@ public final class QuotationTax {
         BigDecimal sgst = cgst;
         BigDecimal igst = cgst;
         if (intraState) {
-            refuseAmount(sent, IGST, "IGST doesn't apply when the dealer is in our state: GST is CGST + SGST.");
+            refuseAmount(sent, IGST, "IGST doesn't apply when the supplier is in our state: GST is CGST + SGST.");
             BigDecimal half = money(taxable.multiply(allowedRate).divide(TWO_HUNDRED, 2, RoundingMode.HALF_UP));
             cgst = typedOrCalculated(sent, CGST, half, "CGST");
             sgst = typedOrCalculated(sent, SGST, cgst, "SGST");
@@ -94,8 +94,8 @@ public final class QuotationTax {
                 throw field(SGST, "SGST must equal CGST: each is half of the GST rate.");
             }
         } else {
-            refuseAmount(sent, CGST, "CGST doesn't apply when the dealer is in another state: GST is IGST.");
-            refuseAmount(sent, SGST, "SGST doesn't apply when the dealer is in another state: GST is IGST.");
+            refuseAmount(sent, CGST, "CGST doesn't apply when the supplier is in another state: GST is IGST.");
+            refuseAmount(sent, SGST, "SGST doesn't apply when the supplier is in another state: GST is IGST.");
             BigDecimal full = money(taxable.multiply(allowedRate).divide(HUNDRED, 2, RoundingMode.HALF_UP));
             igst = typedOrCalculated(sent, IGST, full, "IGST");
         }
@@ -149,7 +149,7 @@ public final class QuotationTax {
                 && List.of(GST_RATE, CGST, SGST, IGST, CESS).stream().allMatch(key -> amountOf(a, key).compareTo(amountOf(b, key)) == 0);
     }
 
-    /** What the dealer's invoice should total: the taxable value plus the quoted GST, or the order total without a breakup. */
+    /** What the supplier's invoice should total: the taxable value plus the quoted GST, or the order total without a breakup. */
     public static BigDecimal grandTotal(Map<String, Object> breakup, BigDecimal orderTotal) {
         BigDecimal grandTotal = present(breakup) ? amount(breakup, GRAND_TOTAL) : null;
         return money(grandTotal != null ? grandTotal : orderTotal);

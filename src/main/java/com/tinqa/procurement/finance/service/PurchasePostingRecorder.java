@@ -21,14 +21,14 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Books a dealer purchase from stock Admin L2 has approved, not from delivery or from what was only recorded: the units
- * L2 approved as passed are bought, the rest go back to the dealer. Each approval (of an entry, or of a change to one)
+ * Books a supplier purchase from stock Admin L2 has approved, not from delivery or from what was only recorded: the units
+ * L2 approved as passed are bought, the rest go back to the supplier. Each approval (of an entry, or of a change to one)
  * re-values the order and records the difference to what is already booked, with the GST on it, in the caller's
  * transaction, so the approval and its money move commit (or fail) together.
  *
  * <p>GST comes from the quotation's breakup (prices there are before GST): CGST + SGST or IGST at the quoted rate on the
  * booked value, the quoted amounts themselves when the whole quoted value is booked, cess in proportion. No breakup, no
- * GST (the dealer's invoice carried none, so there is no input tax to claim).
+ * GST (the supplier's invoice carried none, so there is no input tax to claim).
  *
  * <p>Callers must hold the order's row lock, so two changes to one order cannot book the same difference twice.
  */
@@ -81,7 +81,7 @@ public class PurchasePostingRecorder {
         BigDecimal quotedTaxable = QuotationTax.amountOf(breakup, QuotationTax.TAXABLE_VALUE);
         BigDecimal quotedCess = QuotationTax.amountOf(breakup, QuotationTax.CESS);
         if (quotedTaxable.compareTo(taxable) == 0) {
-            // The whole quoted value: the amounts on the quotation (the dealer's own rounding)
+            // The whole quoted value: the amounts on the quotation (the supplier's own rounding)
             return new Gst(intraState ? QuotationTax.amountOf(breakup, QuotationTax.CGST) : ZERO,
                     intraState ? QuotationTax.amountOf(breakup, QuotationTax.SGST) : ZERO,
                     intraState ? ZERO : QuotationTax.amountOf(breakup, QuotationTax.IGST),
@@ -103,7 +103,7 @@ public class PurchasePostingRecorder {
         record(order, stock, reason, approvedUnits(stock), value, gstOn(order, value));
     }
 
-    /** The dealer refunded the order: everything booked for it, GST included, comes back. */
+    /** The supplier refunded the order: everything booked for it, GST included, comes back. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void refund(Order order) {
         record(order, null, PurchasePostingReason.ORDER_REFUNDED, BigDecimal.ZERO, ZERO, gstOn(order, ZERO));

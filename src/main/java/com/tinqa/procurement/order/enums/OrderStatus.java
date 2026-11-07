@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 public enum OrderStatus {
     QUOTATION,
     PENDING,
-    DEALER_LEVEL_PENDING,
+    SUPPLIER_LEVEL_PENDING,
     CONFIRMED,
     SHIPPED,
     DELIVERED,

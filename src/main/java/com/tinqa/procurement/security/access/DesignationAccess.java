@@ -15,7 +15,7 @@ import static com.tinqa.procurement.security.access.PermissionGroup.*;
  *
  * <p>An account's effective access is the groups of its designation, minus the approval-level groups when the
  * account is ADMIN_L1. So a designation says which business areas someone works in, and the admin level says
- * whether they may also approve there. Mobile and partner accounts (DEALER, INSPECTOR) get the groups of their role
+ * whether they may also approve there. Mobile and partner accounts (SUPPLIER, INSPECTOR) get the groups of their role
  * instead and never act as employees.
  */
 public final class DesignationAccess {
@@ -26,7 +26,7 @@ public final class DesignationAccess {
     static {
         // Owns the platform: every internal group
         Set<PermissionGroup> everythingInternal = EnumSet.allOf(PermissionGroup.class);
-        everythingInternal.remove(DEALER_PORTAL);
+        everythingInternal.remove(SUPPLIER_PORTAL);
         grant(Designation.SUPER_ADMIN, everythingInternal);
 
         grant(Designation.STORE_MANAGER, EnumSet.of(
@@ -53,11 +53,11 @@ public final class DesignationAccess {
                 CLIENT_DEMO_ATTENDANCE,
                 USER_GUIDE));
 
-        grant(Designation.DEALER_MANAGER, EnumSet.of(
-                DEALER_READ, DEALER_MANAGEMENT, DEALER_APPROVAL,
+        grant(Designation.SUPPLIER_MANAGER, EnumSet.of(
+                SUPPLIER_READ, SUPPLIER_MANAGEMENT, SUPPLIER_APPROVAL,
                 PROCUREMENT_ORDER_READ, PROCUREMENT_ORDER_MANAGEMENT, PROCUREMENT_ORDER_APPROVAL,
-                // Records what the dealers were paid against each order's plan; at Level 2 confirms it
-                DEALER_PAYMENT_MANAGEMENT, DEALER_PAYMENT_APPROVAL,
+                // Records what the suppliers were paid against each order's plan; at Level 2 confirms it
+                SUPPLIER_PAYMENT_MANAGEMENT, SUPPLIER_PAYMENT_APPROVAL,
                 CATALOG_READ,
                 INVENTORY_READ,
                 BARCODE_READ,
@@ -121,8 +121,8 @@ public final class DesignationAccess {
                 ANALYTICS, FINANCE_REPORTING, COSTING_READ,
                 EXPENSE_READ, EXPENSE_MANAGEMENT, EXPENSE_APPROVAL,
                 PAYMENT_READ, PAYMENT_MANAGEMENT, PAYMENT_APPROVAL,
-                // Pays the dealers (advance, midterm, final after testing) and collects their refunds
-                DEALER_PAYMENT_MANAGEMENT, DEALER_PAYMENT_APPROVAL,
+                // Pays the suppliers (advance, midterm, final after testing) and collects their refunds
+                SUPPLIER_PAYMENT_MANAGEMENT, SUPPLIER_PAYMENT_APPROVAL,
                 PROMO_CODE_READ,
                 // Schedules client demos and keeps their costs; at Level 2 approves their quotations and completions
                 CLIENT_DEMO_READ, CLIENT_DEMO_MANAGEMENT, CLIENT_DEMO_APPROVAL,
@@ -144,7 +144,7 @@ public final class DesignationAccess {
                 PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 CLIENT_DEMO_ATTENDANCE));
 
-        GROUPS_BY_EXTERNAL_ROLE.put(Role.DEALER, Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL)));
+        GROUPS_BY_EXTERNAL_ROLE.put(Role.SUPPLIER, Collections.unmodifiableSet(EnumSet.of(SUPPLIER_PORTAL)));
 
         for (Designation designation : Designation.values()) {
             if (!GROUPS_BY_DESIGNATION.containsKey(designation)) {
@@ -202,8 +202,8 @@ public final class DesignationAccess {
         return role == null ? Set.of() : GROUPS_BY_EXTERNAL_ROLE.getOrDefault(role, Set.of());
     }
 
-    /** Groups that can never be part of a custom role: the dealer portal (not an employee's) and system administration. */
-    public static final Set<PermissionGroup> NEVER_IN_CUSTOM_ROLES = Collections.unmodifiableSet(EnumSet.of(DEALER_PORTAL, SYSTEM_ADMINISTRATION));
+    /** Groups that can never be part of a custom role: the supplier portal (not an employee's) and system administration. */
+    public static final Set<PermissionGroup> NEVER_IN_CUSTOM_ROLES = Collections.unmodifiableSet(EnumSet.of(SUPPLIER_PORTAL, SYSTEM_ADMINISTRATION));
 
     /** Groups a custom role carries at ADMIN_L2: its own groups plus SELF_SERVICE, like every designation. */
     public static Set<PermissionGroup> groupsOfCustomRole(CustomRoleGrant customRole) {

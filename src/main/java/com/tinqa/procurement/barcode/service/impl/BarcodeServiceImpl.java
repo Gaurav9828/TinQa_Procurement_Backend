@@ -395,8 +395,8 @@ public class BarcodeServiceImpl implements BarcodeService {
                 .orderNumber(order.getOrderNumber())
                 .orderDate(order.getOrderDate())
                 .deliveredOn(order.getActualDelivery())
-                .dealerId(stock.getDealer().getId())
-                .dealerName(stock.getDealer().getName())
+                .supplierId(stock.getSupplier().getId())
+                .supplierName(stock.getSupplier().getName())
                 .build();
     }
 

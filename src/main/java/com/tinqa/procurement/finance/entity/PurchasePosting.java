@@ -11,8 +11,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Append-only: one change to what is booked as bought from a dealer for an order, written in the same transaction as
- * the stock change behind it. {@code amount} is signed: positive = more paid to the dealer, negative = money back.
+ * Append-only: one change to what is booked as bought from a supplier for an order, written in the same transaction as
+ * the stock change behind it. {@code amount} is signed: positive = more paid to the supplier, negative = money back.
  */
 @Entity
 @Table(name = "purchase_postings")

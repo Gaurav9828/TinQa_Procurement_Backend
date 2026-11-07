@@ -4,8 +4,8 @@ import com.tinqa.procurement.common.enums.ApprovalStatus;
 import com.tinqa.procurement.common.exception.ApiErrors;
 import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.util.Quantities;
-import com.tinqa.procurement.dealer.entity.Dealer;
-import com.tinqa.procurement.dealer.repository.DealerRepository;
+import com.tinqa.procurement.supplier.entity.Supplier;
+import com.tinqa.procurement.supplier.repository.SupplierRepository;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.item.repository.ItemRepository;
 import com.tinqa.procurement.order.dto.OrderDTOs;
@@ -21,7 +21,7 @@ import java.time.LocalDate;
 
 /**
  * Applies an edit to an order's terms with the rules every edit follows, whether an admin makes it directly or it is
- * a dealer's change that was just approved. The caller decides whether the order may be edited at all and locks it.
+ * a supplier's change that was just approved. The caller decides whether the order may be edited at all and locks it.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,14 +30,14 @@ public class OrderEditor {
     // No stock entry is being edited when an order's quantity changes
     private static final long NO_STOCK_ENTRY = -1L;
 
-    private final DealerRepository dealerRepository;
+    private final SupplierRepository supplierRepository;
     private final ItemRepository itemRepository;
     private final StockRepository stockRepository;
 
     /** Copies every non-null field of the request onto the order, then recalculates its total and GST. */
     public void apply(Order order, OrderDTOs.UpdateRequest request) {
-        if (request.getDealerId() != null && !request.getDealerId().equals(order.getDealer().getId())) {
-            order.setDealer(findDealer(request.getDealerId()));
+        if (request.getSupplierId() != null && !request.getSupplierId().equals(order.getSupplier().getId())) {
+            order.setSupplier(findSupplier(request.getSupplierId()));
         }
         if (request.getItemId() != null && !request.getItemId().equals(order.getItem().getId())) {
             order.setItem(findItem(request.getItemId()));
@@ -79,9 +79,9 @@ public class OrderEditor {
         }
     }
 
-    public Dealer findDealer(Long dealerId) {
-        return dealerRepository.findById(dealerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + dealerId));
+    public Supplier findSupplier(Long supplierId) {
+        return supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found with id: " + supplierId));
     }
 
     public Item findItem(Long itemId) {

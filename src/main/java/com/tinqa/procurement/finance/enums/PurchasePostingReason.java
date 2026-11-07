@@ -14,7 +14,7 @@ public enum PurchasePostingReason {
     STOCK_RECEIVED,
     STOCK_UPDATED,
     STOCK_QUANTITY_ADDED,
-    /** The dealer refunded the order: what was booked for it comes back. */
+    /** The supplier refunded the order: what was booked for it comes back. */
     ORDER_REFUNDED,
     /** Migration rows mirroring what the old rule (whole order on delivery / refund) already booked. */
     LEGACY_DELIVERED,

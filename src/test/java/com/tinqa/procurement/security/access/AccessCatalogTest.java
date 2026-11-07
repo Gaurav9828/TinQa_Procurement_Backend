@@ -35,7 +35,7 @@ class AccessCatalogTest {
     @Test
     void superAdminHoldsEveryInternalPermission() {
         Set<Permission> expected = EnumSet.allOf(Permission.class);
-        expected.removeIf(permission -> permission.group() == PermissionGroup.DEALER_PORTAL);
+        expected.removeIf(permission -> permission.group() == PermissionGroup.SUPPLIER_PORTAL);
 
         assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPER_ADMIN).permissions()).isEqualTo(expected);
     }
@@ -53,7 +53,7 @@ class AccessCatalogTest {
     void everyGroupIsGrantedToSomeone() {
         Set<PermissionGroup> granted = EnumSet.noneOf(PermissionGroup.class);
         Arrays.stream(Designation.values()).forEach(designation -> granted.addAll(DesignationAccess.groupsOf(designation)));
-        granted.addAll(DesignationAccess.effectiveGroups(Role.DEALER, null));
+        granted.addAll(DesignationAccess.effectiveGroups(Role.SUPPLIER, null));
 
         assertThat(granted).containsExactlyInAnyOrder(PermissionGroup.values());
     }
@@ -79,7 +79,7 @@ class AccessCatalogTest {
     @Test
     void nonEmployeesNeverGetEmployeePermissions() {
         assertThat(DesignationAccess.effectiveGroups(Role.INSPECTOR, Designation.SUPER_ADMIN)).isEmpty();
-        assertThat(DesignationAccess.effectiveGroups(Role.DEALER, Designation.SUPER_ADMIN)).containsExactly(PermissionGroup.DEALER_PORTAL);
+        assertThat(DesignationAccess.effectiveGroups(Role.SUPPLIER, Designation.SUPER_ADMIN)).containsExactly(PermissionGroup.SUPPLIER_PORTAL);
         assertThat(DesignationAccess.effectiveGroups(Role.ADMIN_L2, null)).isEmpty();
     }
 
@@ -88,7 +88,7 @@ class AccessCatalogTest {
         assertThat(DesignationAccess.hasApprovalLevel(Designation.STORE_MANAGER)).isTrue();
         assertThat(DesignationAccess.hasApprovalLevel(Designation.DELIVERY_RIDER)).isFalse();
         assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.DELIVERY_RIDER)).isEqualTo(Role.ADMIN_L1);
-        assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.DEALER_MANAGER)).isEqualTo(Role.ADMIN_L2);
+        assertThat(DesignationAccess.effectiveLevel(Role.ADMIN_L2, Designation.SUPPLIER_MANAGER)).isEqualTo(Role.ADMIN_L2);
         assertThat(DesignationAccess.effectiveLevel(Role.INSPECTOR, Designation.DELIVERY_RIDER)).isEqualTo(Role.INSPECTOR);
     }
 
@@ -112,7 +112,7 @@ class AccessCatalogTest {
     // Expenses are raised by the teams that spend (maker) and approved only at Level 2 (checker)
     @Test
     void expensesAreRaisedByOperationsAndApprovedByLevelTwoFinance() {
-        for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.DEALER_MANAGER,
+        for (Designation designation : List.of(Designation.STORE_MANAGER, Designation.SUPPLIER_MANAGER,
                 Designation.FULFILLMENT_SPECIALIST, Designation.FLEET_COORDINATOR)) {
             assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
                     .contains(Permission.EXPENSE_VIEW, Permission.EXPENSE_SUBMIT)
@@ -243,29 +243,29 @@ class AccessCatalogTest {
         assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPER_ADMIN).permissions()).doesNotContain(Permission.SYSTEM_SETTINGS_MANAGE);
     }
 
-    // Dealer logins hold the dealer portal and nothing else, whatever designation is passed in
+    // Supplier logins hold the supplier portal and nothing else, whatever designation is passed in
     @Test
-    void dealersOnlyHoldTheDealerPortal() {
-        assertThat(UserAccess.of(Role.DEALER, null).permissions()).containsExactlyInAnyOrder(
-                Permission.DEALER_PORTAL_VIEW, Permission.DEALER_QUOTATION_SUBMIT,
-                Permission.DEALER_QUOTATION_CHANGE_REQUEST, Permission.DEALER_ORDER_RESPOND,
-                Permission.DEALER_ORDER_SHIP);
-        assertThat(UserAccess.of(Role.DEALER, Designation.SUPER_ADMIN).permissions())
-                .isEqualTo(UserAccess.of(Role.DEALER, null).permissions());
-        assertThat(AccessDTOs.MyAccess.of(UserAccess.of(Role.DEALER, null)).designationLabel()).isEqualTo("Dealer");
+    void suppliersOnlyHoldTheSupplierPortal() {
+        assertThat(UserAccess.of(Role.SUPPLIER, null).permissions()).containsExactlyInAnyOrder(
+                Permission.SUPPLIER_PORTAL_VIEW, Permission.SUPPLIER_QUOTATION_SUBMIT,
+                Permission.SUPPLIER_QUOTATION_CHANGE_REQUEST, Permission.SUPPLIER_ORDER_RESPOND,
+                Permission.SUPPLIER_ORDER_SHIP);
+        assertThat(UserAccess.of(Role.SUPPLIER, Designation.SUPER_ADMIN).permissions())
+                .isEqualTo(UserAccess.of(Role.SUPPLIER, null).permissions());
+        assertThat(AccessDTOs.MyAccess.of(UserAccess.of(Role.SUPPLIER, null)).designationLabel()).isEqualTo("Supplier");
     }
 
-    // A Dealer Manager creates dealer logins and only Level 2 approves them; either level decides dealers' quotation changes
+    // A Supplier Manager creates supplier logins and only Level 2 approves them; either level decides suppliers' quotation changes
     @Test
-    void dealerLoginsNeedALevelTwoDealerManagerButQuotationChangesAnyDealerManager() {
-        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.DEALER_MANAGER).permissions())
-                .contains(Permission.DEALER_LOGIN_MANAGE, Permission.DEALER_QUOTATION_CHANGE_APPROVE)
-                .doesNotContain(Permission.DEALER_LOGIN_APPROVE);
-        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DEALER_MANAGER).permissions())
-                .contains(Permission.DEALER_LOGIN_MANAGE, Permission.DEALER_LOGIN_APPROVE, Permission.DEALER_QUOTATION_CHANGE_APPROVE)
-                .noneMatch(permission -> permission.group() == PermissionGroup.DEALER_PORTAL);
-        assertThat(Permission.DEALER_LOGIN_APPROVE.group().approvalLevel()).isTrue();
-        assertThat(Permission.DEALER_QUOTATION_CHANGE_APPROVE.group().approvalLevel()).isFalse();
+    void supplierLoginsNeedALevelTwoSupplierManagerButQuotationChangesAnySupplierManager() {
+        assertThat(UserAccess.of(Role.ADMIN_L1, Designation.SUPPLIER_MANAGER).permissions())
+                .contains(Permission.SUPPLIER_LOGIN_MANAGE, Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE)
+                .doesNotContain(Permission.SUPPLIER_LOGIN_APPROVE);
+        assertThat(UserAccess.of(Role.ADMIN_L2, Designation.SUPPLIER_MANAGER).permissions())
+                .contains(Permission.SUPPLIER_LOGIN_MANAGE, Permission.SUPPLIER_LOGIN_APPROVE, Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE)
+                .noneMatch(permission -> permission.group() == PermissionGroup.SUPPLIER_PORTAL);
+        assertThat(Permission.SUPPLIER_LOGIN_APPROVE.group().approvalLevel()).isTrue();
+        assertThat(Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE.group().approvalLevel()).isFalse();
     }
 
     // Super Admin and Store Manager (either level) open the user guide and share role PDFs; nobody else does
@@ -278,7 +278,7 @@ class AccessCatalogTest {
                         .as(designation + " " + level).isEqualTo(expected);
             }
         }
-        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.USER_GUIDE_VIEW);
+        assertThat(UserAccess.of(Role.SUPPLIER, null).permissions()).doesNotContain(Permission.USER_GUIDE_VIEW);
     }
 
     // Barcodes: store, warehouse and Super Admin staff ask for corrections, others who handle stock only trace units;
@@ -297,13 +297,13 @@ class AccessCatalogTest {
             assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
                     .contains(Permission.BARCODE_VIEW, Permission.BARCODE_REQUEST);
         }
-        for (Designation designation : List.of(Designation.DEALER_MANAGER, Designation.CATALOG_SPECIALIST,
+        for (Designation designation : List.of(Designation.SUPPLIER_MANAGER, Designation.CATALOG_SPECIALIST,
                 Designation.CUSTOMER_SUPPORT, Designation.FINANCIAL_AUDITOR)) {
             assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions()).as(designation.name())
                     .contains(Permission.BARCODE_VIEW).doesNotContain(Permission.BARCODE_REQUEST);
         }
         assertThat(UserAccess.of(Role.ADMIN_L2, Designation.DELIVERY_RIDER).permissions()).doesNotContain(Permission.BARCODE_VIEW);
-        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.BARCODE_VIEW);
+        assertThat(UserAccess.of(Role.SUPPLIER, null).permissions()).doesNotContain(Permission.BARCODE_VIEW);
     }
 
     // Customer care and store managers look customers up and ask for corrections; only the Super Admin edits them
@@ -332,7 +332,7 @@ class AccessCatalogTest {
                         .contains(Permission.PAYSLIP_VIEW_OWN);
             }
         }
-        assertThat(UserAccess.of(Role.DEALER, null).permissions()).doesNotContain(Permission.PAYSLIP_VIEW_OWN);
+        assertThat(UserAccess.of(Role.SUPPLIER, null).permissions()).doesNotContain(Permission.PAYSLIP_VIEW_OWN);
         assertThat(UserAccess.of(Role.ADMIN_L1, Designation.FINANCE_MANAGER).permissions())
                 .contains(Permission.PAYMENT_VIEW, Permission.PAYMENT_RECORD)
                 .doesNotContain(Permission.PAYMENT_APPROVE);
@@ -354,7 +354,7 @@ class AccessCatalogTest {
     }
 
     // A custom role works like a designation: SELF_SERVICE added, approval groups only at Level 2, Level 2 only when
-    // it adds something, and never the dealer portal or system administration
+    // it adds something, and never the supplier portal or system administration
     @Test
     void customRolesGrantTheirGroupsLikeADesignation() {
         CustomRoleGrant marketing = new CustomRoleGrant(1L, "MARKETING_EXECUTIVE", "Marketing Executive", "Marketing",
@@ -373,8 +373,8 @@ class AccessCatalogTest {
         CustomRoleGrant caller = new CustomRoleGrant(2L, "CALLER", "Caller", "Marketing",
                 EnumSet.of(PermissionGroup.CLIENT_OUTREACH_READ));
         assertThat(DesignationAccess.effectiveLevelOfCustomRole(Role.ADMIN_L2, caller)).isEqualTo(Role.ADMIN_L1);
-        // A dealer never picks up an employee's custom role
-        assertThat(UserAccess.of(Role.DEALER, null, caller).permissions()).doesNotContain(Permission.OUTREACH_VIEW);
+        // A supplier never picks up an employee's custom role
+        assertThat(UserAccess.of(Role.SUPPLIER, null, caller).permissions()).doesNotContain(Permission.OUTREACH_VIEW);
     }
 
     // A new endpoint must say who may call it, normally with @RequiresPermission, so nothing ships unguarded

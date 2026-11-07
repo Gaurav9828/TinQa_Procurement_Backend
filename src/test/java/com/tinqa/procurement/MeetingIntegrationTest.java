@@ -213,8 +213,8 @@ class MeetingIntegrationTest extends IntegrationTestSupport {
         if (!start.plusHours(2).toLocalDate().equals(start.toLocalDate())) {
             start = start.toLocalDate().plusDays(1).atTime(0, 30).atOffset(IST);
         }
-        Map<String, Object> request = body("mode", "IN_PERSON", "title", "Site visit", "meetingType", "BUSINESS_TO_DEALER",
-                "startsAt", start.toString(), "endsAt", start.plusHours(2).toString(), "placeName", "Dealer office",
+        Map<String, Object> request = body("mode", "IN_PERSON", "title", "Site visit", "meetingType", "BUSINESS_TO_SUPPLIER",
+                "startsAt", start.toString(), "endsAt", start.plusHours(2).toString(), "placeName", "Supplier office",
                 "attendeeEmployeeIds", List.of(invitee.employeeId()));
         post(MEETINGS, organizer.token(), request, 400);
         request.put("address", "12 MG Road, Jaipur");
@@ -228,12 +228,12 @@ class MeetingIntegrationTest extends IntegrationTestSupport {
 
         post(MEETINGS + "/" + id + "/cancel", invitee.token(), body("reason", "No"), 403);
         post(MEETINGS + "/" + id + "/cancel", organizer.token(), body("reason", ""), 400);
-        JsonNode cancelled = data(post(MEETINGS + "/" + id + "/cancel", organizer.token(), body("reason", "Dealer travelling"), 200));
+        JsonNode cancelled = data(post(MEETINGS + "/" + id + "/cancel", organizer.token(), body("reason", "Supplier travelling"), 200));
         assertThat(cancelled.get("status").asText()).isEqualTo("CANCELLED");
-        assertThat(cancelled.get("cancelReason").asText()).isEqualTo("Dealer travelling");
+        assertThat(cancelled.get("cancelReason").asText()).isEqualTo("Supplier travelling");
         assertThat(notificationTitles(invitee)).contains("Meeting cancelled");
         assertThat(sentEmails(id)).hasSize(2).allMatch(email -> email.kind().equals("CANCELLED")
-                && "Dealer travelling".equals(email.cancelReason()));
+                && "Supplier travelling".equals(email.cancelReason()));
         post(MEETINGS + "/" + id + "/decline", invitee.token(), body("reason", "x"), 409);
         put(MEETINGS + "/" + id, organizer.token(), request, 409);
     }

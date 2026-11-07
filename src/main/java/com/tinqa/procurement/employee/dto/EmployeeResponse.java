@@ -28,7 +28,7 @@ public class EmployeeResponse {
     private String gender;
     private String designation;
     private String designationLabel;
-    // The account's admin level (ADMIN_L1 / ADMIN_L2), or DEALER / INSPECTOR for mobile accounts
+    // The account's admin level (ADMIN_L1 / ADMIN_L2), or SUPPLIER / INSPECTOR for mobile accounts
     private String role;
     private String department;
     private String employmentType;

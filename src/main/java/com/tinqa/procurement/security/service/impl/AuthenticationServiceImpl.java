@@ -2,7 +2,7 @@ package com.tinqa.procurement.security.service.impl;
 
 import com.tinqa.procurement.common.constant.AppConstants;
 import com.tinqa.procurement.common.exception.BadRequestException;
-import com.tinqa.procurement.dealer.login.DealerLoginService;
+import com.tinqa.procurement.supplier.login.SupplierLoginService;
 import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.security.access.AccessDTOs;
 import com.tinqa.procurement.security.access.AccessResolver;
@@ -37,13 +37,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
 
-    // The web app is for employees and for dealers with a dealer login (who only hold the dealer portal permissions)
-    private static final Set<Role> WEB_ROLES = EnumSet.of(Role.ADMIN_L1, Role.ADMIN_L2, Role.DEALER);
+    // The web app is for employees and for suppliers with a supplier login (who only hold the supplier portal permissions)
+    private static final Set<Role> WEB_ROLES = EnumSet.of(Role.ADMIN_L1, Role.ADMIN_L2, Role.SUPPLIER);
     private static final String LOGOUT_MESSAGE = "Logout successful";
 
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
-    private final DealerLoginService dealerLoginService;
+    private final SupplierLoginService supplierLoginService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenRevocationService tokenRevocationService;
@@ -103,10 +103,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return user;
     }
 
-    // Accounts that are disabled because of the employee or dealer login approval workflow say why
+    // Accounts that are disabled because of the employee or supplier login approval workflow say why
     private String disabledReason(User user) {
-        if (user.getRole() == Role.DEALER) {
-            return dealerLoginService.signInRefusal(user).orElse(AppConstants.MESSAGE_ACCOUNT_DISABLED);
+        if (user.getRole() == Role.SUPPLIER) {
+            return supplierLoginService.signInRefusal(user).orElse(AppConstants.MESSAGE_ACCOUNT_DISABLED);
         }
         return employeeRepository.findByUserId(user.getId())
                 .map(employee -> switch (employee.getStatus()) {

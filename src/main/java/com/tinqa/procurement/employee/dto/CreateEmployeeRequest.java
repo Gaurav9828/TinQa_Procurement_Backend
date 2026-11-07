@@ -135,6 +135,6 @@ public class CreateEmployeeRequest {
     private String googleMapsUrl;
 
     // Optional user role override; defaults to EMPLOYEE if omitted
-    @Pattern(regexp = ValidationPatterns.ROLE, message = "Role must be one of ADMIN_L1, ADMIN_L2, DEALER or INSPECTOR")
+    @Pattern(regexp = ValidationPatterns.ROLE, message = "Role must be one of ADMIN_L1, ADMIN_L2, SUPPLIER or INSPECTOR")
     private String role;
 }

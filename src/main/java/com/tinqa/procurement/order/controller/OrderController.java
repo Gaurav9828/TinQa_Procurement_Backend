@@ -78,9 +78,9 @@ public class OrderController {
     }
 
     @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)
-    @GetMapping("/dealer/{dealerId}")
-    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersByDealerId(@PathVariable Long dealerId) {
-        return ApiResponses.ok(orderService.getOrdersByDealerId(dealerId), "Orders retrieved for dealer successfully");
+    @GetMapping("/supplier/{supplierId}")
+    public ResponseEntity<ApiResponse<List<OrderDTOs.Response>>> getOrdersBySupplierId(@PathVariable Long supplierId) {
+        return ApiResponses.ok(orderService.getOrdersBySupplierId(supplierId), "Orders retrieved for supplier successfully");
     }
 
     @RequiresPermission(Permission.PROCUREMENT_ORDER_VIEW)

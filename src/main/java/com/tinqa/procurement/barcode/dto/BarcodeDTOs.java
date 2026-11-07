@@ -50,7 +50,7 @@ public class BarcodeDTOs {
         private LocalDateTime lockedAt;
     }
 
-    /** Where a piece came from: its stock entry (batch), the purchase order it was received against and the dealer. */
+    /** Where a piece came from: its stock entry (batch), the purchase order it was received against and the supplier. */
     @Data
     @Builder
     @NoArgsConstructor
@@ -66,8 +66,8 @@ public class BarcodeDTOs {
         private String orderNumber;
         private LocalDate orderDate;
         private LocalDate deliveredOn;
-        private Long dealerId;
-        private String dealerName;
+        private Long supplierId;
+        private String supplierName;
     }
 
     @Data
@@ -106,7 +106,7 @@ public class BarcodeDTOs {
     }
 
     /**
-     * Everything known about a barcode: an item unit's batch, purchase order, dealer and the product unit it is fitted
+     * Everything known about a barcode: an item unit's batch, purchase order, supplier and the product unit it is fitted
      * into; a product unit's parts and where each came from; and its history.
      */
     @Data
@@ -193,7 +193,7 @@ public class BarcodeDTOs {
 
     /**
      * The storefront product a scanned product unit belongs to, for finding it at the store counter. Says nothing
-     * about the unit's parts, batches or dealers (that is the trace, for BARCODE_VIEW).
+     * about the unit's parts, batches or suppliers (that is the trace, for BARCODE_VIEW).
      */
     @Data
     @Builder

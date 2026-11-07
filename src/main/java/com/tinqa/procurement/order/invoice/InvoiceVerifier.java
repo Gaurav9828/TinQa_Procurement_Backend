@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Compares the figures read from a dealer's invoice with what the quotation says it should be. Amounts may differ by
+ * Compares the figures read from a supplier's invoice with what the quotation says it should be. Amounts may differ by
  * up to {@link QuotationTax#TOLERANCE} for rounding (an invoice total is often rounded to the rupee).
  */
 public final class InvoiceVerifier {
@@ -18,10 +18,10 @@ public final class InvoiceVerifier {
      * What the invoice should show.
      *
      * @param taxQuoted whether the quotation has a GST breakup; without one no GST is expected on the invoice
-     * @param dealerGstin the dealer's GSTIN on record, or null when there is none to check
+     * @param supplierGstin the supplier's GSTIN on record, or null when there is none to check
      */
     public record Expected(BigDecimal grandTotal, boolean taxQuoted, BigDecimal taxableValue, BigDecimal cgst, BigDecimal sgst,
-                           BigDecimal igst, BigDecimal cess, String dealerGstin) {
+                           BigDecimal igst, BigDecimal cess, String supplierGstin) {
     }
 
     public record Result(InvoiceVerificationStatus status, List<InvoiceCheck> checks) {
@@ -49,8 +49,8 @@ public final class InvoiceVerifier {
         taxCheck(checks, InvoiceCheck.SGST, "SGST", expected.sgst(), found.sgst(), expected);
         taxCheck(checks, InvoiceCheck.IGST, "IGST", expected.igst(), found.igst(), expected);
         taxCheck(checks, InvoiceCheck.CESS, "Cess", expected.cess(), found.cess(), expected);
-        if (expected.dealerGstin() != null && !expected.dealerGstin().isBlank()) {
-            checks.add(gstinCheck(expected.dealerGstin().trim().toUpperCase(Locale.ROOT), found.gstins()));
+        if (expected.supplierGstin() != null && !expected.supplierGstin().isBlank()) {
+            checks.add(gstinCheck(expected.supplierGstin().trim().toUpperCase(Locale.ROOT), found.gstins()));
         }
 
         InvoiceVerificationStatus status;
@@ -86,9 +86,9 @@ public final class InvoiceVerifier {
             // Only worth showing when the invoice charges a tax the quotation doesn't
             if (found != null && found.signum() > 0) {
                 String why = !quotation.taxQuoted() ? "the quotation has no GST"
-                        : key.equals(InvoiceCheck.IGST) ? "the quotation is CGST + SGST (dealer in our state)"
+                        : key.equals(InvoiceCheck.IGST) ? "the quotation is CGST + SGST (supplier in our state)"
                         : key.equals(InvoiceCheck.CESS) ? "the quotation has no cess"
-                        : "the quotation is IGST (dealer in another state)";
+                        : "the quotation is IGST (supplier in another state)";
                 checks.add(InvoiceCheck.builder().key(key).label(label).expected(plain(BigDecimal.ZERO)).found(plain(found)).ok(false)
                         .message("Invoice charges " + label + " of ₹" + plain(found) + ", but " + why + ".").build());
             }
@@ -97,15 +97,15 @@ public final class InvoiceVerifier {
         checks.add(amountCheck(key, label, expected, found, true, null));
     }
 
-    private static InvoiceCheck gstinCheck(String dealerGstin, List<String> found) {
-        InvoiceCheck.InvoiceCheckBuilder check = InvoiceCheck.builder().key(InvoiceCheck.GSTIN).label("Dealer GSTIN")
-                .expected(dealerGstin).found(found.isEmpty() ? null : String.join(", ", found));
-        if (found.contains(dealerGstin)) {
+    private static InvoiceCheck gstinCheck(String supplierGstin, List<String> found) {
+        InvoiceCheck.InvoiceCheckBuilder check = InvoiceCheck.builder().key(InvoiceCheck.GSTIN).label("Supplier GSTIN")
+                .expected(supplierGstin).found(found.isEmpty() ? null : String.join(", ", found));
+        if (found.contains(supplierGstin)) {
             return check.ok(true).build();
         }
         return check.ok(false).message(found.isEmpty()
                 ? "No GSTIN found on the invoice; a tax invoice must show the supplier's GSTIN."
-                : "The dealer's GSTIN " + dealerGstin + " is not on the invoice.").build();
+                : "The supplier's GSTIN " + supplierGstin + " is not on the invoice.").build();
     }
 
     private static boolean within(BigDecimal expected, BigDecimal found) {

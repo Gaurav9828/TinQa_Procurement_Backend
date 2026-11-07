@@ -18,12 +18,12 @@ public enum ApprovalQueue {
     RETURNS(Permission.PROCUREMENT_ORDER_APPROVE, Permission.PROCUREMENT_ORDER_VIEW),
     PRODUCTS(Permission.PRODUCT_APPROVAL_DECIDE),
     EMPLOYEES(Permission.EMPLOYEE_APPROVE),
-    DEALER_LOGINS(Permission.DEALER_LOGIN_APPROVE),
-    QUOTATION_CHANGES(Permission.DEALER_QUOTATION_CHANGE_APPROVE),
+    SUPPLIER_LOGINS(Permission.SUPPLIER_LOGIN_APPROVE),
+    QUOTATION_CHANGES(Permission.SUPPLIER_QUOTATION_CHANGE_APPROVE),
     BARCODES(Permission.BARCODE_APPROVE),
     CLIENT_DEMOS(Permission.DEMO_APPROVE),
-    // Payments to dealers and refunds from them, waiting for someone other than the recorder (V23)
-    DEALER_PAYMENTS(Permission.DEALER_PAYMENT_APPROVE, Permission.PROCUREMENT_ORDER_VIEW);
+    // Payments to suppliers and refunds from them, waiting for someone other than the recorder (V23)
+    SUPPLIER_PAYMENTS(Permission.SUPPLIER_PAYMENT_APPROVE, Permission.PROCUREMENT_ORDER_VIEW);
 
     private final List<Permission> required;
 

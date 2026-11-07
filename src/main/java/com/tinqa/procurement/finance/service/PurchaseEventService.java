@@ -3,7 +3,7 @@ package com.tinqa.procurement.finance.service;
 import com.tinqa.procurement.finance.dto.PurchaseEventDTOs;
 import com.tinqa.procurement.finance.entity.PurchasePosting;
 import com.tinqa.procurement.finance.repository.PurchasePostingRepository;
-import com.tinqa.procurement.dealer.entity.Dealer;
+import com.tinqa.procurement.supplier.entity.Supplier;
 import com.tinqa.procurement.order.entity.Order;
 import com.tinqa.procurement.order.invoice.OrderInvoice;
 import com.tinqa.procurement.order.invoice.OrderInvoiceRepository;
@@ -43,8 +43,8 @@ public class PurchaseEventService {
 
     private PurchaseEventDTOs.PurchaseEvent toEvent(PurchasePosting posting) {
         Order order = posting.getOrder();
-        Dealer dealer = order.getDealer();
-        // The dealer's invoice that counts for the order (the latest uploaded): the document the input tax is claimed on
+        Supplier supplier = order.getSupplier();
+        // The supplier's invoice that counts for the order (the latest uploaded): the document the input tax is claimed on
         OrderInvoice invoice = invoiceRepository.findFirstByOrderIdOrderByIdDesc(order.getId()).orElse(null);
         return new PurchaseEventDTOs.PurchaseEvent(
                 posting.getId(),
@@ -53,7 +53,7 @@ public class PurchaseEventService {
                 order.getOrderNumber(),
                 posting.getStock() != null ? posting.getStock().getStockIdentityNumber() : null,
                 posting.getAmount(),
-                dealer != null ? dealer.getName() : null,
+                supplier != null ? supplier.getName() : null,
                 order.getItem() != null ? order.getItem().getName() : null,
                 posting.getUnitsPassed(),
                 order.getUnitType(),
@@ -66,8 +66,8 @@ public class PurchaseEventService {
                 posting.getGstRate(),
                 posting.getSupplyType(),
                 posting.getHsnSac(),
-                dealer != null ? dealer.getGstin() : null,
-                dealer != null ? dealer.getState() : null,
+                supplier != null ? supplier.getGstin() : null,
+                supplier != null ? supplier.getState() : null,
                 invoice != null ? invoice.getInvoiceNumber() : null,
                 invoice != null ? invoice.getUploadedAt() : null);
     }

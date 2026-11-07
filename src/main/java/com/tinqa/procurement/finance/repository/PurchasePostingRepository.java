@@ -34,7 +34,7 @@ public interface PurchasePostingRepository extends JpaRepository<PurchasePosting
     }
 
     // Finance feed, oldest first
-    @Query("SELECT p FROM PurchasePosting p JOIN FETCH p.order o LEFT JOIN FETCH o.dealer LEFT JOIN FETCH o.item "
+    @Query("SELECT p FROM PurchasePosting p JOIN FETCH p.order o LEFT JOIN FETCH o.supplier LEFT JOIN FETCH o.item "
             + "LEFT JOIN FETCH p.stock WHERE p.createdAt >= :since ORDER BY p.createdAt ASC, p.id ASC")
     List<PurchasePosting> findSince(@Param("since") Instant since, Pageable pageable);
 }

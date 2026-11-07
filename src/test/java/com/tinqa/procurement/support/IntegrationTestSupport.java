@@ -305,14 +305,14 @@ public abstract class IntegrationTestSupport {
 
     // ------------------------------------------------------------------ fixtures
 
-    // Item categories; dealers are assigned the same categories
+    // Item categories; suppliers are assigned the same categories
     protected long createCategory(Actor actor) throws Exception {
         String code = uniq("CAT");
         return data(post("/v1/admin/items/categories", actor.token(),
                 body("name", "Category " + code, "code", code), 201)).get("id").asLong();
     }
 
-    // Dealers and items made by createDealer() and createItem() share this category (one per test), so the dealer
+    // Suppliers and items made by createSupplier() and createItem() share this category (one per test), so the supplier
     // can quote for the item
     private Long fixtureCategory;
 
@@ -323,14 +323,14 @@ public abstract class IntegrationTestSupport {
         return fixtureCategory;
     }
 
-    protected Map<String, Object> dealerBody(List<Long> categoryIds) {
-        return body("name", "Dealer " + next(), "email", uniq("dealer") + "@example.com",
+    protected Map<String, Object> supplierBody(List<Long> categoryIds) {
+        return body("name", "Supplier " + next(), "email", uniq("supplier") + "@example.com",
                 "phoneNumber", nextLocalMobile(), "street", "12 MG Road", "city", "Bengaluru",
                 "state", "Karnataka", "country", "India", "pincode", "560001", "categoryIds", categoryIds);
     }
 
-    protected long createDealer() throws Exception {
-        return data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(fixtureCategory())), 201)).get("id").asLong();
+    protected long createSupplier() throws Exception {
+        return data(post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(fixtureCategory())), 201)).get("id").asLong();
     }
 
     protected Map<String, Object> itemBody(long... categoryIds) {
@@ -344,25 +344,25 @@ public abstract class IntegrationTestSupport {
         return data(post("/v1/admin/items", l1.token(), itemBody(fixtureCategory()), 201)).get("id").asLong();
     }
 
-    protected Map<String, Object> orderBody(long dealerId, long itemId, String quantity) {
-        return body("dealerId", dealerId, "itemId", itemId, "orderQuantity", new BigDecimal(quantity),
+    protected Map<String, Object> orderBody(long supplierId, long itemId, String quantity) {
+        return body("supplierId", supplierId, "itemId", itemId, "orderQuantity", new BigDecimal(quantity),
                 "unitType", "PCS", "unitPrice", new BigDecimal("100.00"), "shipmentPrice", new BigDecimal("50.00"),
                 "orderDate", LocalDate.now().minusDays(5).toString(),
                 // 30 % advance, 30 % midterm, 40 % after testing
                 "advancePercent", new BigDecimal("30"), "midtermPercent", new BigDecimal("30"), "expectedPaymentMethod", "BANK_TRANSFER",
                 // Below the item's MRP of 1500.00, so it needs a reason
-                "additionalInfo", body("priceChangeReason", "Bulk rate agreed with the dealer"));
+                "additionalInfo", body("priceChangeReason", "Bulk rate agreed with the supplier"));
     }
 
-    protected JsonNode createOrder(long dealerId, long itemId, String quantity) throws Exception {
-        return data(post("/v1/orders", l1.token(), orderBody(dealerId, itemId, quantity), 201));
+    protected JsonNode createOrder(long supplierId, long itemId, String quantity) throws Exception {
+        return data(post("/v1/orders", l1.token(), orderBody(supplierId, itemId, quantity), 201));
     }
 
     protected JsonNode moveOrder(long orderId, Actor actor, String status) throws Exception {
         Map<String, Object> request = body("status", status);
         if (status.equals("DELIVERED")) {
             request.put("actualDelivery", LocalDate.now().toString());
-            // A delivery needs the dealer's invoice, matching the quotation
+            // A delivery needs the supplier's invoice, matching the quotation
             uploadInvoice(orderId, actor, matchingInvoice(orderId), 200);
         }
         return data(patch("/v1/orders/" + orderId + "/status", actor.token(), request, 200));
@@ -370,7 +370,7 @@ public abstract class IntegrationTestSupport {
 
     protected JsonNode uploadInvoice(long orderId, Actor actor, byte[] pdf, int expectedStatus) throws Exception {
         return perform(MockMvcRequestBuilders.multipart("/v1/orders/" + orderId + "/invoice")
-                .file(new MockMultipartFile("file", "dealer_invoice.pdf", "application/pdf", pdf))
+                .file(new MockMultipartFile("file", "supplier_invoice.pdf", "application/pdf", pdf))
                 .header("Authorization", "Bearer " + actor.token()), expectedStatus);
     }
 
@@ -394,10 +394,10 @@ public abstract class IntegrationTestSupport {
     }
 
     /** Takes a new order through the whole forward workflow to DELIVERED. */
-    protected JsonNode deliveredOrder(long dealerId, long itemId, String quantity) throws Exception {
-        long orderId = createOrder(dealerId, itemId, quantity).get("id").asLong();
+    protected JsonNode deliveredOrder(long supplierId, long itemId, String quantity) throws Exception {
+        long orderId = createOrder(supplierId, itemId, quantity).get("id").asLong();
         moveOrder(orderId, l1, "PENDING");
-        patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+        patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200);
         moveOrder(orderId, l2a, "CONFIRMED");
         moveOrder(orderId, l1, "SHIPPED");
         return moveOrder(orderId, l1, "DELIVERED");
@@ -442,8 +442,8 @@ public abstract class IntegrationTestSupport {
     /** One approved stock entry of a new item holding {@code units} consumable units, each with a barcode. */
     protected JsonNode approvedStock(String units) throws Exception {
         long itemId = createItem();
-        long dealerId = createDealer();
-        String orderNumber = deliveredOrder(dealerId, itemId, units).get("orderNumber").asText();
+        long supplierId = createSupplier();
+        String orderNumber = deliveredOrder(supplierId, itemId, units).get("orderNumber").asText();
         long stockId = createStock(orderNumber, units, "0").get("id").asLong();
         return data(post("/v1/stocks/" + stockId + "/approval", l2a.token(), body("decision", "APPROVED"), 200));
     }

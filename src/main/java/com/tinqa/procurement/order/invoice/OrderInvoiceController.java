@@ -21,7 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 
-/** The dealer's invoice of an order: uploaded by whoever records deliveries, readable by everyone who sees orders. */
+/** The supplier's invoice of an order: uploaded by whoever records deliveries, readable by everyone who sees orders. */
 @RestController
 @RequestMapping("/v1/orders/{orderId}/invoice")
 @RequiredArgsConstructor

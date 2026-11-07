@@ -35,7 +35,7 @@ import java.util.Optional;
  * Emailed password links for the staff portal: SETUP when a new employee's account is enabled (instead of a shared
  * default password), RESET for "Forgot password?". A link carries a random token stored only as its SHA-256, works
  * once and expires after tinqa.account.password-link.validity (15 minutes). Account emails go to the employee's
- * verified personal email, or the login email for accounts without one (dealers, the bootstrap Super Admin).
+ * verified personal email, or the login email for accounts without one (suppliers, the bootstrap Super Admin).
  */
 @Slf4j
 @Service

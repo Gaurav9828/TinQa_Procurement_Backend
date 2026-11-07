@@ -28,7 +28,7 @@ public class StockNotifier {
         String message = "Stock " + stock.getStockIdentityNumber() + " (batch " + stock.getBatchNumber() + ") for order "
                 + order.getOrderNumber() + ": " + Quantities.plain(stock.getUnitsPassedTest()) + " " + unit + " passed and "
                 + Quantities.plain(stock.getDefectedUnits()) + " " + unit + " defected of " + order.getItem().getName()
-                + " from `" + order.getDealer().getName() + "`, arrived on " + stock.getDateOfArrival()
+                + " from `" + order.getSupplier().getName() + "`, arrived on " + stock.getDateOfArrival()
                 + ". Submitted by " + submitter.getUsername() + " and waiting for your approval.";
         notificationService.createForPermission(Permission.STOCK_APPROVE, submitter.getId(), "Stock Approval Required", message, NotificationLinks.APPROVALS);
     }

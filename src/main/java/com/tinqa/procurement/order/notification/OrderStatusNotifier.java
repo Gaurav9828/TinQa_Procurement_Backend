@@ -1,7 +1,7 @@
 package com.tinqa.procurement.order.notification;
 
 import com.tinqa.procurement.common.util.Quantities;
-import com.tinqa.procurement.dealer.login.DealerLoginService;
+import com.tinqa.procurement.supplier.login.SupplierLoginService;
 import com.tinqa.procurement.notification.NotificationLinks;
 import com.tinqa.procurement.notification.service.NotificationService;
 import com.tinqa.procurement.order.entity.Order;
@@ -14,30 +14,30 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 
 /**
- * Tells the previous updater of an order what the current user changed, and the order's dealer when they have a
- * dealer login (nobody is notified about their own change).
+ * Tells the previous updater of an order what the current user changed, and the order's supplier when they have a
+ * supplier login (nobody is notified about their own change).
  */
 @Component
 @RequiredArgsConstructor
 public class OrderStatusNotifier {
 
     private final NotificationService notificationService;
-    private final DealerLoginService dealerLoginService;
+    private final SupplierLoginService supplierLoginService;
 
     /** Must be called before the order's status and updater are changed. */
     public void notifyStatusChange(Order order, OrderStatus newStatus, User actor, String reason, LocalDate actualDelivery) {
-        Long dealerUser = dealerLoginService.activeUserIdOf(order.getDealer().getId()).orElse(null);
-        if (dealerUser != null && !dealerUser.equals(actor.getId())) {
-            notifyDealer(dealerUser, order, newStatus, reason, actualDelivery);
+        Long supplierUser = supplierLoginService.activeUserIdOf(order.getSupplier().getId()).orElse(null);
+        if (supplierUser != null && !supplierUser.equals(actor.getId())) {
+            notifySupplier(supplierUser, order, newStatus, reason, actualDelivery);
         }
-        // The dealer already heard about it in their own words
-        if (order.getUpdatedBy() == null || order.getUpdatedBy().equals(actor.getId()) || order.getUpdatedBy().equals(dealerUser)) {
+        // The supplier already heard about it in their own words
+        if (order.getUpdatedBy() == null || order.getUpdatedBy().equals(actor.getId()) || order.getUpdatedBy().equals(supplierUser)) {
             return;
         }
         String orderLabel = "Order " + order.getOrderNumber() + " (" + Quantities.plain(order.getOrderQuantity())
-                + " " + order.getUnitType() + " of " + order.getItem().getName() + " from `" + order.getDealer().getName() + "`)";
-        boolean byDealer = actor.getRole() == Role.DEALER;
-        String by = byDealer ? " by the dealer (" + actor.getUsername() + ")" : " by " + actor.getUsername();
+                + " " + order.getUnitType() + " of " + order.getItem().getName() + " from `" + order.getSupplier().getName() + "`)";
+        boolean bySupplier = actor.getRole() == Role.SUPPLIER;
+        String by = bySupplier ? " by the supplier (" + actor.getUsername() + ")" : " by " + actor.getUsername();
         String reasonSuffix = reason != null && !reason.isBlank() ? ". Reason: " + reason.trim() : "";
 
         String title;
@@ -47,9 +47,9 @@ public class OrderStatusNotifier {
                 title = "Order Submitted for Approval";
                 message = orderLabel + " was submitted for Admin L2 approval" + by + ".";
             }
-            case DEALER_LEVEL_PENDING -> {
+            case SUPPLIER_LEVEL_PENDING -> {
                 title = "Order Approved";
-                message = orderLabel + " was approved" + by + ". Now pending from the dealer.";
+                message = orderLabel + " was approved" + by + ". Now pending from the supplier.";
             }
             case CONFIRMED -> {
                 title = "Order Confirmed";
@@ -65,8 +65,8 @@ public class OrderStatusNotifier {
                         + (actualDelivery != null ? " on " + actualDelivery : "") + ". Stock can now be created from it.";
             }
             case CANCELLED -> {
-                title = byDealer ? "Order Rejected by Dealer" : "Order Cancelled";
-                message = orderLabel + (byDealer ? " was rejected" : " was cancelled") + by + reasonSuffix + ".";
+                title = bySupplier ? "Order Rejected by Supplier" : "Order Cancelled";
+                message = orderLabel + (bySupplier ? " was rejected" : " was cancelled") + by + reasonSuffix + ".";
             }
             default -> {
                 title = "Order " + newStatus.label();
@@ -76,8 +76,8 @@ public class OrderStatusNotifier {
         notificationService.createForUser(order.getUpdatedBy(), title, message, NotificationLinks.ORDERS);
     }
 
-    // Worded for the dealer: no internal approval levels or staff names
-    private void notifyDealer(Long dealerUser, Order order, OrderStatus newStatus, String reason, LocalDate actualDelivery) {
+    // Worded for the supplier: no internal approval levels or staff names
+    private void notifySupplier(Long supplierUser, Order order, OrderStatus newStatus, String reason, LocalDate actualDelivery) {
         String number = order.getOrderNumber();
         String reasonSuffix = reason != null && !reason.isBlank() ? " Reason: " + reason.trim() : "";
         String title;
@@ -87,7 +87,7 @@ public class OrderStatusNotifier {
                 title = "Quotation under review";
                 message = "Your quotation " + number + " was accepted for review.";
             }
-            case DEALER_LEVEL_PENDING -> {
+            case SUPPLIER_LEVEL_PENDING -> {
                 title = "Order approved";
                 message = "Order " + number + " was approved and is awaiting final confirmation.";
             }
@@ -105,7 +105,7 @@ public class OrderStatusNotifier {
                         + ". Its bill is ready to print.";
             }
             case CANCELLED -> {
-                // Still a quotation to the dealer until it is approved
+                // Still a quotation to the supplier until it is approved
                 boolean quotation = order.getOrderStatus() == OrderStatus.QUOTATION || order.getOrderStatus() == OrderStatus.PENDING;
                 title = quotation ? "Quotation cancelled" : "Order cancelled";
                 message = (quotation ? "Quotation " : "Order ") + number + " was cancelled." + reasonSuffix;
@@ -115,7 +115,7 @@ public class OrderStatusNotifier {
                 message = "Order " + number + " moved to " + newStatus.label().toLowerCase() + "." + reasonSuffix;
             }
         }
-        String link = newStatus == OrderStatus.PENDING ? NotificationLinks.DEALER_QUOTATIONS : NotificationLinks.DEALER_ORDERS;
-        notificationService.createForUser(dealerUser, title, message, link);
+        String link = newStatus == OrderStatus.PENDING ? NotificationLinks.SUPPLIER_QUOTATIONS : NotificationLinks.SUPPLIER_ORDERS;
+        notificationService.createForUser(supplierUser, title, message, link);
     }
 }

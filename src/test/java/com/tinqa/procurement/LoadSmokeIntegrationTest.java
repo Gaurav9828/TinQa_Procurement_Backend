@@ -31,7 +31,7 @@ class LoadSmokeIntegrationTest extends IntegrationTestSupport {
     private static final int CALLS_PER_THREAD = 25;
     private static final long P95_BUDGET_MILLIS = 750;
     private static final List<String> URLS = List.of(
-            "/v1/admin/items?size=20", "/v1/admin/products?size=20", "/v1/admin/dealers?size=20", "/v1/access/me");
+            "/v1/admin/items?size=20", "/v1/admin/products?size=20", "/v1/admin/suppliers?size=20", "/v1/access/me");
 
     @Test
     void adminScreensHoldUpUnderConcurrentTraffic() throws Exception {

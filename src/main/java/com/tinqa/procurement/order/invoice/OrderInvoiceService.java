@@ -46,8 +46,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The dealer's invoice for an order. Staff upload the PDF the dealer sent before marking the order delivered; its text
- * is read and checked against the quotation (total, GST, the dealer's GSTIN). A matching invoice lets the order be
+ * The supplier's invoice for an order. Staff upload the PDF the supplier sent before marking the order delivered; its text
+ * is read and checked against the quotation (total, GST, the supplier's GSTIN). A matching invoice lets the order be
  * delivered; one that doesn't match, or can't be read, needs a Level 2 approver to accept it with a reason.
  */
 @Service
@@ -75,7 +75,7 @@ public class OrderInvoiceService {
         Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> orderNotFound(orderId));
         if (!UPLOADABLE.contains(order.getOrderStatus())) {
             throw ApiErrors.conflict(ErrorCodes.ORDER_INVOICE_NOT_ALLOWED, "Order " + order.getOrderNumber() + " is "
-                    + order.getOrderStatus().label() + ". The dealer's invoice is uploaded while an order is Confirmed or Shipped, "
+                    + order.getOrderStatus().label() + ". The supplier's invoice is uploaded while an order is Confirmed or Shipped, "
                     + "before it is marked delivered.");
         }
         UploadedFileValidator.ValidatedFile validated = uploadedFileValidator.validate(file, DocumentType.PDF);
@@ -95,8 +95,8 @@ public class OrderInvoiceService {
                 .fileSize(file.getSize())
                 .uploaderType(currentAccess.has(Permission.PROCUREMENT_ORDER_APPROVE) ? DocumentUploaderType.ADMIN_L2 : DocumentUploaderType.ADMIN_L1)
                 .uploadedByUserId(uploader.getId())
-                .ownerType(DocumentOwnerType.DEALER)
-                .ownerId(order.getDealer().getId())
+                .ownerType(DocumentOwnerType.SUPPLIER)
+                .ownerId(order.getSupplier().getId())
                 .referenceType(DocumentReferenceType.ORDER)
                 .referenceId(order.getId())
                 .category(DocumentCategory.INVOICE)
@@ -123,8 +123,8 @@ public class OrderInvoiceService {
                 .build());
 
         if (result.status() != InvoiceVerificationStatus.MATCHED) {
-            notificationService.createForPermission(Permission.PROCUREMENT_ORDER_APPROVE, uploader.getId(), "Dealer invoice needs a check",
-                    "The invoice uploaded for order " + order.getOrderNumber() + " (" + order.getDealer().getName() + ") "
+            notificationService.createForPermission(Permission.PROCUREMENT_ORDER_APPROVE, uploader.getId(), "Supplier invoice needs a check",
+                    "The invoice uploaded for order " + order.getOrderNumber() + " (" + order.getSupplier().getName() + ") "
                             + describe(saved) + ". The order can only be marked delivered once an approver accepts it or a correct invoice is uploaded.",
                     NotificationLinks.ORDERS);
         }
@@ -157,18 +157,18 @@ public class OrderInvoiceService {
     @Transactional
     public String acceptForDelivery(Order order, String overrideReason, User actor) {
         OrderInvoice invoice = invoiceRepository.findFirstByOrderIdOrderByIdDesc(order.getId())
-                .orElseThrow(() -> ApiErrors.conflict(ErrorCodes.ORDER_INVOICE_REQUIRED, "Upload the dealer's invoice (PDF) for order "
+                .orElseThrow(() -> ApiErrors.conflict(ErrorCodes.ORDER_INVOICE_REQUIRED, "Upload the supplier's invoice (PDF) for order "
                         + order.getOrderNumber() + " before marking it delivered. It is checked against the quotation."));
         if (invoice.getStatus() == InvoiceVerificationStatus.MATCHED) {
             return null;
         }
         if (!currentAccess.has(Permission.PROCUREMENT_ORDER_APPROVE)) {
-            throw ApiErrors.conflict(ErrorCodes.ORDER_INVOICE_MISMATCH, "The dealer's invoice for order " + order.getOrderNumber() + " "
+            throw ApiErrors.conflict(ErrorCodes.ORDER_INVOICE_MISMATCH, "The supplier's invoice for order " + order.getOrderNumber() + " "
                     + describe(invoice) + ". Upload a correct invoice, or ask a Level 2 approver to accept it with a reason.");
         }
         String reason = OptionalText.blankToNull(overrideReason);
         if (reason == null) {
-            throw ApiErrors.fieldError("invoiceOverrideReason", "The dealer's invoice " + describe(invoice)
+            throw ApiErrors.fieldError("invoiceOverrideReason", "The supplier's invoice " + describe(invoice)
                     + ". Give a reason to accept it and mark the order delivered.");
         }
         invoice.setOverrideBy(actor.getId());
@@ -190,7 +190,7 @@ public class OrderInvoiceService {
                 QuotationTax.amountOf(taxQuoted ? tax : null, QuotationTax.SGST),
                 QuotationTax.amountOf(taxQuoted ? tax : null, QuotationTax.IGST),
                 QuotationTax.amountOf(taxQuoted ? tax : null, QuotationTax.CESS),
-                OptionalText.blankToNull(order.getDealer().getGstin()));
+                OptionalText.blankToNull(order.getSupplier().getGstin()));
     }
 
     // "doesn't match the quotation (Invoice total, IGST)" / "could not be checked automatically (...)"

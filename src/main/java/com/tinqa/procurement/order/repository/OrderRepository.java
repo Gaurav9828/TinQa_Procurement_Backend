@@ -26,14 +26,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByOrderStatus(OrderStatus orderStatus);
 
     List<Order> findByOrderStatusInOrderByIdAsc(Collection<OrderStatus> orderStatuses);
-    List<Order> findByDealerId(Long dealerId);
+    List<Order> findBySupplierId(Long supplierId);
 
     // Orders in this status with no stock entry yet (any approval status counts, as stock creation allows one per order)
     @Query("SELECT o FROM Order o WHERE o.orderStatus = :status"
             + " AND NOT EXISTS (SELECT 1 FROM Stock s WHERE s.order = o) ORDER BY o.createdAt DESC")
     List<Order> findByOrderStatusWithoutStock(@Param("status") OrderStatus status);
 
-    // Every dealer record with this email counts as the same dealer (e.g. a dealer re-onboarded under a new record)
-    @Query("SELECT o FROM Order o WHERE LOWER(o.dealer.email) = LOWER(:email)")
-    List<Order> findByDealerEmail(@Param("email") String email);
+    // Every supplier record with this email counts as the same supplier (e.g. a supplier re-onboarded under a new record)
+    @Query("SELECT o FROM Order o WHERE LOWER(o.supplier.email) = LOWER(:email)")
+    List<Order> findBySupplierEmail(@Param("email") String email);
 }

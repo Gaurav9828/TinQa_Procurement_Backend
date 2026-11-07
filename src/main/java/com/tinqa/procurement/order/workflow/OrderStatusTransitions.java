@@ -13,7 +13,7 @@ import static com.tinqa.procurement.order.enums.OrderStatus.*;
 
 /**
  * The forward-only order workflow: the only moves PATCH /status may make, and the permission each one needs.
- * PENDING -> DEALER_LEVEL_PENDING / CANCELLED is the approval decision and goes through PATCH /approval
+ * PENDING -> SUPPLIER_LEVEL_PENDING / CANCELLED is the approval decision and goes through PATCH /approval
  * only, so it is deliberately not in this table. Anything not listed is rejected.
  */
 public final class OrderStatusTransitions {
@@ -27,8 +27,8 @@ public final class OrderStatusTransitions {
     static {
         allow(QUOTATION, PENDING, L1_AND_L2);
         allow(QUOTATION, CANCELLED, L1_AND_L2);
-        allow(DEALER_LEVEL_PENDING, CONFIRMED, L2_ONLY);
-        allow(DEALER_LEVEL_PENDING, CANCELLED, L2_ONLY);
+        allow(SUPPLIER_LEVEL_PENDING, CONFIRMED, L2_ONLY);
+        allow(SUPPLIER_LEVEL_PENDING, CANCELLED, L2_ONLY);
         allow(CONFIRMED, SHIPPED, L1_AND_L2);
         allow(CONFIRMED, CANCELLED, L1_AND_L2);
         allow(SHIPPED, DELIVERED, L1_AND_L2);
@@ -44,7 +44,7 @@ public final class OrderStatusTransitions {
     }
 
     /** Outcomes of the PATCH /approval decision on a PENDING order. */
-    public static final Set<OrderStatus> APPROVAL_DECISIONS = EnumSet.of(DEALER_LEVEL_PENDING, CANCELLED);
+    public static final Set<OrderStatus> APPROVAL_DECISIONS = EnumSet.of(SUPPLIER_LEVEL_PENDING, CANCELLED);
     public static final Permission APPROVAL_PERMISSION = L2_ONLY;
 
     /** Moves that must say why. */

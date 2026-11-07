@@ -8,8 +8,8 @@ import com.tinqa.procurement.common.exception.ResourceNotFoundException;
 import com.tinqa.procurement.common.util.Quantities;
 import com.tinqa.procurement.common.util.ReferenceNumberGenerator;
 import com.tinqa.procurement.common.validation.OptionalText;
-import com.tinqa.procurement.dealer.entity.Dealer;
-import com.tinqa.procurement.dealer.repository.DealerRepository;
+import com.tinqa.procurement.supplier.entity.Supplier;
+import com.tinqa.procurement.supplier.repository.SupplierRepository;
 import com.tinqa.procurement.finance.service.PurchasePostingRecorder;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.order.change.QuotationChangeService;
@@ -20,7 +20,7 @@ import com.tinqa.procurement.order.enums.OrderStatus;
 import com.tinqa.procurement.order.invoice.OrderInvoiceService;
 import com.tinqa.procurement.order.mapper.OrderMapper;
 import com.tinqa.procurement.order.notification.OrderStatusNotifier;
-import com.tinqa.procurement.order.payment.DealerPaymentService;
+import com.tinqa.procurement.order.payment.SupplierPaymentService;
 import com.tinqa.procurement.order.payment.PaymentPlan;
 import com.tinqa.procurement.order.repository.OrderRepository;
 import com.tinqa.procurement.order.repository.OrderStatusHistoryRepository;
@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final DealerRepository dealerRepository;
+    private final SupplierRepository supplierRepository;
     private final StockRepository stockRepository;
     private final UserRepository userRepository;
     private final OrderEditor orderEditor;
@@ -63,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderInvoiceService orderInvoiceService;
     private final OrderStatusHistoryRepository statusHistoryRepository;
     private final PurchasePostingRecorder purchasePostings;
-    private final DealerPaymentService dealerPayments;
+    private final SupplierPaymentService supplierPayments;
     private final CurrentUserProvider currentUserProvider;
     private final CurrentAccess currentAccess;
     private final OrderStatusNotifier statusNotifier;
@@ -75,7 +75,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDTOs.Response createOrder(OrderDTOs.CreateRequest request) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        Dealer dealer = orderEditor.findDealer(request.getDealerId());
+        Supplier supplier = orderEditor.findSupplier(request.getSupplierId());
         Item item = orderEditor.findItem(request.getItemId());
         OrderEditor.ensureExpectedDeliveryNotBeforeOrder(request.getOrderDate(), request.getExpectedDelivery());
         // No midterm part: only an advance and the final payment
@@ -84,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = Order.builder()
                 .orderNumber(referenceNumbers.orderNumber())
-                .dealer(dealer)
+                .supplier(supplier)
                 .item(item)
                 .orderQuantity(request.getOrderQuantity())
                 .unitType(request.getUnitType())
@@ -116,7 +116,7 @@ public class OrderServiceImpl implements OrderService {
         // Locked: stock entries are checked against this order's quantity under the same lock
         Order order = lockOrder(orderId);
         ensureEditable(order, actor);
-        // A dealer's change waiting for approval was made against the current terms: decide it first
+        // A supplier's change waiting for approval was made against the current terms: decide it first
         quotationChangeService.ensureNotPending(order);
         orderEditor.apply(order, request);
 
@@ -133,13 +133,13 @@ public class OrderServiceImpl implements OrderService {
         OrderStatus from = order.getOrderStatus();
         OrderStatus to = request.getStatus();
 
-        if (from == OrderStatus.PENDING || to == OrderStatus.DEALER_LEVEL_PENDING) {
+        if (from == OrderStatus.PENDING || to == OrderStatus.SUPPLIER_LEVEL_PENDING) {
             throw invalidTransition(order, to, " Pending orders are approved or rejected through the approval decision.");
         }
         Permission needed = OrderStatusTransitions.permissionForStatusChange(from, to)
                 .orElseThrow(() -> invalidTransition(order, to, ""));
         currentAccess.require(needed, "move order " + order.getOrderNumber() + " from " + from.label() + " to " + to.label());
-        // Submitting or cancelling a quotation would leave a dealer's waiting change undecided
+        // Submitting or cancelling a quotation would leave a supplier's waiting change undecided
         if (from == OrderStatus.QUOTATION) {
             quotationChangeService.ensureNotPending(order);
         }
@@ -152,7 +152,7 @@ public class OrderServiceImpl implements OrderService {
         LocalDate actualDelivery = null;
         if (to == OrderStatus.DELIVERED) {
             actualDelivery = validatedActualDelivery(order, request.getActualDelivery());
-            // The dealer's invoice must match the quotation, or an approver accepts it with a reason
+            // The supplier's invoice must match the quotation, or an approver accepts it with a reason
             String invoiceNote = orderInvoiceService.acceptForDelivery(order, request.getInvoiceOverrideReason(), actor);
             if (invoiceNote != null) {
                 reason = reason == null ? invoiceNote : reason + " · " + invoiceNote;
@@ -183,7 +183,7 @@ public class OrderServiceImpl implements OrderService {
             throw invalidTransition(order, to, " Only pending orders can be approved or rejected.");
         }
         if (!OrderStatusTransitions.APPROVAL_DECISIONS.contains(to)) {
-            throw invalidTransition(order, to, " An approval decision is either Dealer level pending (approve) or Cancelled (reject).");
+            throw invalidTransition(order, to, " An approval decision is either Supplier level pending (approve) or Cancelled (reject).");
         }
 
         String reason = null;
@@ -199,22 +199,22 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTOs.Response processDealerResponse(Order order, boolean accepted, String reason) {
+    public OrderDTOs.Response processSupplierResponse(Order order, boolean accepted, String reason) {
         User actor = currentUserProvider.getCurrentUser();
         OrderStatus to = accepted ? OrderStatus.CONFIRMED : OrderStatus.CANCELLED;
-        if (order.getOrderStatus() != OrderStatus.DEALER_LEVEL_PENDING) {
+        if (order.getOrderStatus() != OrderStatus.SUPPLIER_LEVEL_PENDING) {
             throw invalidTransition(order, to, " Only orders awaiting your confirmation can be accepted or rejected.");
         }
         String rejectionReason = OptionalText.blankToNull(reason);
         if (!accepted && rejectionReason == null) {
             throw ApiErrors.fieldError("reason", "A reason is required to reject an order.");
         }
-        return changeStatus(order, OrderStatus.DEALER_LEVEL_PENDING, to, actor, accepted ? null : rejectionReason, null);
+        return changeStatus(order, OrderStatus.SUPPLIER_LEVEL_PENDING, to, actor, accepted ? null : rejectionReason, null);
     }
 
     @Override
     @Transactional
-    public OrderDTOs.Response processDealerShipment(Order order) {
+    public OrderDTOs.Response processSupplierShipment(Order order) {
         User actor = currentUserProvider.getCurrentUser();
         if (order.getOrderStatus() != OrderStatus.CONFIRMED) {
             throw invalidTransition(order, OrderStatus.SHIPPED, " Only confirmed orders can be marked as shipped.");
@@ -236,11 +236,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<OrderDTOs.Response> getOrdersByDealerId(Long dealerId) {
-        if (!dealerRepository.existsById(dealerId)) {
-            throw dealerNotFound(dealerId);
+    public List<OrderDTOs.Response> getOrdersBySupplierId(Long supplierId) {
+        if (!supplierRepository.existsById(supplierId)) {
+            throw supplierNotFound(supplierId);
         }
-        return toResponses(orderRepository.findByDealerId(dealerId));
+        return toResponses(orderRepository.findBySupplierId(supplierId));
     }
 
     @Override
@@ -273,9 +273,9 @@ public class OrderServiceImpl implements OrderService {
         if (to == OrderStatus.REFUND_COMPLETED) {
             purchasePostings.refund(saved);
         }
-        // Whatever was paid to the dealer for a cancelled or returned order is due back from them
+        // Whatever was paid to the supplier for a cancelled or returned order is due back from them
         if (to == OrderStatus.CANCELLED || to == OrderStatus.REFUND_COMPLETED) {
-            dealerPayments.reconcile(saved);
+            supplierPayments.reconcile(saved);
         }
         return respond(saved);
     }
@@ -325,15 +325,15 @@ public class OrderServiceImpl implements OrderService {
         return toResponses(List.of(order)).getFirst();
     }
 
-    // Marks quotations a dealer raised themselves, and those with a dealer's change waiting for approval
+    // Marks quotations a supplier raised themselves, and those with a supplier's change waiting for approval
     private List<OrderDTOs.Response> toResponses(List<Order> orders) {
         Set<Long> pendingChange = quotationChangeService.ordersWithPendingChange(orders.stream().map(Order::getId).toList());
-        Set<Long> dealerAccounts = userRepository.findAllById(orders.stream().map(Order::getCreatedBy).collect(Collectors.toSet()))
-                .stream().filter(user -> user.getRole() == Role.DEALER).map(User::getId).collect(Collectors.toSet());
+        Set<Long> supplierAccounts = userRepository.findAllById(orders.stream().map(Order::getCreatedBy).collect(Collectors.toSet()))
+                .stream().filter(user -> user.getRole() == Role.SUPPLIER).map(User::getId).collect(Collectors.toSet());
         return orders.stream().map(order -> {
             OrderDTOs.Response response = orderMapper.toResponse(order);
-            response.setDealerChangePending(pendingChange.contains(order.getId()));
-            response.setRaisedByDealer(dealerAccounts.contains(order.getCreatedBy()));
+            response.setSupplierChangePending(pendingChange.contains(order.getId()));
+            response.setRaisedBySupplier(supplierAccounts.contains(order.getCreatedBy()));
             return response;
         }).toList();
     }
@@ -371,7 +371,7 @@ public class OrderServiceImpl implements OrderService {
         return new ResourceNotFoundException("Order not found with id: " + orderId);
     }
 
-    private static ResourceNotFoundException dealerNotFound(Long dealerId) {
-        return new ResourceNotFoundException("Dealer not found with id: " + dealerId);
+    private static ResourceNotFoundException supplierNotFound(Long supplierId) {
+        return new ResourceNotFoundException("Supplier not found with id: " + supplierId);
     }
 }

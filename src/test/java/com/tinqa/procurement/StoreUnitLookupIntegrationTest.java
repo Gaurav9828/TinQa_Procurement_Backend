@@ -31,7 +31,7 @@ class StoreUnitLookupIntegrationTest extends IntegrationTestSupport {
         assertThat(unit.get("productTitle").asText()).isEqualTo("TinQa Hub");
         assertThat(unit.get("inStock").asBoolean()).isTrue();
         assertThat(unit.get("note").isNull()).isTrue();
-        // Nothing about parts, batches or dealers
+        // Nothing about parts, batches or suppliers
         assertThat(unit.has("parts")).isFalse();
         assertThat(unit.has("events")).isFalse();
         // Agents still can't trace the barcode

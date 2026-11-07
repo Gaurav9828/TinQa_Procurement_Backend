@@ -18,26 +18,26 @@ public interface OrderService {
 
     OrderDTOs.Response updateOrderStatus(Long orderId, OrderDTOs.UpdateStatusRequest request);
 
-    /** Admin L2 decision on a PENDING order: DEALER_LEVEL_PENDING (approve) or CANCELLED (reject). */
+    /** Admin L2 decision on a PENDING order: SUPPLIER_LEVEL_PENDING (approve) or CANCELLED (reject). */
     OrderDTOs.Response processAdminL2Approval(Long orderId, OrderDTOs.ApprovalDecisionRequest request);
 
     /**
-     * The dealer's answer to an order awaiting them: CONFIRMED (accept) or CANCELLED (reject, with a reason).
-     * The caller has locked the order and checked it belongs to the signed-in dealer.
+     * The supplier's answer to an order awaiting them: CONFIRMED (accept) or CANCELLED (reject, with a reason).
+     * The caller has locked the order and checked it belongs to the signed-in supplier.
      */
-    OrderDTOs.Response processDealerResponse(Order order, boolean accepted, String reason);
+    OrderDTOs.Response processSupplierResponse(Order order, boolean accepted, String reason);
 
     /**
-     * The dealer marks a CONFIRMED order as SHIPPED.
-     * The caller has locked the order and checked it belongs to the signed-in dealer.
+     * The supplier marks a CONFIRMED order as SHIPPED.
+     * The caller has locked the order and checked it belongs to the signed-in supplier.
      */
-    OrderDTOs.Response processDealerShipment(Order order);
+    OrderDTOs.Response processSupplierShipment(Order order);
 
     OrderDTOs.Response getOrderById(Long orderId);
 
     List<OrderDTOs.Response> getAllOrders();
 
-    List<OrderDTOs.Response> getOrdersByDealerId(Long dealerId);
+    List<OrderDTOs.Response> getOrdersBySupplierId(Long supplierId);
 
     List<OrderDTOs.Response> getOrdersByStatus(OrderStatus status);
 

@@ -1,8 +1,8 @@
 package com.tinqa.procurement.order.invoice;
 
-/** What checking a dealer's invoice against the quotation found. Anything but MATCHED needs an approver to deliver. */
+/** What checking a supplier's invoice against the quotation found. Anything but MATCHED needs an approver to deliver. */
 public enum InvoiceVerificationStatus {
-    /** The total, the taxes and the dealer's GSTIN all agree with the quotation */
+    /** The total, the taxes and the supplier's GSTIN all agree with the quotation */
     MATCHED,
     /** At least one of them differs */
     MISMATCH,

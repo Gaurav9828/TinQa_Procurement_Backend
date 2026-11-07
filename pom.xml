@@ -190,7 +190,7 @@
 
 
         <!-- ================================================== -->
-        <!-- PDF (reading dealers' invoices to check them)      -->
+        <!-- PDF (reading suppliers' invoices to check them)      -->
         <!-- ================================================== -->
 
         <dependency>

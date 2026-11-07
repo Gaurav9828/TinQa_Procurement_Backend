@@ -38,7 +38,7 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
         assertThat(l1Login.get("designation").asText()).isEqualTo("SUPER_ADMIN");
         assertThat(l1Login.get("designationLabel").asText()).isEqualTo("Super Admin");
         // Admin L1 holds the designation's groups minus the approval-level ones
-        assertThat(texts(l1Login.get("permissions"))).contains("EMPLOYEE_CREATE", "DEALER_CREATE").doesNotContain("EMPLOYEE_APPROVE", "DEALER_DELETE");
+        assertThat(texts(l1Login.get("permissions"))).contains("EMPLOYEE_CREATE", "SUPPLIER_CREATE").doesNotContain("EMPLOYEE_APPROVE", "SUPPLIER_DELETE");
         assertThat(texts(l1Login.get("permissionGroups"))).contains("EMPLOYEE_MANAGEMENT").doesNotContain("EMPLOYEE_APPROVAL");
 
         JsonNode l2Login = post("/auth/admin/login", null, Map.of("username", l2a.username(), "password", SEED_PASSWORD), 200);
@@ -57,7 +57,7 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
 
         get("/v1/admin/items?size=5", catalog.token(), 200);
         get("/v1/admin/products?size=5", catalog.token(), 200);
-        get("/v1/admin/dealers?size=5", catalog.token(), 403);
+        get("/v1/admin/suppliers?size=5", catalog.token(), 403);
         get("/v1/admin/employees?size=5", catalog.token(), 403);
         get("/v1/orders", catalog.token(), 403);
         // Catalog specialists prepare listings but don't approve them, even at Level 2
@@ -65,7 +65,7 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
 
         JsonNode access = data(get("/v1/access/me", catalog.token(), 200));
         assertThat(access.get("designation").asText()).isEqualTo("CATALOG_SPECIALIST");
-        assertThat(texts(access.get("permissionGroups"))).contains("CATALOG_READ", "CATALOG_MANAGEMENT").doesNotContain("DEALER_READ");
+        assertThat(texts(access.get("permissionGroups"))).contains("CATALOG_READ", "CATALOG_MANAGEMENT").doesNotContain("SUPPLIER_READ");
     }
 
     @Test
@@ -81,10 +81,10 @@ class AccessControlIntegrationTest extends IntegrationTestSupport {
     @Test
     void designationChangesApplyToTheNextRequest() throws Exception {
         Actor rider = admin("ADMIN_L2", "DELIVERY_RIDER");
-        get("/v1/admin/dealers?size=5", rider.token(), 403);
+        get("/v1/admin/suppliers?size=5", rider.token(), 403);
 
-        jdbc.update("UPDATE employee SET designation = 'DEALER_MANAGER' WHERE id = ?", rider.employeeId());
-        get("/v1/admin/dealers?size=5", rider.token(), 200);
+        jdbc.update("UPDATE employee SET designation = 'SUPPLIER_MANAGER' WHERE id = ?", rider.employeeId());
+        get("/v1/admin/suppliers?size=5", rider.token(), 200);
     }
 
     @Test

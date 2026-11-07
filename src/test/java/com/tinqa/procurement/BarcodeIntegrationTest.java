@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Every piece of stock and every product unit carries its own barcode: entered when the units are created, locked
- * once approved, traced to batch, purchase order, dealer and product, and changed afterwards only by a Super Admin.
+ * once approved, traced to batch, purchase order, supplier and product, and changed afterwards only by a Super Admin.
  */
 @DisplayName("Barcodes")
 @SuppressWarnings("unchecked")
@@ -49,7 +49,7 @@ class BarcodeIntegrationTest extends IntegrationTestSupport {
     }
 
     private String deliveredOrderNumber(String quantity) throws Exception {
-        return deliveredOrder(createDealer(), createItem(), quantity).get("orderNumber").asText();
+        return deliveredOrder(createSupplier(), createItem(), quantity).get("orderNumber").asText();
     }
 
     // Builds `units` product units, each from one piece of the item, in a movement that consumes them
@@ -148,7 +148,7 @@ class BarcodeIntegrationTest extends IntegrationTestSupport {
             assertThat(barcodeStatus(inStock.getFirst())).isEqualTo("REMOVED");
 
             // A count correction takes named units off until L2 decides; rejected, they come back
-            Map<String, Object> correction = body("batchNumber", stock.get("batchNumber").asText(), "dealerId", stock.get("dealerId").asLong(),
+            Map<String, Object> correction = body("batchNumber", stock.get("batchNumber").asText(), "supplierId", stock.get("supplierId").asLong(),
                     "itemId", stock.get("itemId").asLong(), "unitsPassedTest", 5, "defectedUnits", 1, "hasTested", true,
                     "dateOfArrival", LocalDate.now().toString());
             JsonNode notNamed = put("/v1/stocks/" + id, l1.token(), correction, 400);
@@ -202,7 +202,7 @@ class BarcodeIntegrationTest extends IntegrationTestSupport {
             assertThat(product.get("parts")).hasSize(1);
             assertThat(product.get("parts").get(0).get("unit").get("code").asText()).isEqualTo(pieces.get(0));
             assertThat(product.get("parts").get(0).get("source").get("orderNumber").asText()).isNotBlank();
-            assertThat(product.get("parts").get(0).get("source").get("dealerName").asText()).startsWith("Dealer ");
+            assertThat(product.get("parts").get(0).get("source").get("supplierName").asText()).startsWith("Supplier ");
             // ...and a piece to the product unit it is fitted into, with its whole history
             JsonNode piece = data(get("/v1/barcodes/trace/" + pieces.get(0), l1.token(), 200));
             assertThat(piece.get("fittedInto").get("code").asText()).isEqualTo(units.get(0));

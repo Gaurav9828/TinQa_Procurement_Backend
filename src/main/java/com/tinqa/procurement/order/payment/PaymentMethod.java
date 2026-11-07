@@ -1,6 +1,6 @@
 package com.tinqa.procurement.order.payment;
 
-/** How a dealer is paid (or pays back): what a quotation expects and what each recorded payment used. */
+/** How a supplier is paid (or pays back): what a quotation expects and what each recorded payment used. */
 public enum PaymentMethod {
     CASH,
     ONLINE,

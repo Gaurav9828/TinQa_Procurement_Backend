@@ -10,9 +10,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Reading real invoice layouts and checking them against a quotation of ₹1,050 + 18% GST (in state). */
 class InvoiceVerificationTest {
 
-    private static final String DEALER_GSTIN = "29ABCDE1234F1Z5";
+    private static final String SUPPLIER_GSTIN = "29ABCDE1234F1Z5";
     private static final InvoiceVerifier.Expected INTRA_18 = new InvoiceVerifier.Expected(new BigDecimal("1239.00"), true,
-            new BigDecimal("1050.00"), new BigDecimal("94.50"), new BigDecimal("94.50"), BigDecimal.ZERO, BigDecimal.ZERO, DEALER_GSTIN);
+            new BigDecimal("1050.00"), new BigDecimal("94.50"), new BigDecimal("94.50"), BigDecimal.ZERO, BigDecimal.ZERO, SUPPLIER_GSTIN);
 
     private final InvoicePdfReader reader = new InvoicePdfReader();
 
@@ -25,7 +25,7 @@ class InvoiceVerificationTest {
         InvoiceFigures figures = read(InvoicePdfs.withLines(
                 "TAX INVOICE",
                 "Invoice No: INV/2026/0042   Date: 18/10/2026",
-                "Supplier GSTIN: " + DEALER_GSTIN + "   Buyer GSTIN: 29AAACT1234K1Z9",
+                "Supplier GSTIN: " + SUPPLIER_GSTIN + "   Buyer GSTIN: 29AAACT1234K1Z9",
                 "Copper wire 7408   10 PCS   100.00   1,000.00",
                 "Freight   50.00",
                 "Taxable Value   Rs. 1,050.00",
@@ -41,7 +41,7 @@ class InvoiceVerificationTest {
         assertThat(figures.cgst()).isEqualByComparingTo("94.50");
         assertThat(figures.sgst()).isEqualByComparingTo("94.50");
         assertThat(figures.igst()).isNull();
-        assertThat(figures.gstins()).contains(DEALER_GSTIN);
+        assertThat(figures.gstins()).contains(SUPPLIER_GSTIN);
 
         InvoiceVerifier.Result result = InvoiceVerifier.verify(INTRA_18, figures);
         assertThat(result.status()).isEqualTo(InvoiceVerificationStatus.MATCHED);
@@ -52,7 +52,7 @@ class InvoiceVerificationTest {
     void tableHeaderWithAmountsOnTheNextLine() {
         InvoiceFigures figures = read(InvoicePdfs.withLines(
                 "Bill No. B-778",
-                "GSTIN " + DEALER_GSTIN,
+                "GSTIN " + SUPPLIER_GSTIN,
                 "Taxable Amount   CGST Rate   CGST Amount   SGST Rate   SGST Amount   Total",
                 "1050.00   9%   94.50   9%   94.50   1239.00"));
 
@@ -65,14 +65,14 @@ class InvoiceVerificationTest {
 
     @Test
     void roundedTotalStillMatches() {
-        InvoiceFigures figures = read(InvoicePdfs.withLines("GSTIN: " + DEALER_GSTIN, "Taxable value 1050.00",
+        InvoiceFigures figures = read(InvoicePdfs.withLines("GSTIN: " + SUPPLIER_GSTIN, "Taxable value 1050.00",
                 "CGST 94.50", "SGST 94.50", "Round off -0.00", "Total Amount After Tax 1,239"));
         assertThat(InvoiceVerifier.verify(INTRA_18, figures).status()).isEqualTo(InvoiceVerificationStatus.MATCHED);
     }
 
     @Test
     void wrongTaxTypeAndTotalAreMismatches() {
-        InvoiceFigures figures = read(InvoicePdfs.withLines("GSTIN: " + DEALER_GSTIN, "Taxable value 1050.00",
+        InvoiceFigures figures = read(InvoicePdfs.withLines("GSTIN: " + SUPPLIER_GSTIN, "Taxable value 1050.00",
                 "IGST @ 18%   189.00", "Grand Total 1,300.00"));
         InvoiceVerifier.Result result = InvoiceVerifier.verify(INTRA_18, figures);
 
@@ -84,7 +84,7 @@ class InvoiceVerificationTest {
     }
 
     @Test
-    void anotherDealersGstinIsAMismatch() {
+    void anotherSuppliersGstinIsAMismatch() {
         InvoiceFigures figures = read(InvoicePdfs.withLines("GSTIN: 27AAPFU0939F1ZV", "CGST 94.50", "SGST 94.50", "Grand Total 1239.00"));
         InvoiceVerifier.Result result = InvoiceVerifier.verify(INTRA_18, figures);
         assertThat(result.status()).isEqualTo(InvoiceVerificationStatus.MISMATCH);

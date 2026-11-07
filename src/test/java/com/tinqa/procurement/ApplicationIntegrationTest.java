@@ -114,7 +114,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             String token = inspectorToken();
             get("/v1/notifications", token, 200);
-            assertThat(get("/v1/admin/dealers", token, 403).get("errorCode").asText()).isEqualTo("FORBIDDEN");
+            assertThat(get("/v1/admin/suppliers", token, 403).get("errorCode").asText()).isEqualTo("FORBIDDEN");
             get("/v1/admin/items", token, 403);
             get("/v1/admin/products", token, 403);
             get("/v1/orders", token, 403);
@@ -219,7 +219,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             JsonNode response = post("/v1/orders", l1.token(), body(), 400);
             assertThat(response.get("errorCode").asText()).isEqualTo("VALIDATION_FAILED");
             assertThat(response.get("errors").findValuesAsText("field"))
-                    .contains("dealerId", "itemId", "orderQuantity", "unitType", "unitPrice", "shipmentPrice", "orderDate",
+                    .contains("supplierId", "itemId", "orderQuantity", "unitType", "unitPrice", "shipmentPrice", "orderDate",
                             "advancePercent", "expectedPaymentMethod")
                     // The midterm part is optional (advance and final only)
                     .doesNotContain("midtermPercent");
@@ -256,7 +256,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         private Map<String, Object> employeeBody(String role) {
             return withPanAndAddress(body("username", uniq("emp"), "email", uniq("Emp") + "@Company.com",
                     "firstName", letters(), "lastName", letters(), "dateOfBirth", "1990-01-15", "gender", "MALE",
-                    "designation", "DEALER_MANAGER", "employmentType", "FULL_TIME",
+                    "designation", "SUPPLIER_MANAGER", "employmentType", "FULL_TIME",
                     "joiningDate", "2015-06-01", "phone", nextLocalMobile(), "role", role));
         }
 
@@ -525,11 +525,11 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
     }
 
     @Nested
-    @DisplayName("Dealers and categories")
-    class Dealers {
+    @DisplayName("Suppliers and categories")
+    class Suppliers {
 
         @Test
-        void dealersAreAssignedItemCategories() throws Exception {
+        void suppliersAreAssignedItemCategories() throws Exception {
             String code = uniq("SHARED");
             JsonNode created = data(post("/v1/admin/items/categories", l1.token(), body("name", "Item " + code, "code", code), 201));
             assertThat(created.get("code").asText()).isEqualTo(code);
@@ -538,94 +538,94 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             JsonNode duplicate = post("/v1/admin/items/categories", l1.token(), body("name", "Other " + code, "code", code), 400);
             assertThat(duplicate.get("message").asText()).isEqualTo("Category code already exists: " + code);
 
-            // The dealer screens offer the item categories
-            JsonNode list = data(get("/v1/admin/dealers/categories", l1.token(), 200));
+            // The supplier screens offer the item categories
+            JsonNode list = data(get("/v1/admin/suppliers/categories", l1.token(), 200));
             assertThat(list.findValuesAsText("code")).contains(code);
 
             long categoryId = created.get("id").asLong();
-            JsonNode dealer = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(categoryId)), 201));
-            assertThat(dealer.get("categories").findValues("id").stream().map(JsonNode::asLong)).containsExactly(categoryId);
+            JsonNode supplier = data(post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(categoryId)), 201));
+            assertThat(supplier.get("categories").findValues("id").stream().map(JsonNode::asLong)).containsExactly(categoryId);
 
-            JsonNode unknown = post("/v1/admin/dealers", l1.token(), dealerBody(List.of(999999L)), 404);
+            JsonNode unknown = post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(999999L)), 404);
             assertThat(unknown.get("errorCode").asText()).isEqualTo("RESOURCE_NOT_FOUND");
         }
 
         @Test
-        void dealerLifecycle() throws Exception {
+        void supplierLifecycle() throws Exception {
             long first = createCategory(l1);
             long second = createCategory(l1);
-            Map<String, Object> request = dealerBody(List.of(first));
-            JsonNode dealer = data(post("/v1/admin/dealers", l1.token(), request, 201));
-            long id = dealer.get("id").asLong();
-            assertThat(dealer.get("offersShipping").asBoolean()).isFalse();
-            assertThat(dealer.get("doesBulkDealing").asBoolean()).isTrue();
-            assertThat(dealer.get("createdBy").asLong()).isEqualTo(l1.userId());
+            Map<String, Object> request = supplierBody(List.of(first));
+            JsonNode supplier = data(post("/v1/admin/suppliers", l1.token(), request, 201));
+            long id = supplier.get("id").asLong();
+            assertThat(supplier.get("offersShipping").asBoolean()).isFalse();
+            assertThat(supplier.get("doesBulkDealing").asBoolean()).isTrue();
+            assertThat(supplier.get("createdBy").asLong()).isEqualTo(l1.userId());
 
-            assertThat(data(get("/v1/admin/dealers/" + id, l1.token(), 200)).get("name").asText()).isEqualTo(request.get("name"));
+            assertThat(data(get("/v1/admin/suppliers/" + id, l1.token(), 200)).get("name").asText()).isEqualTo(request.get("name"));
 
-            request.put("name", "Renamed Dealer");
+            request.put("name", "Renamed Supplier");
             request.put("district", "Bengaluru Urban");
             request.put("isGstVerified", true);
-            JsonNode updated = data(put("/v1/admin/dealers/" + id, l2a.token(), request, 200));
-            assertThat(updated.get("name").asText()).isEqualTo("Renamed Dealer");
+            JsonNode updated = data(put("/v1/admin/suppliers/" + id, l2a.token(), request, 200));
+            assertThat(updated.get("name").asText()).isEqualTo("Renamed Supplier");
             assertThat(updated.get("district").asText()).isEqualTo("Bengaluru Urban");
             assertThat(updated.get("updatedBy").asLong()).isEqualTo(l2a.userId());
             // Flags left out of the update keep their current values
             assertThat(updated.get("offersShipping").asBoolean()).isFalse();
             assertThat(updated.get("doesWholesaleDealing").asBoolean()).isTrue();
 
-            assertThat(data(patch("/v1/admin/dealers/" + id + "/toggle-status", l1.token(), null, 200)).get("isActive").asBoolean()).isFalse();
-            assertThat(data(patch("/v1/admin/dealers/" + id + "/toggle-status", l1.token(), null, 200)).get("isActive").asBoolean()).isTrue();
+            assertThat(data(patch("/v1/admin/suppliers/" + id + "/toggle-status", l1.token(), null, 200)).get("isActive").asBoolean()).isFalse();
+            assertThat(data(patch("/v1/admin/suppliers/" + id + "/toggle-status", l1.token(), null, 200)).get("isActive").asBoolean()).isTrue();
 
-            assertThat(data(post("/v1/admin/dealers/" + id + "/categories", l1.token(), List.of(second), 200)).get("categories")).hasSize(2);
-            assertThat(data(put("/v1/admin/dealers/" + id + "/categories", l1.token(), List.of(second), 200)).get("categories")).hasSize(1);
-            delete("/v1/admin/dealers/" + id + "/categories/" + first, l1.token(), 404);
-            assertThat(data(delete("/v1/admin/dealers/" + id + "/categories/" + second, l1.token(), 200)).get("categories")).isEmpty();
+            assertThat(data(post("/v1/admin/suppliers/" + id + "/categories", l1.token(), List.of(second), 200)).get("categories")).hasSize(2);
+            assertThat(data(put("/v1/admin/suppliers/" + id + "/categories", l1.token(), List.of(second), 200)).get("categories")).hasSize(1);
+            delete("/v1/admin/suppliers/" + id + "/categories/" + first, l1.token(), 404);
+            assertThat(data(delete("/v1/admin/suppliers/" + id + "/categories/" + second, l1.token(), 200)).get("categories")).isEmpty();
 
-            JsonNode page = data(get("/v1/admin/dealers?size=1000", l1.token(), 200));
+            JsonNode page = data(get("/v1/admin/suppliers?size=1000", l1.token(), 200));
             assertThat(page.get("content").findValues("id").stream().map(JsonNode::asLong)).contains(id);
 
-            // Removing a dealer is an approval-level action
-            delete("/v1/admin/dealers/" + id, l1.token(), 403);
-            delete("/v1/admin/dealers/" + id, l2a.token(), 200);
-            assertThat(data(get("/v1/admin/dealers/" + id, l1.token(), 200)).get("isActive").asBoolean()).isFalse();
-            get("/v1/admin/dealers/999999", l1.token(), 404);
+            // Removing a supplier is an approval-level action
+            delete("/v1/admin/suppliers/" + id, l1.token(), 403);
+            delete("/v1/admin/suppliers/" + id, l2a.token(), 200);
+            assertThat(data(get("/v1/admin/suppliers/" + id, l1.token(), 200)).get("isActive").asBoolean()).isFalse();
+            get("/v1/admin/suppliers/999999", l1.token(), 404);
         }
 
         @Test
-        void dealerListIsFilteredOnTheServer() throws Exception {
+        void supplierListIsFilteredOnTheServer() throws Exception {
             long category = createCategory(l1);
             long other = createCategory(l1);
             String city = "Town" + letters();
-            Map<String, Object> firstBody = dealerBody(List.of(category));
+            Map<String, Object> firstBody = supplierBody(List.of(category));
             firstBody.put("city", city);
-            long first = data(post("/v1/admin/dealers", l1.token(), firstBody, 201)).get("id").asLong();
-            long second = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(category, other)), 201)).get("id").asLong();
-            long third = data(post("/v1/admin/dealers", l1.token(), dealerBody(List.of(other)), 201)).get("id").asLong();
+            long first = data(post("/v1/admin/suppliers", l1.token(), firstBody, 201)).get("id").asLong();
+            long second = data(post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(category, other)), 201)).get("id").asLong();
+            long third = data(post("/v1/admin/suppliers", l1.token(), supplierBody(List.of(other)), 201)).get("id").asLong();
 
-            assertThat(dealerIds("categoryId=" + category)).containsExactlyInAnyOrder(first, second);
-            // A dealer in both categories is listed once
-            assertThat(dealerIds("categoryId=" + category + "&categoryId=" + other)).containsExactlyInAnyOrder(first, second, third);
-            assertThat(dealerIds("city=" + city.toLowerCase())).containsExactly(first);
-            assertThat(dealerIds("search=" + firstBody.get("email").toString().toUpperCase())).containsExactly(first);
-            assertThat(dealerIds("search=" + city.substring(4) + "&categoryId=" + category)).containsExactly(first);
-            assertThat(data(get("/v1/admin/dealers/cities", l1.token(), 200))).extracting(JsonNode::asText).contains(city);
+            assertThat(supplierIds("categoryId=" + category)).containsExactlyInAnyOrder(first, second);
+            // A supplier in both categories is listed once
+            assertThat(supplierIds("categoryId=" + category + "&categoryId=" + other)).containsExactlyInAnyOrder(first, second, third);
+            assertThat(supplierIds("city=" + city.toLowerCase())).containsExactly(first);
+            assertThat(supplierIds("search=" + firstBody.get("email").toString().toUpperCase())).containsExactly(first);
+            assertThat(supplierIds("search=" + city.substring(4) + "&categoryId=" + category)).containsExactly(first);
+            assertThat(data(get("/v1/admin/suppliers/cities", l1.token(), 200))).extracting(JsonNode::asText).contains(city);
 
-            patch("/v1/admin/dealers/" + second + "/toggle-status", l1.token(), null, 200);
-            assertThat(dealerIds("categoryId=" + category + "&isActive=false")).containsExactly(second);
-            assertThat(dealerIds("categoryId=" + category + "&isActive=true")).containsExactly(first);
+            patch("/v1/admin/suppliers/" + second + "/toggle-status", l1.token(), null, 200);
+            assertThat(supplierIds("categoryId=" + category + "&isActive=false")).containsExactly(second);
+            assertThat(supplierIds("categoryId=" + category + "&isActive=true")).containsExactly(first);
         }
 
-        private List<Long> dealerIds(String query) throws Exception {
-            return topLevelIds(data(get("/v1/admin/dealers?size=1000&" + query, l1.token(), 200)));
+        private List<Long> supplierIds(String query) throws Exception {
+            return topLevelIds(data(get("/v1/admin/suppliers?size=1000&" + query, l1.token(), 200)));
         }
 
         @Test
-        void dealerTaxAndAddressFieldsAreValidated() throws Exception {
-            Map<String, Object> request = dealerBody(List.of(createCategory(l1)));
+        void supplierTaxAndAddressFieldsAreValidated() throws Exception {
+            Map<String, Object> request = supplierBody(List.of(createCategory(l1)));
             request.put("gstin", "BADGSTIN");
             request.put("pincode", "012345");
-            JsonNode invalid = post("/v1/admin/dealers", l1.token(), request, 400);
+            JsonNode invalid = post("/v1/admin/suppliers", l1.token(), request, 400);
             assertThat(invalid.get("errors").findValuesAsText("field")).contains("gstin", "pincode");
         }
     }
@@ -723,16 +723,16 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void createComputesTotalsAndStartsAsQuotation() throws Exception {
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            JsonNode order = createOrder(dealer, item, "10");
+            JsonNode order = createOrder(supplier, item, "10");
             assertThat(order.get("orderStatus").asText()).isEqualTo("QUOTATION");
             assertThat(order.get("orderNumber").asText()).matches("^ORD-\\d+-[0-9A-F]{4}$");
             assertThat(order.get("totalPrice").decimalValue()).isEqualByComparingTo("1050.00");
             assertThat(order.get("createdBy").asLong()).isEqualTo(l1.userId());
             assertThat(historyCount(order.get("id").asLong())).isEqualTo(1);
 
-            Map<String, Object> invalid = orderBody(dealer, item, "1");
+            Map<String, Object> invalid = orderBody(supplier, item, "1");
             invalid.put("expectedDelivery", LocalDate.now().minusDays(30).toString());
             JsonNode early = post("/v1/orders", l1.token(), invalid, 400);
             assertThat(early.get("errors").get(0).get("field").asText()).isEqualTo("expectedDelivery");
@@ -742,9 +742,9 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void fullForwardWorkflowWithRoleRules() throws Exception {
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            long id = createOrder(dealer, item, "10").get("id").asLong();
+            long id = createOrder(supplier, item, "10").get("id").asLong();
 
             JsonNode edited = data(put("/v1/orders/" + id, l1.token(), body("orderQuantity", 20), 200));
             assertThat(edited.get("totalPrice").decimalValue()).isEqualByComparingTo("2050.00");
@@ -756,10 +756,10 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
             JsonNode viaStatus = patch("/v1/orders/" + id + "/status", l2a.token(), body("status", "CONFIRMED"), 409);
             assertThat(viaStatus.get("errorCode").asText()).isEqualTo("INVALID_STATUS_TRANSITION");
-            patch("/v1/orders/" + id + "/approval", l1.token(), body("decision", "DEALER_LEVEL_PENDING"), 403);
+            patch("/v1/orders/" + id + "/approval", l1.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 403);
             patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "CONFIRMED"), 409);
-            JsonNode approved = data(patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200));
-            assertThat(approved.get("orderStatus").asText()).isEqualTo("DEALER_LEVEL_PENDING");
+            JsonNode approved = data(patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200));
+            assertThat(approved.get("orderStatus").asText()).isEqualTo("SUPPLIER_LEVEL_PENDING");
 
             patch("/v1/orders/" + id + "/status", l1.token(), body("status", "CONFIRMED"), 403);
             moveOrder(id, l2b, "CONFIRMED");
@@ -778,33 +778,33 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(historyCount(id)).isEqualTo(6);
 
             assertThat(data(get("/v1/orders/status/DELIVERED", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
-            assertThat(data(get("/v1/orders/dealer/" + dealer, l1.token(), 200))).hasSize(1);
+            assertThat(data(get("/v1/orders/supplier/" + supplier, l1.token(), 200))).hasSize(1);
             assertThat(data(get("/v1/orders", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong)).contains(id);
             // Several statuses in one call (the Approvals hub's queues), with nothing from other statuses
-            long quotation = createOrder(dealer, item, "1").get("id").asLong();
+            long quotation = createOrder(supplier, item, "1").get("id").asLong();
             JsonNode waiting = data(get("/v1/orders?status=QUOTATION&status=DELIVERED", l1.token(), 200));
             assertThat(waiting.findValues("id").stream().map(JsonNode::asLong)).contains(id, quotation);
             assertThat(waiting.findValuesAsText("orderStatus")).containsOnly("QUOTATION", "DELIVERED");
             assertThat(data(get("/v1/orders?status=PENDING", l1.token(), 200)).findValues("id").stream().map(JsonNode::asLong))
                     .doesNotContain(id, quotation);
             get("/v1/orders?status=NOT_A_STATUS", l1.token(), 400);
-            get("/v1/orders/dealer/999999", l1.token(), 404);
+            get("/v1/orders/supplier/999999", l1.token(), 404);
             get("/v1/orders/999999", l1.token(), 404);
         }
 
         @Test
         void cancellationsAndRejectionsNeedAReason() throws Exception {
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            long quotation = createOrder(dealer, item, "1").get("id").asLong();
+            long quotation = createOrder(supplier, item, "1").get("id").asLong();
             JsonNode noReason = patch("/v1/orders/" + quotation + "/status", l1.token(), body("status", "CANCELLED"), 400);
             assertThat(noReason.get("errors").get(0).get("field").asText()).isEqualTo("reason");
             JsonNode cancelled = data(patch("/v1/orders/" + quotation + "/status", l1.token(),
-                    body("status", "CANCELLED", "reason", "Dealer withdrew"), 200));
+                    body("status", "CANCELLED", "reason", "Supplier withdrew"), 200));
             assertThat(cancelled.get("orderStatus").asText()).isEqualTo("CANCELLED");
             patch("/v1/orders/" + quotation + "/status", l1.token(), body("status", "PENDING"), 409);
 
-            long pending = createOrder(dealer, item, "1").get("id").asLong();
+            long pending = createOrder(supplier, item, "1").get("id").asLong();
             moveOrder(pending, l1, "PENDING");
             JsonNode rejectNoReason = patch("/v1/orders/" + pending + "/approval", l2a.token(), body("decision", "CANCELLED"), 400);
             assertThat(rejectNoReason.get("errors").get(0).get("field").asText()).isEqualTo("rejectionReason");
@@ -825,14 +825,14 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void stockIsReceivedOnceFromADeliveredOrderAndApprovedByAdminL2() throws Exception {
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            JsonNode quotation = createOrder(dealer, item, "10");
+            JsonNode quotation = createOrder(supplier, item, "10");
             JsonNode notDelivered = post("/v1/stocks", l1.token(), body("orderNumber", quotation.get("orderNumber").asText(),
                     "unitsPassedTest", 1, "defectedUnits", 0, "hasTested", true, "dateOfArrival", LocalDate.now().toString()), 409);
             assertThat(notDelivered.get("errorCode").asText()).isEqualTo("ORDER_NOT_DELIVERED");
 
-            JsonNode order = deliveredOrder(dealer, item, "10");
+            JsonNode order = deliveredOrder(supplier, item, "10");
             String orderNumber = order.get("orderNumber").asText();
             JsonNode stock = createStock(orderNumber, "8", "1");
             long id = stock.get("id").asLong();
@@ -866,14 +866,14 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void quantitiesStayWithinTheOrderAndAvailability() throws Exception {
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            JsonNode small = deliveredOrder(dealer, item, "5");
+            JsonNode small = deliveredOrder(supplier, item, "5");
             JsonNode tooMuch = post("/v1/stocks", l1.token(), body("orderNumber", small.get("orderNumber").asText(),
                     "unitsPassedTest", 5, "defectedUnits", 1, "hasTested", true, "dateOfArrival", LocalDate.now().toString()), 400);
             assertThat(tooMuch.get("errors").get(0).get("field").asText()).isEqualTo("unitsPassedTest");
 
-            JsonNode order = deliveredOrder(dealer, item, "10");
+            JsonNode order = deliveredOrder(supplier, item, "10");
             long id = createStock(order.get("orderNumber").asText(), "8", "1").get("id").asLong();
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
 
@@ -901,24 +901,24 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         }
 
         @Test
-        void updatesKeepTheOrdersDealerAndItemAndRequireAnAdmin() throws Exception {
-            long dealer = createDealer();
+        void updatesKeepTheOrdersSupplierAndItemAndRequireAnAdmin() throws Exception {
+            long supplier = createSupplier();
             long item = createItem();
-            JsonNode order = deliveredOrder(dealer, item, "10");
+            JsonNode order = deliveredOrder(supplier, item, "10");
             long id = createStock(order.get("orderNumber").asText(), "9", "1").get("id").asLong();
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);
             post("/v1/stocks/" + id + "/reduce-quantity", l1.token(),
                     body("quantity", 2, "reason", "Used", "barcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
 
-            Map<String, Object> update = body("batchNumber", "BATCH-X1", "dealerId", dealer, "itemId", item,
+            Map<String, Object> update = body("batchNumber", "BATCH-X1", "supplierId", supplier, "itemId", item,
                     "unitsPassedTest", 9, "defectedUnits", 1, "hasTested", true, "dateOfArrival", LocalDate.now().toString());
             put("/v1/stocks/" + id, inspectorToken(), update, 403);
 
-            update.put("dealerId", createDealer());
-            JsonNode wrongDealer = put("/v1/stocks/" + id, l1.token(), update, 400);
-            assertThat(wrongDealer.get("errors").get(0).get("field").asText()).isEqualTo("dealerId");
+            update.put("supplierId", createSupplier());
+            JsonNode wrongSupplier = put("/v1/stocks/" + id, l1.token(), update, 400);
+            assertThat(wrongSupplier.get("errors").get(0).get("field").asText()).isEqualTo("supplierId");
 
-            update.put("dealerId", dealer);
+            update.put("supplierId", supplier);
             update.put("unitsPassedTest", 8);
             update.put("removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 1));
             JsonNode response = put("/v1/stocks/" + id, l1.token(), update, 200);
@@ -932,7 +932,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
 
         @Test
         void rejectedStockHoldsNothingAndListsFilterByStatus() throws Exception {
-            JsonNode order = deliveredOrder(createDealer(), createItem(), "4");
+            JsonNode order = deliveredOrder(createSupplier(), createItem(), "4");
             long id = createStock(order.get("orderNumber").asText(), "4", "0").get("id").asLong();
             JsonNode rejected = data(post("/v1/stocks/" + id + "/approval", l2a.token(),
                     body("decision", "REJECTED", "rejectionReason", "Failed QA"), 200));
@@ -967,7 +967,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         @Test
         void purchasesAreBookedOnlyWhenAdminL2Approves() throws Exception {
             // 10 PCS at 100.00 plus 50.00 shipment
-            JsonNode order = deliveredOrder(createDealer(), createItem(), "10");
+            JsonNode order = deliveredOrder(createSupplier(), createItem(), "10");
             String orderNumber = order.get("orderNumber").asText();
             assertThat(bookedAmounts(orderNumber)).isEmpty();
 
@@ -989,7 +989,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             // Consuming stock is not a purchase change
             post("/v1/stocks/" + id + "/reduce-quantity", l1.token(),
                     body("quantity", 2, "reason", "Used", "barcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
-            Map<String, Object> correction = body("batchNumber", "BATCH-F1", "dealerId", order.get("dealerId").asLong(),
+            Map<String, Object> correction = body("batchNumber", "BATCH-F1", "supplierId", order.get("supplierId").asLong(),
                     "itemId", order.get("itemId").asLong(), "unitsPassedTest", 7, "defectedUnits", 3, "hasTested", true,
                     "dateOfArrival", LocalDate.now().toString(), "removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2));
             JsonNode corrected = data(put("/v1/stocks/" + id, l1.token(), correction, 200));
@@ -1022,7 +1022,7 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(events.getFirst().get("supplyType").isNull()).isTrue();
 
             // A rejected entry buys nothing, and never did
-            JsonNode other = deliveredOrder(createDealer(), createItem(), "4");
+            JsonNode other = deliveredOrder(createSupplier(), createItem(), "4");
             long rejected = createStock(other.get("orderNumber").asText(), "4", "0").get("id").asLong();
             post("/v1/stocks/" + rejected + "/approval", l2a.token(), body("decision", "REJECTED", "rejectionReason", "Failed QA"), 200);
             assertThat(bookedAmounts(other.get("orderNumber").asText())).isEmpty();
@@ -1031,13 +1031,13 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
         @Test
         void purchasesCarryTheQuotedGstOnTheApprovedValue() throws Exception {
             // 10 PCS at 100.00 + 50.00 shipment = 1,050.00 taxable; CGST + SGST at 18 %: 94.50 each
-            long dealer = createDealer();
+            long supplier = createSupplier();
             long item = createItem();
-            Map<String, Object> request = orderBody(dealer, item, "10");
+            Map<String, Object> request = orderBody(supplier, item, "10");
             request.put("taxBreakup", Map.of("supplyType", "INTRA_STATE", "gstRate", 18, "hsnSac", "8541"));
             long orderId = data(post("/v1/orders", l1.token(), request, 201)).get("id").asLong();
             moveOrder(orderId, l1, "PENDING");
-            patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "DEALER_LEVEL_PENDING"), 200);
+            patch("/v1/orders/" + orderId + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200);
             moveOrder(orderId, l2a, "CONFIRMED");
             moveOrder(orderId, l1, "SHIPPED");
             String orderNumber = moveOrder(orderId, l1, "DELIVERED").get("orderNumber").asText();
@@ -1052,12 +1052,12 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(full.get("gstRate").decimalValue()).isEqualByComparingTo("18");
             assertThat(full.get("supplyType").asText()).isEqualTo("INTRA_STATE");
             assertThat(full.get("hsnSac").asText()).isEqualTo("8541");
-            assertThat(full.get("dealerState").asText()).isEqualTo("Karnataka");
-            // The dealer's invoice uploaded for the delivery: the document the input tax is claimed on
-            assertThat(full.get("dealerInvoiceUploadedAt").isNull()).isFalse();
+            assertThat(full.get("supplierState").asText()).isEqualTo("Karnataka");
+            // The supplier's invoice uploaded for the delivery: the document the input tax is claimed on
+            assertThat(full.get("supplierInvoiceUploadedAt").isNull()).isFalse();
 
             // Two units taken off and approved: 850.00 taxable, 76.50 each, so 18.00 each comes back
-            put("/v1/stocks/" + id, l1.token(), body("batchNumber", "BATCH-G1", "dealerId", dealer,
+            put("/v1/stocks/" + id, l1.token(), body("batchNumber", "BATCH-G1", "supplierId", supplier,
                     "itemId", item, "unitsPassedTest", 8, "defectedUnits", 2, "hasTested", true,
                     "dateOfArrival", LocalDate.now().toString(), "removedBarcodes", stockBarcodes(id, "IN_STOCK").subList(0, 2)), 200);
             post("/v1/stocks/" + id + "/approval", l2a.token(), body("decision", "APPROVED"), 200);

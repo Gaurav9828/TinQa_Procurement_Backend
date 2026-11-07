@@ -3,7 +3,7 @@ package com.tinqa.procurement.document.constant;
 public enum DocumentReferenceType {
 
     PRODUCT,
-    DEALER,
+    SUPPLIER,
     WORKSHOP,
     INSPECTOR,
     EMPLOYEE,

@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.Map;
 
 /**
- * A dealer's proposed edit to one of their quotations. Nothing on the order changes until an approver accepts it.
+ * A supplier's proposed edit to one of their quotations. Nothing on the order changes until an approver accepts it.
  * {@code changes} holds only the proposed fields; {@code previous} the same fields as they were when proposed.
  */
 @Entity
@@ -42,7 +42,7 @@ public class OrderChangeRequest {
     @Column(name = "previous", nullable = false, updatable = false, columnDefinition = "jsonb")
     private Map<String, Object> previous;
 
-    // The dealer's explanation for the approver
+    // The supplier's explanation for the approver
     @Column(name = "note", length = 500, updatable = false)
     private String note;
 

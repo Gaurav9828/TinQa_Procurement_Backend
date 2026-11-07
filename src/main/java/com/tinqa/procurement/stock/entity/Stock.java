@@ -1,7 +1,7 @@
 package com.tinqa.procurement.stock.entity;
 
 import com.tinqa.procurement.common.enums.ApprovalStatus;
-import com.tinqa.procurement.dealer.entity.Dealer;
+import com.tinqa.procurement.supplier.entity.Supplier;
 import com.tinqa.procurement.item.entity.Item;
 import com.tinqa.procurement.order.entity.Order;
 import jakarta.persistence.*;
@@ -40,8 +40,8 @@ public class Stock {
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dealer_id", nullable = false)
-    private Dealer dealer;
+    @JoinColumn(name = "supplier_id", nullable = false)
+    private Supplier supplier;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)

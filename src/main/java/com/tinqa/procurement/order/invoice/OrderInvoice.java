@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/** A dealer's invoice uploaded for an order and the result of checking it; the latest row of an order counts. */
+/** A supplier's invoice uploaded for an order and the result of checking it; the latest row of an order counts. */
 @Entity
 @Table(name = "order_invoice")
 @Getter

@@ -64,12 +64,12 @@ public final class ErrorCodes {
     public static final String ORDER_INVOICE_MISMATCH = "ORDER_INVOICE_MISMATCH";
     public static final String ORDER_INVOICE_NOT_ALLOWED = "ORDER_INVOICE_NOT_ALLOWED";
 
-    // Dealer logins
-    public static final String DEALER_INACTIVE = "DEALER_INACTIVE";
-    public static final String DEALER_LOGIN_EXISTS = "DEALER_LOGIN_EXISTS";
-    public static final String DEALER_LOGIN_NOT_PENDING = "DEALER_LOGIN_NOT_PENDING";
-    public static final String DEALER_LOGIN_NOT_APPROVED = "DEALER_LOGIN_NOT_APPROVED";
-    public static final String DEALER_LOGIN_SELF_DECISION = "DEALER_LOGIN_SELF_DECISION";
+    // Supplier logins
+    public static final String SUPPLIER_INACTIVE = "SUPPLIER_INACTIVE";
+    public static final String SUPPLIER_LOGIN_EXISTS = "SUPPLIER_LOGIN_EXISTS";
+    public static final String SUPPLIER_LOGIN_NOT_PENDING = "SUPPLIER_LOGIN_NOT_PENDING";
+    public static final String SUPPLIER_LOGIN_NOT_APPROVED = "SUPPLIER_LOGIN_NOT_APPROVED";
+    public static final String SUPPLIER_LOGIN_SELF_DECISION = "SUPPLIER_LOGIN_SELF_DECISION";
 
     // Stock
     public static final String ORDER_NOT_DELIVERED = "ORDER_NOT_DELIVERED";
@@ -143,13 +143,13 @@ public final class ErrorCodes {
     public static final String DECLINE_WINDOW_CLOSED = "DECLINE_WINDOW_CLOSED";
     public static final String FEEDBACK_ALREADY_SUBMITTED = "FEEDBACK_ALREADY_SUBMITTED";
 
-    // Dealer payments (payment plan, payments to dealers, refund claims)
-    public static final String DEALER_PAYMENT_NOT_DUE = "DEALER_PAYMENT_NOT_DUE";
-    public static final String DEALER_PAYMENT_NOT_PENDING = "DEALER_PAYMENT_NOT_PENDING";
-    public static final String DEALER_PAYMENT_SELF_DECISION = "DEALER_PAYMENT_SELF_DECISION";
-    public static final String DEALER_PAYMENT_NOT_YOURS = "DEALER_PAYMENT_NOT_YOURS";
-    public static final String DEALER_PAYMENT_ALREADY_REVERSED = "DEALER_PAYMENT_ALREADY_REVERSED";
-    public static final String DEALER_REFUND_NOT_DUE = "DEALER_REFUND_NOT_DUE";
+    // Supplier payments (payment plan, payments to suppliers, refund claims)
+    public static final String SUPPLIER_PAYMENT_NOT_DUE = "SUPPLIER_PAYMENT_NOT_DUE";
+    public static final String SUPPLIER_PAYMENT_NOT_PENDING = "SUPPLIER_PAYMENT_NOT_PENDING";
+    public static final String SUPPLIER_PAYMENT_SELF_DECISION = "SUPPLIER_PAYMENT_SELF_DECISION";
+    public static final String SUPPLIER_PAYMENT_NOT_YOURS = "SUPPLIER_PAYMENT_NOT_YOURS";
+    public static final String SUPPLIER_PAYMENT_ALREADY_REVERSED = "SUPPLIER_PAYMENT_ALREADY_REVERSED";
+    public static final String SUPPLIER_REFUND_NOT_DUE = "SUPPLIER_REFUND_NOT_DUE";
 
     private ErrorCodes() {
     }
