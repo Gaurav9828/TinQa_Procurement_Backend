@@ -40,3 +40,7 @@ uploads
 .DS_Store
 # Local DB backups from scripts/dev/update.sh
 backups/
+
+# macOS Finder copies ("name 2", "name 2.ext") of files and folders
+* 2
+* 2.*

@@ -24,11 +24,15 @@ spring:
       host: localhost
       port: 6379
 
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 100MB
-      max-request-size: 100MB
+  # DevTools restarts the app when target/classes changes. iCloud Desktop sync drops conflict copies there
+  # ("Foo 2.class"); each one used to restart the server, and the restart then stalled reading cloud-only files, so
+  # sign-in failed with "server unreachable". Class and resource names never contain a space, so ignore any file
+  # that does. Wait for a build to settle before restarting, so one compile causes one restart.
+  devtools:
+    restart:
+      additional-exclude: "**/* *"
+      poll-interval: 2s
+      quiet-period: 1s
 
 logging:
   level:

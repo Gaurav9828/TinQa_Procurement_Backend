@@ -195,6 +195,11 @@ public class OrderServiceImpl implements OrderService {
         if (!OrderStatusTransitions.APPROVAL_DECISIONS.contains(to)) {
             throw invalidTransition(order, to, " An approval decision is either Supplier level pending (approve) or Cancelled (reject).");
         }
+        // Maker-checker: whoever raised the order, or last edited it, cannot also approve or reject it
+        if (actor.getId().equals(order.getCreatedBy()) || actor.getId().equals(order.getUpdatedBy())) {
+            throw ApiErrors.forbidden(ErrorCodes.ORDER_APPROVAL_SELF_DECISION,
+                    "You raised or last edited order " + order.getOrderNumber() + ", so another Admin L2 has to approve or reject it.");
+        }
 
         String reason = null;
         if (to == OrderStatus.CANCELLED) {

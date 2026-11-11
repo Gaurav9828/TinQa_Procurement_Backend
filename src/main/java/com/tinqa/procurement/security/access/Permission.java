@@ -116,6 +116,9 @@ public enum Permission {
     REFUND_REQUEST(REFUND_MANAGEMENT, "Request a refund for an order"),
     REFUND_SYNC(REFUND_MANAGEMENT, "Re-check a refund with the payment gateway"),
     REFUND_APPROVE(REFUND_APPROVAL, "Approve or reject refunds"),
+    // Ecommerce /api/admin/orders/{n}/return/approve|reject|charge and /api/admin/returns/requests. Without it,
+    // REFUND_REQUEST only asks for a return, which waits in the Approvals Hub for a holder of this one
+    RETURN_ENABLE(RETURN_ENABLEMENT, "Approve or reject Customer Support's return requests (never their own), and set or change the return charge"),
 
     // Customer care (Ecommerce /api/admin/support, /api/admin/reviews)
     SUPPORT_TICKET_VIEW(CUSTOMER_SUPPORT, "View support tickets"),

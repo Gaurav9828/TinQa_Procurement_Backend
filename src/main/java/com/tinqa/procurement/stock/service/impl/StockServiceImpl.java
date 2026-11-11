@@ -172,6 +172,7 @@ public class StockServiceImpl implements StockService {
         // the second sees the first one's decision
         Order order = lockOrder(findStock(id));
         Stock stock = stockRepository.findByIdForUpdate(id).orElseThrow(() -> stockNotFound(id));
+        ensureNotOwnEntry(stock, approver);
         if (stock.hasChangeAwaitingApproval()) {
             return toResponse(decideChange(order, stock, approver, decision, request.getRejectionReason()));
         }
@@ -200,6 +201,21 @@ public class StockServiceImpl implements StockService {
         // Testing is done: the order is now worth what passed, and an overpaid supplier owes the difference back
         supplierPayments.reconcile(order);
         return toResponse(saved);
+    }
+
+    /**
+     * Maker-checker: the decision books the purchase and settles the supplier's payments, so whoever entered the stock,
+     * or last changed it, cannot also decide it. A change to an approved entry is judged by its last editor only; the
+     * person who first entered the stock may decide someone else's change.
+     */
+    private static void ensureNotOwnEntry(Stock stock, User approver) {
+        Long approverId = approver.getId();
+        boolean ownEntry = !stock.hasChangeAwaitingApproval() && approverId.equals(stock.getCreatedBy());
+        if (ownEntry || approverId.equals(stock.getUpdatedBy())) {
+            throw ApiErrors.forbidden(ErrorCodes.STOCK_APPROVAL_SELF_DECISION, ownEntry
+                    ? "You entered this stock, so another Admin L2 has to approve or reject it."
+                    : "You made the latest change to this stock entry, so another Admin L2 has to approve or reject it.");
+        }
     }
 
     /**

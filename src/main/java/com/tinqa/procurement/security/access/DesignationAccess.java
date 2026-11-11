@@ -38,6 +38,8 @@ public final class DesignationAccess {
                 CUSTOMER_ORDER_READ, CUSTOMER_ORDER_MANAGEMENT, DELIVERY_OPERATIONS,
                 STORE_SALES_READ, STORE_SALES,
                 REFUND_READ, REFUND_MANAGEMENT, REFUND_APPROVAL,
+                // Enables returns, decides Customer Support's return requests and sets the return charge
+                RETURN_ENABLEMENT,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
@@ -97,6 +99,7 @@ public final class DesignationAccess {
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ,
+                // Asks for a return (with a proposed charge); a Store Manager enables it
                 REFUND_READ, REFUND_MANAGEMENT,
                 CATALOG_READ,
                 BARCODE_READ));

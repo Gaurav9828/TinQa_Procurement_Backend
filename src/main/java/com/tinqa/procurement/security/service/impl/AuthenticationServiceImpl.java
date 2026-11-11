@@ -7,6 +7,8 @@ import com.tinqa.procurement.employee.repository.EmployeeRepository;
 import com.tinqa.procurement.security.access.AccessDTOs;
 import com.tinqa.procurement.security.access.AccessResolver;
 import com.tinqa.procurement.security.access.UserAccess;
+import com.tinqa.procurement.security.audit.AuthAuditEventType;
+import com.tinqa.procurement.security.audit.AuthAuditService;
 import com.tinqa.procurement.security.dto.AdminLoginRequest;
 import com.tinqa.procurement.security.dto.LoginResponse;
 import com.tinqa.procurement.security.dto.LogoutResponse;
@@ -48,6 +50,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final JwtService jwtService;
     private final TokenRevocationService tokenRevocationService;
     private final AccessResolver accessResolver;
+    private final LoginAttemptLimiter loginAttemptLimiter;
+    private final AuthAuditService authAuditService;
     private final Clock clock;
 
     @Override
@@ -84,23 +88,44 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .build();
     }
 
-    // Password first, so account state is only revealed to someone who knows the password
+    // Password first, so account state is only revealed to someone who knows the password. Every attempt is audited;
+    // wrong passwords (and unknown usernames) count towards a temporary lock of the typed username.
     private User authenticate(String username, String rawPassword, AuthClient channel) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new BadRequestException(AppConstants.MESSAGE_INVALID_CREDENTIALS));
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+        try {
+            loginAttemptLimiter.ensureNotLocked(username);
+        } catch (RuntimeException locked) {
+            authAuditService.recordLogin(null, username, AuthAuditEventType.LOGIN_BLOCKED);
+            throw locked;
+        }
+        User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
+            loginAttemptLimiter.recordFailure(username);
+            authAuditService.recordLogin(user == null ? null : user.getId(), username, AuthAuditEventType.LOGIN_FAILED);
             throw new BadRequestException(AppConstants.MESSAGE_INVALID_CREDENTIALS);
         }
+        // The password was right: the count starts again whatever happens next
+        loginAttemptLimiter.clear(username);
+        String refusal = refusal(user, channel);
+        if (refusal != null) {
+            authAuditService.recordLogin(user.getId(), user.getUsername(), AuthAuditEventType.LOGIN_FAILED);
+            throw new BadRequestException(refusal);
+        }
+        authAuditService.recordLogin(user.getId(), user.getUsername(), AuthAuditEventType.LOGIN_SUCCESS);
+        return user;
+    }
+
+    // Why an account with the right password still may not sign in on this channel; null when it may
+    private String refusal(User user, AuthClient channel) {
         if (!user.isEnabled()) {
-            throw new BadRequestException(disabledReason(user));
+            return disabledReason(user);
         }
         if (!user.isAccountNonLocked()) {
-            throw new BadRequestException(AppConstants.MESSAGE_ACCOUNT_LOCKED);
+            return AppConstants.MESSAGE_ACCOUNT_LOCKED;
         }
         if (user.getAuthClient() != channel) {
-            throw new BadRequestException("This account is not authorized for this authentication channel");
+            return "This account is not authorized for this authentication channel";
         }
-        return user;
+        return null;
     }
 
     // Accounts that are disabled because of the employee or supplier login approval workflow say why

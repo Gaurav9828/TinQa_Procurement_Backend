@@ -758,12 +758,15 @@ class ApplicationIntegrationTest extends IntegrationTestSupport {
             assertThat(viaStatus.get("errorCode").asText()).isEqualTo("INVALID_STATUS_TRANSITION");
             patch("/v1/orders/" + id + "/approval", l1.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 403);
             patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "CONFIRMED"), 409);
-            JsonNode approved = data(patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200));
+            // Maker-checker: l2a edited the pending order, so another Admin L2 has to decide it
+            JsonNode self = patch("/v1/orders/" + id + "/approval", l2a.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 403);
+            assertThat(self.get("errorCode").asText()).isEqualTo("ORDER_APPROVAL_SELF_DECISION");
+            JsonNode approved = data(patch("/v1/orders/" + id + "/approval", l2b.token(), body("decision", "SUPPLIER_LEVEL_PENDING"), 200));
             assertThat(approved.get("orderStatus").asText()).isEqualTo("SUPPLIER_LEVEL_PENDING");
 
             patch("/v1/orders/" + id + "/status", l1.token(), body("status", "CONFIRMED"), 403);
-            moveOrder(id, l2b, "CONFIRMED");
-            assertThat(notificationTitles(l2a)).contains("Order Confirmed");
+            moveOrder(id, l2a, "CONFIRMED");
+            assertThat(notificationTitles(l2b)).contains("Order Confirmed");
             moveOrder(id, l1, "SHIPPED");
 
             JsonNode noDate = patch("/v1/orders/" + id + "/status", l1.token(), body("status", "DELIVERED"), 400);

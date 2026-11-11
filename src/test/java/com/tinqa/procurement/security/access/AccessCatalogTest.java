@@ -92,6 +92,19 @@ class AccessCatalogTest {
         assertThat(DesignationAccess.effectiveLevel(Role.INSPECTOR, Designation.DELIVERY_RIDER)).isEqualTo(Role.INSPECTOR);
     }
 
+    // Customer Support only asks for a return; Store Managers enable it and set its charge, at Level 1 as well
+    @Test
+    void returnsAreRequestedBySupportAndEnabledByStoreManagers() {
+        for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+            assertThat(UserAccess.of(level, Designation.CUSTOMER_SUPPORT).permissions()).as(level.name())
+                    .contains(Permission.REFUND_REQUEST)
+                    .doesNotContain(Permission.RETURN_ENABLE);
+            assertThat(UserAccess.of(level, Designation.STORE_MANAGER).permissions()).as(level.name())
+                    .contains(Permission.REFUND_REQUEST, Permission.RETURN_ENABLE);
+        }
+        assertThat(PermissionGroup.RETURN_ENABLEMENT.approvalLevel()).isFalse();
+    }
+
     // Riders record delivery outcomes only; changing any other status needs CUSTOMER_ORDER_TRACKING_UPDATE
     @Test
     void deliveryRidersOnlyRecordDeliveryOutcomes() {

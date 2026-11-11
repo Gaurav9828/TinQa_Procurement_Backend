@@ -11,6 +11,23 @@ spring:
         # Lazy collections and references load for up to 50 parents in one IN query instead of one query each (N+1)
         default_batch_fetch_size: 50
 
+  # Every profile accepts the same uploads: UploadedFileValidator allows files up to 25 MB, so the servlet limit
+  # must not be lower (Spring's own default is 1 MB). The request may carry form fields next to the file.
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 25MB
+      max-request-size: 30MB
+
+  # Sized explicitly (engineering rule 15) instead of relying on Hikari's defaults
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: 10000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
 server:
   port: 9090
 
@@ -27,11 +44,15 @@ management:
     health:
       show-details: when_authorized
 
+# The API docs and Swagger UI publish the map of every endpoint: on in dev and UAT, off in production
+# (application-prod.yml). TINQA_API_DOCS_ENABLED overrides either way.
 springdoc:
   api-docs:
+    enabled: ${TINQA_API_DOCS_ENABLED:true}
     path: /v3/api-docs
 
   swagger-ui:
+    enabled: ${TINQA_API_DOCS_ENABLED:true}
     path: /swagger-ui.html
 tinqa:
   cors:

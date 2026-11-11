@@ -37,6 +37,7 @@ public final class ErrorCodes {
     public static final String PASSWORD_REUSED = "PASSWORD_REUSED";
     public static final String FIRST_LOGIN_NOT_REQUIRED = "FIRST_LOGIN_NOT_REQUIRED";
     public static final String TOO_MANY_PASSWORD_ATTEMPTS = "TOO_MANY_PASSWORD_ATTEMPTS";
+    public static final String TOO_MANY_LOGIN_ATTEMPTS = "TOO_MANY_LOGIN_ATTEMPTS";
     public static final String PASSWORD_LINK_INVALID = "PASSWORD_LINK_INVALID";
     public static final String PASSWORD_LINK_EXPIRED = "PASSWORD_LINK_EXPIRED";
     public static final String VERIFICATION_CODE_INVALID = "VERIFICATION_CODE_INVALID";
@@ -61,6 +62,7 @@ public final class ErrorCodes {
     public static final String ORDER_STOCKED = "ORDER_STOCKED";
     public static final String ORDER_CHANGE_PENDING = "ORDER_CHANGE_PENDING";
     public static final String ORDER_CHANGE_NOT_PENDING = "ORDER_CHANGE_NOT_PENDING";
+    public static final String ORDER_APPROVAL_SELF_DECISION = "ORDER_APPROVAL_SELF_DECISION";
     public static final String ORDER_CHANGE_EMPTY = "ORDER_CHANGE_EMPTY";
     public static final String ORDER_INVOICE_REQUIRED = "ORDER_INVOICE_REQUIRED";
     public static final String ORDER_INVOICE_MISMATCH = "ORDER_INVOICE_MISMATCH";
@@ -76,6 +78,7 @@ public final class ErrorCodes {
     // Stock
     public static final String ORDER_NOT_DELIVERED = "ORDER_NOT_DELIVERED";
     public static final String ORDER_ALREADY_HAS_STOCK = "ORDER_ALREADY_HAS_STOCK";
+    public static final String STOCK_APPROVAL_SELF_DECISION = "STOCK_APPROVAL_SELF_DECISION";
     public static final String INSUFFICIENT_STOCK = "INSUFFICIENT_STOCK";
     public static final String INSUFFICIENT_ITEM_STOCK = "INSUFFICIENT_ITEM_STOCK";
     public static final String REVERSAL_NOT_POSSIBLE = "REVERSAL_NOT_POSSIBLE";

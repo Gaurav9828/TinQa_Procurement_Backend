@@ -9,7 +9,7 @@ import com.tinqa.procurement.security.repository.UserRepository;
 import com.tinqa.procurement.security.service.impl.UserDetailsServiceImpl;
 import com.tinqa.procurement.security.service.jwt.JwtService;
 import com.tinqa.procurement.security.service.jwt.TokenClaims;
-import com.tinqa.procurement.security.service.token.TokenRevocationService;
+import com.tinqa.procurement.security.service.token.TokenValidity;
 import com.tinqa.procurement.security.web.BearerTokenResolver;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -25,7 +25,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -41,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
-    private final TokenRevocationService tokenRevocationService;
+    private final TokenValidity tokenValidity;
     private final JsonErrorResponseWriter errorWriter;
     private final AccessResolver accessResolver;
 
@@ -71,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             String applicationPath = BearerTokenResolver.applicationPath(request);
-            if (isRevoked(claims, user)) {
+            if (tokenValidity.isRevoked(claims, user)) {
                 // Logout stays idempotent: a token that is already dead just goes through unauthenticated
                 if (SecurityPaths.LOGOUT.equals(applicationPath)) {
                     filterChain.doFilter(request, response);
@@ -100,18 +99,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void writeUnauthorized(HttpServletRequest request, HttpServletResponse response) throws IOException {
         errorWriter.write(request, response, HttpServletResponse.SC_UNAUTHORIZED, ErrorCodes.UNAUTHORIZED, INVALID_TOKEN_MESSAGE);
-    }
-
-    // Logged out, or issued before the last password change. Compared in milliseconds (the precision tokens carry):
-    // a session opened earlier in the same second as the change is signed out, one opened right after it is not.
-    private boolean isRevoked(TokenClaims claims, User user) {
-        if (tokenRevocationService.isRevoked(claims.jti())) {
-            return true;
-        }
-        Instant passwordChangedAt = user.getPasswordChangedAt();
-        if (passwordChangedAt == null) {
-            return false;
-        }
-        return claims.issuedAt() == null || claims.issuedAt().toEpochMilli() < passwordChangedAt.toEpochMilli();
     }
 }

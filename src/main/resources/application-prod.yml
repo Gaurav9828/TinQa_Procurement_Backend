@@ -15,6 +15,20 @@ spring:
   flyway:
     enabled: true
 
+  # Required, like the database: a missing REDIS_HOST stops startup instead of silently using localhost.
+  # Redis holds revoked tokens and the sign-in / password attempt counters.
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+springdoc:
+  api-docs:
+    enabled: ${TINQA_API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${TINQA_API_DOCS_ENABLED:false}
+
 logging:
   level:
     root: WARN

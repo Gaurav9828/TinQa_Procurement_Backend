@@ -62,6 +62,9 @@ public enum PermissionGroup {
     REFUND_READ("Refunds - view", false),
     REFUND_MANAGEMENT("Refunds - request and sync", false),
     REFUND_APPROVAL("Refunds - approve or reject", true),
+    // Returns: Customer Support only asks for a return (REFUND_MANAGEMENT); enabling it and setting its charge is the
+    // Store Manager's. Held at Level 1 too (owner's rule, 2026-11-09): a return must not wait for a Level 2
+    RETURN_ENABLEMENT("Returns - decide return requests and set or change their charge", false),
 
     // Customer care
     CUSTOMER_SUPPORT("Support tickets - view and respond", false),
