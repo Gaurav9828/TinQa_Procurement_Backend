@@ -40,6 +40,25 @@ public class ProductUnitCheck {
         return new ItemStockMovementDTOs.ProductUnitCheckResponse(problems(entries, live));
     }
 
+    /** The live product units carrying the codes (codes matched upper-case); other codes are left out. */
+    @Transactional(readOnly = true)
+    public ItemStockMovementDTOs.UnitLookupResponse lookup(List<String> codes) {
+        Set<String> normalized = Optional.ofNullable(codes).orElse(List.of()).stream()
+                .filter(Objects::nonNull)
+                .map(code -> code.trim().toUpperCase(Locale.ROOT))
+                .filter(code -> !code.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (normalized.isEmpty()) {
+            return new ItemStockMovementDTOs.UnitLookupResponse(List.of());
+        }
+        List<ItemStockMovementDTOs.UnitOfProduct> units = barcodes.findLiveUnitProducts(normalized).stream()
+                .filter(unit -> unit.getUnitType() == com.tinqa.procurement.barcode.enums.BarcodeUnitType.PRODUCT_UNIT)
+                .map(unit -> new ItemStockMovementDTOs.UnitOfProduct(unit.getCode(), unit.getEcommerceProductId(),
+                        com.tinqa.procurement.barcode.enums.BarcodeStatus.HELD.contains(unit.getStatus())))
+                .toList();
+        return new ItemStockMovementDTOs.UnitLookupResponse(units);
+    }
+
     /** The draft's usable-looking codes, normalized, in order; 400 when it carries more than {@link BarcodeCodes#MAX_CODES}. */
     static List<Entry> entries(List<ItemStockMovementDTOs.DraftUnit> units) {
         List<Entry> entries = new ArrayList<>();

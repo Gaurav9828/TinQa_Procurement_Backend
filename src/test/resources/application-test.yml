@@ -43,7 +43,8 @@ tinqa:
 
   security:
     jwt:
-      secret: TinQaTestJwtSecretKeyMustBeAtLeast32CharactersLong!
+      # A fresh Ed25519 pair in memory for each test run
+      allow-generated-key: true
       expiration: 3600000
 
   super-admin:

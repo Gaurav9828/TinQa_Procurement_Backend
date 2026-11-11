@@ -51,7 +51,12 @@ tinqa:
 
   security:
     jwt:
-      secret: TinQaDevJwtSecretKeyMustBeAtLeast32CharactersLong!
+      # No key configured: an Ed25519 pair is generated once and kept in this file (restarts keep sessions). Ecommerce
+      # dev reads the public key from GET /api/auth/jwks.
+      allow-generated-key: true
+      dev-key-file: ${user.home}/.tinqa/dev-jwt-ed25519
+      private-key: ${TINQA_SECURITY_JWT_PRIVATE_KEY:}
+      public-key: ${TINQA_SECURITY_JWT_PUBLIC_KEY:}
       expiration: 86400000
 
   # Local development login (see application.yml); change it in-app or override via TINQA_SUPER_ADMIN_* variables

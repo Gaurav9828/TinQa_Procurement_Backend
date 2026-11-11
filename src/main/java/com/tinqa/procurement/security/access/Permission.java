@@ -124,6 +124,11 @@ public enum Permission {
     SUPPORT_TICKET_VIEW(CUSTOMER_SUPPORT, "View support tickets"),
     SUPPORT_TICKET_REPLY(CUSTOMER_SUPPORT, "Reply to support tickets"),
     SUPPORT_TICKET_UPDATE_STATUS(CUSTOMER_SUPPORT, "Change a support ticket's status"),
+    // Warranty claims (Ecommerce /api/admin/warranty/claims): customers file them from "My devices" for a unit still
+    // covered; staff review them (diagnosis) and another person decides repair, replacement or rejection
+    WARRANTY_CLAIM_VIEW(WARRANTY_CLAIM_READ, "View warranty claims and the units they are for"),
+    WARRANTY_CLAIM_UPDATE(WARRANTY_CLAIM_MANAGEMENT, "Review warranty claims (diagnosis) and mark decided claims resolved"),
+    WARRANTY_CLAIM_DECIDE(WARRANTY_CLAIM_APPROVAL, "Approve (repair or replace) or reject warranty claims reviewed by someone else"),
     REVIEW_VIEW(REVIEW_MODERATION, "View product reviews"),
     REVIEW_MODERATE(REVIEW_MODERATION, "Publish or hide product reviews"),
 

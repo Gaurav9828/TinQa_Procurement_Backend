@@ -6,15 +6,12 @@ import com.tinqa.procurement.security.config.JwtProperties;
 import com.tinqa.procurement.security.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
-import javax.crypto.SecretKey;
 
 @Service
 public class JwtServiceImpl implements JwtService {
@@ -28,13 +25,16 @@ public class JwtServiceImpl implements JwtService {
     // Standard "iat" is whole seconds; this keeps milliseconds so a password change revokes tokens issued earlier in the same second
     private static final String CLAIM_ISSUED_AT_MS = "iat_ms";
 
-    private final SecretKey signingKey;
+    // Other services (Ecommerce) accept a token as Procurement's only with this issuer and an EdDSA signature
+    public static final String ISSUER = "tinqa-procurement";
+
+    private final JwtKeys keys;
     private final long expiration;
     private final Clock clock;
 
-    // The key is built once at startup, so a missing or too-short secret stops the application from starting
-    public JwtServiceImpl(JwtProperties properties, Clock clock) {
-        this.signingKey = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
+    // Signed with the Ed25519 private key (JwtKeys); anyone holding only the public key can verify but not create tokens
+    public JwtServiceImpl(JwtKeys keys, JwtProperties properties, Clock clock) {
+        this.keys = keys;
         this.expiration = properties.expiration();
         this.clock = clock;
     }
@@ -43,6 +43,8 @@ public class JwtServiceImpl implements JwtService {
     public String generateToken(User user, UserAccess access, String displayName) {
         Date now = Date.from(clock.instant());
         return Jwts.builder()
+                .header().keyId(keys.keyId()).and()
+                .issuer(ISSUER)
                 .id(UUID.randomUUID().toString())
                 .subject(user.getUsername())
                 .claim(CLAIM_ROLE, user.getRole().name())
@@ -53,7 +55,7 @@ public class JwtServiceImpl implements JwtService {
                 .issuedAt(now)
                 .claim(CLAIM_ISSUED_AT_MS, now.getTime())
                 .expiration(new Date(now.getTime() + expiration))
-                .signWith(signingKey)
+                .signWith(keys.privateKey(), Jwts.SIG.EdDSA)
                 .compact();
     }
 
@@ -65,7 +67,8 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public TokenClaims parse(String token) {
         Claims claims = Jwts.parser()
-                .verifyWith(signingKey)
+                .verifyWith(keys.publicKey())
+                .requireIssuer(ISSUER)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

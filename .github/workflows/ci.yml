@@ -6,7 +6,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, UAT]
+    # Feature branches too, so a pushed branch is checked before its pull request
+    branches: [main, UAT, 'Feature/**']
 
 concurrency:
   group: ci-${{ github.ref }}

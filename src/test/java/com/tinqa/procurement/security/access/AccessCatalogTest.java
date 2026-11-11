@@ -105,6 +105,24 @@ class AccessCatalogTest {
         assertThat(PermissionGroup.RETURN_ENABLEMENT.approvalLevel()).isFalse();
     }
 
+    // Customer care reviews warranty claims; only a Level 2 Store Manager or Super Admin decides them
+    @Test
+    void customerCareReviewsWarrantyClaimsAndALevel2Decides() {
+        for (Role level : List.of(Role.ADMIN_L1, Role.ADMIN_L2)) {
+            assertThat(UserAccess.of(level, Designation.CUSTOMER_SUPPORT).permissions()).as(level.name())
+                    .contains(Permission.WARRANTY_CLAIM_VIEW, Permission.WARRANTY_CLAIM_UPDATE)
+                    .doesNotContain(Permission.WARRANTY_CLAIM_DECIDE);
+        }
+        for (Designation designation : Designation.values()) {
+            assertThat(UserAccess.of(Role.ADMIN_L1, designation).permissions()).as(designation.name())
+                    .doesNotContain(Permission.WARRANTY_CLAIM_DECIDE);
+            assertThat(UserAccess.of(Role.ADMIN_L2, designation).permissions().contains(Permission.WARRANTY_CLAIM_DECIDE))
+                    .as(designation.name())
+                    .isEqualTo(designation == Designation.SUPER_ADMIN || designation == Designation.STORE_MANAGER);
+        }
+        assertThat(PermissionGroup.WARRANTY_CLAIM_APPROVAL.approvalLevel()).isTrue();
+    }
+
     // Riders record delivery outcomes only; changing any other status needs CUSTOMER_ORDER_TRACKING_UPDATE
     @Test
     void deliveryRidersOnlyRecordDeliveryOutcomes() {

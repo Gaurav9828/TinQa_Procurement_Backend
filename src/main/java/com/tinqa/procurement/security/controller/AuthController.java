@@ -16,7 +16,10 @@ import com.tinqa.procurement.security.service.PasswordService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.tinqa.procurement.security.service.jwt.JwtKeys;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +33,16 @@ public class AuthController {
     private final AuthenticationService authenticationService;
     private final PasswordService passwordService;
     private final PasswordLinkService passwordLinkService;
+    private final JwtKeys jwtKeys;
+
+    // Public: the key tokens are verified with (JSON Web Key Set). Ecommerce verifies admin tokens with it and so cannot
+    // create them. Plain JWKS JSON, not wrapped, as JWKS clients expect
+    @GetMapping("/jwks")
+    public ResponseEntity<java.util.Map<String, Object>> jwks() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
+                .body(jwtKeys.jwks());
+    }
 
     @PostMapping("/logout")
     public ResponseEntity<LogoutResponse> logout(HttpServletRequest request) {

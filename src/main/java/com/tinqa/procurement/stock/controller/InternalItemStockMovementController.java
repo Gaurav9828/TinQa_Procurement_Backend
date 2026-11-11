@@ -65,4 +65,12 @@ public class InternalItemStockMovementController {
             @Valid @RequestBody ItemStockMovementDTOs.ProductUnitCheckRequest request) {
         return ApiResponses.ok(productUnitCheck.check(request), "Product units checked");
     }
+
+    // Which product each shipped serial belongs to, and whether it is still held as stock (Ecommerce's dispatch check
+    // before an order moves to SHIPPED); reads only, one statement
+    @PostMapping("/product-units/lookup")
+    public ResponseEntity<ApiResponse<ItemStockMovementDTOs.UnitLookupResponse>> lookupProductUnits(
+            @Valid @RequestBody ItemStockMovementDTOs.UnitLookupRequest request) {
+        return ApiResponses.ok(productUnitCheck.lookup(request.getCodes()), "Product units looked up");
+    }
 }

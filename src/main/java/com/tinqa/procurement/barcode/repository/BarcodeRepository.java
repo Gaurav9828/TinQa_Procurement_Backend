@@ -63,6 +63,15 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
             WHERE b.code = :code AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID""")
     Optional<UnitProduct> findLiveUnitProduct(@Param("code") String code);
 
+    // Read-only, one statement: the products of the live units carrying the codes, for Ecommerce's dispatch check of
+    // the serials it ships (uses uq_barcodes_live_code)
+    @Query("""
+            SELECT b.code AS code, b.unitType AS unitType, b.status AS status,
+                   b.ecommerceProductId AS ecommerceProductId, b.productTitle AS productTitle
+            FROM Barcode b
+            WHERE b.code IN :codes AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID""")
+    List<UnitProduct> findLiveUnitProducts(@Param("codes") Collection<String> codes);
+
     // The live unit carrying a code (a voided registration no longer holds it)
     @EntityGraph(attributePaths = {"item", "stock", "fittedInto"})
     @Query("SELECT b FROM Barcode b WHERE b.code = :code AND b.status <> com.tinqa.procurement.barcode.enums.BarcodeStatus.VOID")

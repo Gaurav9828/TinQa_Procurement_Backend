@@ -249,4 +249,35 @@ public class ItemStockMovementDTOs {
         private String code;
         private String message;
     }
+
+    /** Ecommerce's dispatch check: the product unit barcodes it is about to ship. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UnitLookupRequest {
+        @NotNull(message = "Codes are required")
+        @Size(max = 1000, message = "At most 1000 codes can be looked up at once")
+        private List<String> codes;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UnitLookupResponse {
+        // Only the codes of live product units; unknown codes, pieces and voided registrations are left out
+        private List<UnitOfProduct> units;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UnitOfProduct {
+        private String code;
+        private Long productId;
+        // Pending approval or in stock: a unit that can be sold (not removed, on a demo, or fitted elsewhere)
+        private boolean held;
+    }
 }

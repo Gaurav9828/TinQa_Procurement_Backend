@@ -41,6 +41,8 @@ public final class DesignationAccess {
                 // Enables returns, decides Customer Support's return requests and sets the return charge
                 RETURN_ENABLEMENT,
                 CUSTOMER_SUPPORT, REVIEW_MODERATION,
+                // Reviews warranty claims; at Level 2 decides the ones someone else reviewed
+                WARRANTY_CLAIM_READ, WARRANTY_CLAIM_MANAGEMENT, WARRANTY_CLAIM_APPROVAL,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 COMPANY_PROFILE_READ, COMPANY_PROFILE_MANAGEMENT, COMPANY_PROFILE_APPROVAL,
@@ -96,6 +98,8 @@ public final class DesignationAccess {
 
         grant(Designation.CUSTOMER_SUPPORT, EnumSet.of(
                 CUSTOMER_SUPPORT,
+                // Reviews warranty claims (diagnosis); a Store Manager or Super Admin at Level 2 decides them
+                WARRANTY_CLAIM_READ, WARRANTY_CLAIM_MANAGEMENT,
                 CUSTOMER_READ, CUSTOMER_MANAGEMENT,
                 PROMO_CODE_READ, PROMO_CODE_MANAGEMENT,
                 CUSTOMER_ORDER_READ,

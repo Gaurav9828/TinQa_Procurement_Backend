@@ -69,6 +69,10 @@ public enum PermissionGroup {
     // Customer care
     CUSTOMER_SUPPORT("Support tickets - view and respond", false),
     REVIEW_MODERATION("Product reviews - moderate", false),
+    // Warranty claims for units sold (by serial): customer care reviews them; a Level 2 decides
+    WARRANTY_CLAIM_READ("Warranty claims - view", false),
+    WARRANTY_CLAIM_MANAGEMENT("Warranty claims - review and resolve", false),
+    WARRANTY_CLAIM_APPROVAL("Warranty claims - approve or reject", true),
     // Storefront customers: profile, purchase history and cart, so customer care can follow up with them
     CUSTOMER_READ("Customers - view profiles, order history and carts", false),
     CUSTOMER_MANAGEMENT("Customers - request changes to a customer's details", false),

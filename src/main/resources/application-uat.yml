@@ -31,6 +31,10 @@ logging:
 tinqa:
   security:
     jwt:
-      # Required: at least 32 characters, never committed
-      secret: ${TINQA_SECURITY_JWT_SECRET}
+      # Required: the Ed25519 pair tokens are signed with (base64 DER, PKCS#8 private / X.509 public), never committed.
+      # Generate: openssl genpkey -algorithm ed25519 -outform DER | base64; the public key is published at
+      # GET /api/auth/jwks, so Ecommerce can verify admin tokens but not create them. The old
+      # TINQA_SECURITY_JWT_SECRET is no longer read.
+      private-key: ${TINQA_SECURITY_JWT_PRIVATE_KEY}
+      public-key: ${TINQA_SECURITY_JWT_PUBLIC_KEY}
       expiration: ${TINQA_SECURITY_JWT_EXPIRATION:86400000}

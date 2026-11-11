@@ -17,6 +17,8 @@ public final class SecurityPaths {
     public static final String FORGOT_PASSWORD = "/auth/password/forgot";
     public static final String PASSWORD_LINK_CHECK = "/auth/password/link/check";
     public static final String PASSWORD_LINK = "/auth/password/link";
+    // The public key tokens are verified with (JWKS)
+    public static final String JWKS = "/auth/jwks";
     public static final String INTERNAL_API_PREFIX = "/v1/internal/";
 
     public static final String[] PUBLIC = {
@@ -29,7 +31,8 @@ public final class SecurityPaths {
             LOGOUT,
             FORGOT_PASSWORD,
             PASSWORD_LINK_CHECK,
-            PASSWORD_LINK
+            PASSWORD_LINK,
+            JWKS
     };
 
     // The only endpoints a user who still has to set their first password can reach

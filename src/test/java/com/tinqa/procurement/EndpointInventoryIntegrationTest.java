@@ -44,7 +44,7 @@ class EndpointInventoryIntegrationTest extends IntegrationTestSupport {
     // Callable without signing in (SecurityPaths.PUBLIC)
     private static final Set<String> PUBLIC = Set.of(
             "POST /auth/admin/login", "POST /auth/mobile/login", "POST /auth/logout", "POST /auth/password/forgot",
-            "POST /auth/password/link/check", "POST /auth/password/link");
+            "POST /auth/password/link/check", "POST /auth/password/link", "GET /auth/jwks");
 
     // Open to any signed-in account on purpose: changing one's own password
     private static final Set<String> ANY_SIGNED_IN_USER = Set.of("POST /auth/change-password", "POST /auth/first-login/password");
