@@ -90,7 +90,10 @@ public class JwtKeys {
                 }
             }
             KeyPair generated = generate();
-            Files.createDirectories(file.toAbsolutePath().getParent());
+            Path directory = file.toAbsolutePath().getParent();
+            if (directory != null) {
+                Files.createDirectories(directory);
+            }
             Base64.Encoder base64 = Base64.getEncoder();
             Files.writeString(file, base64.encodeToString(generated.getPrivate().getEncoded()) + "\n"
                     + base64.encodeToString(generated.getPublic().getEncoded()) + "\n", StandardCharsets.US_ASCII);

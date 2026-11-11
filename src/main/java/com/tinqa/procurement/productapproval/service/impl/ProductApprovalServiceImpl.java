@@ -441,8 +441,10 @@ public class ProductApprovalServiceImpl implements ProductApprovalService {
         return ApiErrors.conflict(ErrorCodes.PRODUCT_APPROVAL_PENDING, "This product is already waiting for Admin L2 approval.");
     }
 
+    // PostgreSQL keeps microseconds: a time answered before saving must equal the stored one (Linux clocks give
+    // nanoseconds, so applying twice answered two different appliedAt values)
     private OffsetDateTime now() {
-        return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 
     private static String emptyToNull(String value) {
